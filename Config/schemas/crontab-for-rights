@@ -1,0 +1,8 @@
+#
+# enqueuer host crontab fragment
+#
+
+RIGHTS = $SDRROOT/slip/index/rights-j -B 2> /tmp/solr-error || /bin/mail -s "[SLIP] critical rights-j error ($HOST)" pfarber@umich.edu < /tmp/solr-error; rm /tmp/solr-error
+
+# 5 minutes after noon, every day 
+5 12 * * *  eval $RIGHTS

@@ -1,0 +1,14 @@
+#
+# Solr Large-scale Indexing
+#
+SHELL=/bin/bash
+
+# Use mysql-sdr and Solr
+SDRROOT=/sdr1
+SDRDATAROOT=/sdr1
+
+# Do our own mailing
+MAILTO=''
+TOADDR=pfarber@umich.edu
+
+# Fragments follow

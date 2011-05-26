@@ -1,0 +1,44 @@
+#
+# Solr Large-scale Indexing
+#
+SHELL=/bin/bash
+
+# Use mysql-sdr and Solr
+SDRROOT=/sdr1
+SDRDATAROOT=/sdr1
+
+# Do our own mailing
+MAILTO=''
+TOADDR=pfarber@umich.edu
+HOST=`hostname`
+RUN=RRR
+
+#
+# Master host jobs
+#
+
+# Update j_rights table: 9 AM every day
+RIGHTS = $SDRROOT/slip/index/rights-j -B 2> /tmp/solr-error        || /bin/mail -s "[SLIP] critical rights-j -r10 error ($HOST)" $TOADDR < /tmp/solr-error; rm /tmp/solr-error
+
+0 9 * * *  eval $RIGHTS
+
+# Update j_queue table: 10 AM every day
+ENQUEUER = $SDRROOT/slip/index/enqueuer-j -r$RUN 2> /tmp/solr-error  || /bin/mail -s "[SLIP] critical enqueuer-j error ($HOST)" $TOADDR < /tmp/solr-error; rm /tmp/solr-error
+
+0 10 * * *  eval $ENQUEUER
+
+# Run the driver: 11 AM every day
+DRIVER = $SDRROOT/slip/index/driver-j -r$RUN 2> /tmp/solr-error      || /bin/mail -s "[SLIP] critical driver-j error ($HOST)" $TOADDR < /tmp/solr-error; rm /tmp/solr-error
+
+0 11 * * *  eval $DRIVER
+
+# Run a report: 3 PM every day, forced
+REPORTER = $SDRROOT/slip/index/report-j -r$RUN -f 2> /tmp/solr-error || /bin/mail -s "[SLIP] critical reporter-j error ($HOST)" pfarber@umich.edu < /tmp/solr-error; rm /tmp/solr-error
+
+0 15 * * *  eval $REPORTER
+
+
+#
+# Slave jobs - all and only ingest hosts
+#
+# Go here

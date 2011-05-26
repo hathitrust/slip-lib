@@ -1,0 +1,41 @@
+
+SLIP data flow and scheduling
+-----------------------------
+
+SLIP consists of several scripts scheduled from cron that manage the
+indexing process.  Following is a proposed schedule for [SLIP
+(script)] and for a fit with outside processes like backup and VuFind
+indexing.
+
+The strategy includes having a fully optimized index just once per
+week.
+
+05:45 ~ 08:00 - Daily [VuFind-Solr] index updates. This is the source
+of new IDs to index.  This typically takes 1 hour or just until 6:45
+so 8:00 is a big buffer.
+
+09:00 ~ 9:30 - Daily [SLIP (rights-j)] updates shadow rights table by
+querying [VuFind-Solr](See 1 below) for new or reloaded IDs.  This can take up to
+30 minutes if MySQL is busy though usually ~4 minutes.
+
+10:00 ~ 10:00 - Daily [SLIP (enqueuer-j)] updates the indexing queues for
+configured indexing runs.  The big one is run No. 10 for production. This
+is basically instantaneous for the typical 10-20K row update.
+
+11:00 ~ 13:00 - Daily [SLIP (driver-j)]: 
+(1) enables (index-j) to index IDs from the queue. This should take
+    about ~1 hour for 20K items.
+    (1a) Every 2 minutes, [SLIP (sizer-j)] commits to Solr to check 
+         index size to limit shard size to 200GB.
+(2) when queue is empty, runs /l/local/bin/snap-refresh to stop
+Tomcat, take new shamshot, start Tomcat.  This takes about 30 seconds.
+
+When Vufind does a complete re-indexing run the Solr URL changes from
+solr-vufind:8026 to solr-vufind:8027 and then back again.  It WOuld Be
+Bad if driver-j ran during this time.  Systems will let DLPS know when
+this is going to happen so driver-j can be disabled.  
+
+Optimize occurs on weekends.
+
+
+

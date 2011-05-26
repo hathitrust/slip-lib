@@ -1,0 +1,7 @@
+#
+# report crontab fragment
+#
+
+REPORTER = $SDRROOT/slip/index/report-j -r$RUN -f 2> /tmp/solr-error || /bin/mail -s "[SLIP] critical reporter-j error ($HOST)" pfarber@umich.edu < /tmp/solr-error; rm /tmp/solr-error
+
+0 */1 * * *  eval $REPORTER
