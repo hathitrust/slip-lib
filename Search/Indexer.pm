@@ -6,14 +6,14 @@ Search::Indexer (idxr)
 
 =head1 DESCRIPTION
 
-This class encapsulates the functionality needed to index a document
-produced by a Document subclass class.
+This class encapsulates the functionality needed to index the Solr
+document content produced by a Document subclass.
 
 =head1 SYNOPSIS
 
 my $idxr = new Search::Indexer(<<Solr engine URI>>, [$timeout]);
 
-my ($index_state, $data_status, $metadata_status) = $idxr->index_document($C, $doc);
+my ($index_state, $stats_hashref) = $idxr->index_Solr_document($C, $Sol_doc_ref);
 
 To select a non-default engine:
 
@@ -90,30 +90,21 @@ sub get_solr_engine_uri
 
 # ---------------------------------------------------------------------
 
-=item PUBLIC:  index_document
+=item PUBLIC:  index_Solr_document
 
 Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub index_document
+sub index_Solr_document
 {
     my $self = shift;
-    my ($C, $doc) = @_;
-
-    my ($data_status, $metadata_status) = $doc->get_document_status();
-    my $doc_failure = ($data_status != IX_NO_ERROR) || ($metadata_status != IX_NO_ERROR);
-    
-    # $document_ref will always be defined even if the only data is
-    # the ix_index_failure_string.  This can be tested for later.
-    DEBUG('idx', qq{Indexing a ***failure*** data_status=$data_status metadata_status=$metadata_status})
-        if ($doc_failure);
+    my ($C, $Solr_doc_ref) = @_;
 
     my %stats;
     my $ua = $self->__create_user_agent();
-    my $document_ref = $doc->get_document_content();
-    my $index_state = $self->__update_doc($C, $ua, $document_ref, \%stats);
+    my $index_state = $self->__update_doc($C, $ua, $Solr_doc_ref, \%stats);
 
     return ($index_state, \%stats);
 }
@@ -365,8 +356,6 @@ sub __update_doc
     my $response = $ua->request($req);
 
     my $elapsed = Time::HiRes::time() - $start;
-
-    $$stats_ref{'update'}{'doc_size'} = length($$data_ref);
     $$stats_ref{'update'}{'elapsed'} = $elapsed;
 
     my $index_state = $self->__response_handler($C, $response);
@@ -554,7 +543,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2007 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2007-11 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

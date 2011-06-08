@@ -13,10 +13,6 @@ index/Document.  It is an intermediate class to provide methods to
 access metadata common to these Schema classes and will be the
 eventual sibling to other APIs for metadata
 
-=head1 VERSION
-
-$Id: vSolrMetadataAPI.pm,v 1.9 2009/09/22 15:49:57 pfarber Exp $
-
 =head1 SYNOPSIS
 
 Coding example
@@ -33,7 +29,7 @@ use strict;
 use XML::LibXML;
 
 # App
-use base qw(Document);
+use base qw(Document::Doc);
 use Utils;
 use Debug::DUtils;
 use Search::Constants;
@@ -41,16 +37,40 @@ use Search::Constants;
 # SLIP
 use Db;
 use SLIP_Utils::Solr;
-use Result::vSolrRaw;
+use Search::Result::vSolrRaw;
 
 
 
 # CLASS member data
 my $g_PARSER = XML::LibXML->new();
 
+sub new {
+    my $class = shift;
+
+    my $self = {};
+    bless $self, $class;
+
+    return $self;
+}
+
+
 # ---------------------------------------------------------------------
 
-=item PUBLIC: get_metadata_fields
+=item PUBLIC API: finish_document
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub finish_document {
+    my $self = shift;
+    my $C = shift;
+}
+
+# ---------------------------------------------------------------------
+
+=item PUBLIC API: get_metadata_fields
 
 Implements pure virtual method. Main method.
 
@@ -59,22 +79,26 @@ Implements pure virtual method. Main method.
 # ---------------------------------------------------------------------
 sub get_metadata_fields {
     my $self = shift;
-    my ($C, $dbh, $item_id) = @_;
+    my ($C, $dbh, $item_id, $state) = @_;
+
+    my $cached = defined( $self->{M_metadata_cache} );
 
     my $field_list_ref = $self->get_field_list();
     # Author, etc.
-    my ($metadata_hashref, $status) =
-        $self->get_metadata_f_item_id($C, $dbh, $item_id, $field_list_ref);
+    my ($metadata_hashref, $status) = 
+      $cached 
+        ? ($self->{M_metadata_cache}{_hashref}, $self->{M_metadata_cache}{_status})
+          : $self->get_metadata_f_item_id($C, $dbh, $item_id, $field_list_ref);
 
     my $metadata_fields;
     if ($status == IX_NO_ERROR) {
         # Add aux data
-        ($metadata_hashref, $status) = 
-          $self->get_auxiliary_field_data($C, $dbh, $item_id, $metadata_hashref);
+        ($metadata_hashref, $status) =
+          $self->get_auxiliary_field_data($C, $dbh, $item_id, $metadata_hashref, $state, $cached);
 
         if ($status == IX_NO_ERROR) {
-            # Field mapping
-            $self->post_process_metadata($C, $item_id, $metadata_hashref);
+            # Field mapping. Always do this even to cached data.
+            $self->post_process_metadata($C, $item_id, $metadata_hashref, $state, $cached);
 
             foreach my $field_name (keys(%$metadata_hashref)) {
                 # If multi-valued field
@@ -100,6 +124,12 @@ sub get_metadata_fields {
             }
         }
     }
+
+    # Metadata is basically the same across all doc content instances
+    # for this subclass.  Any metadata that changes should be handled
+    # in post_process_metadata().
+    $self->{M_metadata_cache}{_hashref} = $metadata_hashref;
+    $self->{M_metadata_cache}{_status} = $status;
 
     return (\$metadata_fields, $status);
 }
@@ -138,7 +168,9 @@ additional data:
 
 # ---------------------------------------------------------------------
 sub get_auxiliary_field_data {
-    my ($C, $dbh, $item_id, $primary_metadata_hashref);
+    my $self = shift;
+    my ($C, $dbh, $item_id, $primary_metadata_hashref, $state, $cached) = @_;
+
     return ($primary_metadata_hashref, IX_NO_ERROR);
 }
 
@@ -203,7 +235,7 @@ sub get_structured_metadata_f_item_id {
     my ($C, $item_id, $metadata_ref) = @_;
 
     my %metadata_hash;
-    
+
     my $doc = $g_PARSER->parse_string($$metadata_ref);
     my $doc_xpath = q{/response/result/doc};
 
@@ -261,14 +293,14 @@ sub __get_metadata_from_vufind_f_item_id {
     # Retrieve sysid for item_id and construct query
     my $sysid = Db::Select_j_rights_id_sysid($C, $dbh, $item_id);
     my $ref_to_vSolr_response;
-    
+
     # 0 might happen if item_id was not sourced from VuFind Solr
     if ($sysid > 0) {
         my $field_list = join(',', @$field_list_arr_ref);
         my $query = qq{q=id:$sysid&start=0&rows=1&fl=$field_list};
 
         my $searcher = SLIP_Utils::Solr::create_VuFind_Solr_Searcher_by_alias($C);
-        my $rs = new Result::vSolrRaw();
+        my $rs = new Search::Result::vSolrRaw();
 
         # Retrieve VuFind Solr doc for q=id:$sysid
         $rs = $searcher->get_Solr_raw_internal_query_result($C, $query, $rs);

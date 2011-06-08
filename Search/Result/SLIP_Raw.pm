@@ -1,4 +1,4 @@
-package Result::SLIP_Raw;
+package Search::Result::SLIP_Raw;
 
 =head1 NAME
 

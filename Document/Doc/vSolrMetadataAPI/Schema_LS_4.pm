@@ -1,4 +1,4 @@
-package Document::vSolrMetadataAPI::Schema_LS_4;
+package Document::Doc::vSolrMetadataAPI::Schema_LS_4;
 
 =head1 NAME
 
@@ -35,7 +35,7 @@ use SharedQueue;
 
 # SLIP
 use Db;
-use base qw(Document::vSolrMetadataAPI);
+use base qw(Document::Doc::vSolrMetadataAPI);
 
 # ------------------------  Field List  -------------------------------
 #
@@ -125,9 +125,11 @@ would create a Solr doc not containing that coll_id among its
 # ---------------------------------------------------------------------
 sub get_auxiliary_field_data {
     my $self = shift;
-    my ($C, $dbh, $item_id, $primary_metadata_hashref) = @_;
+    my ($C, $dbh, $item_id, $primary_metadata_hashref, $state, $cached) = @_;
 
     my $status = IX_NO_ERROR;
+
+    return ($primary_metadata_hashref, $status) if ($cached);
 
     my ($ok, $coll_id_arr_ref) = SharedQueue::get_coll_ids_for_id($C, $dbh, $item_id);
     if ($ok) {
@@ -157,6 +159,21 @@ sub get_auxiliary_field_data {
         $status = IX_METADATA_FAILURE;
     }
 
+    # More metadata
+    if ($status == IX_NO_ERROR) {
+        # namespace-qualified id field
+        $primary_metadata_hashref->{id} = [$item_id];
+
+        # rights attribute field
+        my $rights_attribute = Document::get_rights_f_id($C, $item_id);
+        if ($rights_attribute) {
+            $primary_metadata_hashref->{rights} = [$rights_attribute];
+        }
+        else {
+            $status = IX_METADATA_FAILURE;
+        }
+    }
+
     return ($primary_metadata_hashref, $status);
 }
 
@@ -175,7 +192,7 @@ This mapping adheres to the LS Schema above.
 # ---------------------------------------------------------------------
 sub post_process_metadata {
     my $self = shift;
-    my ($C, $item_id, $metadata_hashref) = @_;
+    my ($C, $item_id, $metadata_hashref, $state) = @_;
 
     # get MARC XML and concatenate text contents of all fields > 99
     # i.e. no control 0xx fields!
@@ -250,7 +267,7 @@ sub getAllFields{
             if ($node->hasChildNodes()) {
                 my @childnodes = $node->childNodes();
                 foreach my $child (@childnodes) {
-                    $content =$child->textContent;
+                    $content = $child->textContent;
                     $bigstring .= $content . " ";
                 }
             }

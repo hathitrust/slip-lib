@@ -1,15 +1,15 @@
-package Document::Doc::Data::Ocr::Volume;
+package Document::Doc::Data::Ocr::Page;
 
 
 =head1 NAME
 
-Document::Doc::Data::Ocr::Volume
+Document::Doc::Data::Ocr::Page
 
 =head1 DESCRIPTION
 
-This class encapsulates the retrieval of ocr for an entire volume as
-part of the construction of a Solr/Lucene document for indexing.  It
-implements the abstract interface defined by Document.
+This class encapsulates the retrieval of ocr for one page of OCR as
+part of the construction of a Solr/Lucene document for item-level
+indexing.  It implements the abstract interface defined by Document.
 
 =head1 SYNOPSIS
 
@@ -21,27 +21,24 @@ Coding example
 
 =cut
 
-use IPC::Run;
 use Time::HiRes;
-use Cwd;
 
 use base qw(Document::Doc::Data::Ocr);
 
 use Utils;
 use Utils::Logger;
-use Utils::Extract;
 use Debug::DUtils;
 use Identifier;
 
 use Document;
 use Search::Constants;
 
-
 # ---------------------------------------------------------------------
 
 =item PUBLIC: get_data_fields
 
-Description
+For fields like ocr, etc. that do not come directly from a metadata
+source like the catalog.
 
 =cut
 
@@ -49,6 +46,45 @@ Description
 sub get_data_fields {
     my $self = shift;
     my ($C, $item_id, $state) = @_;
+
+    # OCR field
+    my  ($ocr_text_ref, $status, $elapsed) = $self->__get_ocr_data($C, $item_id, $state);
+    wrap_string_in_tag_by_ref($ocr_text_ref, 'field', [['name', 'ocr']]);
+
+    # seq field
+    my $seq_field = wrap_string_in_tag($state, 'field', [['name', 'seq']]);
+
+    # pgnum field
+    my  $map_ref = $self->get_seq2pgnum_map($C);
+    my $pgnum = $map_ref->{$state};
+    my $pgnum_field;
+    if (defined($pgnum)) {
+        $pgnum_field = wrap_string_in_tag($pgnum, 'field', [['name', 'pgnum']]);
+    }
+
+    my $data_fields =
+      $$ocr_text_ref
+        . $seq_field
+          . ($pgnum_field ? $pgnum_field : '');
+    
+    return (\$data_fields, $status, $elapsed);
+}
+
+
+# ---------------------------------------------------------------------
+
+=item PRIVATE: __get_ocr_data
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __get_ocr_data {
+    my $self = shift;
+    my ($C, $item_id, $state) = @_;
+
+    my $files_arr_ref = $self->get_filelist($C);
 
     my $start = Time::HiRes::time();
 
@@ -60,20 +96,14 @@ sub get_data_fields {
 
     my $ocr_text_ref;
     my $pairtree_item_id = Identifier::get_pairtree_id_wo_namespace($item_id);
-    my $concat_filename = Utils::Extract::get_formatted_path("/ram/OCR-$pairtree_item_id", ".txt");
+    my $filename = $files_arr_ref->[$state];
+    my $full_filename = $temp_dir . '/' . $filename;
 
     if ($has_ocr) {
-        # ----- Create concatenated file -----
-        my $files_arr_ref = $self->get_filelist($C);
-        my $rc = __concat_files($temp_dir, $files_arr_ref, $concat_filename);
-        if ($rc > 0) {
-            return (undef, IX_DATA_FAILURE, 0);
-        }
-        # POSSIBLY NOTREACHED
-
-        $ocr_text_ref = Utils::read_file($concat_filename, 1);
+        # ----- Read file[$state] -----
+        $ocr_text_ref = Utils::read_file($full_filename, 1);
         if (! $ocr_text_ref) {
-            my $s = qq{Utils::read_file failed: concat_file=$concat_filename};
+            my $s = qq{Utils::read_file failed: page_file=$full_filename};
             Utils::Logger::__Log_simple($s);
             DEBUG('doc', $s);
 
@@ -91,18 +121,12 @@ sub get_data_fields {
         Document::apply_algorithms($C, $ocr_text_ref, 'garbage_ocr_class');
     }
     else {
-        system("touch", $concat_filename);
+        system("touch", $full_filename);
         my $empty_ocr_sentinel = $C->get_object('MdpConfig')->get('ix_index_empty_string');
         $ocr_text_ref = \$empty_ocr_sentinel;
     }
 
-    Document::maybe_preserve_doc($ocr_text_ref, $concat_filename);
-
-    unlink($concat_filename)
-      unless (DEBUG('docfulldebug'));
-
-    # OCR field
-    wrap_string_in_tag_by_ref($ocr_text_ref, 'field', [['name', 'ocr']]);
+    Document::maybe_preserve_doc($ocr_text_ref, $filename . qq{_$state});
 
     my $elapsed = Time::HiRes::time() - $start;
     DEBUG('doc', qq{OCR: total elapsed sec=$elapsed});
@@ -118,9 +142,9 @@ sub get_data_fields {
 This method returns a closure (subroutine ref) that encapsulates the
 state of document generation iteration for this subclass.
 
-In the case of Document::Doc::Data::Ocr::Volume, we are building
-a Solr document that contains the concatenation of all the OCR for an
-item there is only a single iteration required.
+In the case of Document::Doc::Data::Ocr::Page, we are building
+a Solr document that contains the OCR for just one page of an
+item.
 
 =cut
 
@@ -135,49 +159,21 @@ sub get_state_variable {
               $self->{S_state} = 0;
               return $self->{S_state};
           }
-          return undef;
+          else {
+              if ($self->{S_state} >= $self->get_num_files($C)) {
+                  return undef;
+              }
+              else {
+                  $self->{S_state}++;
+                  return $self->{S_state};
+              }
+          }
       };
 
     return $state_var;
 }
 
 
-# ---------------------------------------------------------------------
-
-=item __concat_files
-
-Protect filename containg $BARCODE and who knows what else from shell
-interpolation
-
-=cut
-
-# ---------------------------------------------------------------------
-sub __concat_files {
-    my $dir = shift;
-    my $files_arr_ref = shift;
-    my $catfile_path = shift;
-
-    my $ck = Time::HiRes::time();
-    my $cwd = cwd();
-    chdir($dir);
-    my @cat_cmds;
-    push @cat_cmds, "cat", @$files_arr_ref;
-    IPC::Run::run \@cat_cmds, ">", "$catfile_path";
-    my $rc = $? >> 8;
-    chdir($cwd);
-    my $cke = Time::HiRes::time() - $ck;
-
-    if ($rc > 0) {
-        my $files = join(' ', @$files_arr_ref);
-        my $s = qq{__concat_files failed: rc=$rc dir=$dir files=$files path=$catfile_path};
-        Utils::Logger::__Log_simple($s);
-        DEBUG('doc', $s);
-    }
-
-    DEBUG('doc', qq{OCR: concat file=$catfile_path created in sec=$cke});
-
-    return $rc;
-}
 
 1;
 

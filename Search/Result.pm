@@ -10,10 +10,6 @@ Search::Result (rs)
 This class encapsulates an  Search::Searcher search result.  It's
 subclasses represent various ways of packaging that response.
 
-=head1 VERSION
-
-$Id: Result.pm,v 1.20 2009/08/10 20:03:49 pfarber Exp $
-
 =head1 SYNOPSIS
 
 Coding example
@@ -334,6 +330,38 @@ sub get_complete_result
 {
     my $self = shift;
     return $self->{'complete_result'};
+}
+
+# ---------------------------------------------------------------------
+
+=item set_auxillary_data
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub set_auxillary_data
+{
+    my $self = shift;
+    my ($key, $val) = @_;
+    $self->{$key} = $val;
+}
+
+# ---------------------------------------------------------------------
+
+=item get_auxillary_data
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_auxillary_data
+{
+    my $self = shift;
+    my $key = shift;
+    return $self->{$key};
 }
 
 1;

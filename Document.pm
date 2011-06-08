@@ -7,13 +7,21 @@ Document (doc)
 
 =head1 DESCRIPTION
 
-This class returns a document object structured corectly for
-submission to an Indexer.  The Indexer subclasses are currently XPAT
-and Solr. The XPAT Indexer types are basically defunct.
+Document super-class expresses abstract interface for document
+creation. Returns a document object structured corectly for submission
+to an Indexer.  The Indexer subclasses are currently XPAT and
+Solr. The XPAT Indexer types are basically defunct.
+
+The Document class is modeled as the Composition of a Data Class (such
+as text in the form of OCR or XML) and a Metadata Class (consisting of
+title, author, rights and so on), i.e. as a HAS-A relationship.
+
+The methods defined in the abstract interface are implemented by
+Delegation to methods in one or both of the Data and Metadata classes.
 
 =head1 SYNOPSIS
 
-
+my $doc = new Document();
 
 =head1 METHODS
 
@@ -31,6 +39,7 @@ use Context;
 use Utils;
 use Debug::DUtils;
 use ObjFactory;
+use Identifier;
 
 
 sub new {
@@ -38,7 +47,7 @@ sub new {
 
     my $self = {};
     bless $self, $class;
-    $self->_initialize(@_);
+    $self->create_document(@_);
 
     return $self;
 }
@@ -53,9 +62,9 @@ sub new {
 
 # ---------------------------------------------------------------------
 
-=item _initialize
+=item PUBLIC PURE VIRTUAL: create_document
 
-Initialize DocumentFactory object.
+Initialize Document object.
 
 =cut
 
@@ -81,7 +90,7 @@ sub build_document {
 
 =item PUBLIC PURE VIRTUAL: finish_document
 
-Description
+Clean up resources used to build the document
 
 =cut
 
@@ -94,7 +103,7 @@ sub finish_document {
 
 =item PUBLIC PURE VIRTUAL: get_document_content
 
-Description
+The finished Document content data + metadata fields
 
 =cut
 
@@ -107,7 +116,8 @@ sub get_document_content {
 
 =item PUBLIC PURE VIRTUAL: get_state_variable
 
-Description
+Maintains the state of traversal over the Data content of a
+Document. For example, over the OCR files in a package.
 
 =cut
 
@@ -120,7 +130,8 @@ sub get_state_variable {
 
 =item PUBLIC PURE VIRTUAL: get_metadata_fields
 
-For title, author, date etc. to use Lucene for search/facet
+For fields like title, author, date etc. to use Lucene for
+search/facet
 
 =cut
 
@@ -133,7 +144,8 @@ sub get_metadata_fields {
 
 =item PUBLIC PURE VIRTUAL: get_data_fields
 
-For fields like ocr, rights, etc that do not come directly from a metadata source like the catalog.
+For fields like ocr, etc. that do not come directly from a metadata
+source like the catalog.
 
 =cut
 
@@ -142,59 +154,31 @@ sub get_data_fields {
     ASSERT(0, qq{Pure virtual method get_data_fields() not implemented in subclass of Document});
 }
 
-
-# =====================================================================
-# ==
-# ==                       Private Interface
-# ==
-# =====================================================================
-
 # ---------------------------------------------------------------------
 
-=item PRIVATE CLASS METHOD: ___num2utf8
+=item PUBLIC PURE VIRTUAL: get_document_status
 
-Description
+Description:
 
 =cut
 
 # ---------------------------------------------------------------------
-sub ___num2utf8
-{
-    my ( $t ) = @_;
-    my ( $trail, $firstbits, @result );
-
-    if    ($t<0x00000080) { $firstbits=0x00; $trail=0; }
-    elsif ($t<0x00000800) { $firstbits=0xC0; $trail=1; }
-    elsif ($t<0x00010000) { $firstbits=0xE0; $trail=2; }
-    elsif ($t<0x00200000) { $firstbits=0xF0; $trail=3; }
-    elsif ($t<0x04000000) { $firstbits=0xF8; $trail=4; }
-    elsif ($t<0x80000000) { $firstbits=0xFC; $trail=5; }
-    else {
-        ASSERT(0, qq{Too large scalar value="$t": cannot be converted to UTF-8.});
-    }
-    for (1 .. $trail)
-    {
-        unshift (@result, ($t & 0x3F) | 0x80);
-        $t >>= 6;         # slight danger of non-portability
-    }
-    unshift (@result, $t | $firstbits);
-    pack ("C*", @result);
+sub get_document_status {
+    ASSERT(0, qq{Pure virtual method get_document_status() not implemented in subclass of Document});
 }
 
 # ---------------------------------------------------------------------
 
-=item PRIVATE CLASS METHOD: ___Google_NCR_to_UTF8
+=item PUBLIC PURE VIRTUAL: get_document_stats
 
-Description
+Description:
 
 =cut
 
 # ---------------------------------------------------------------------
-sub ___Google_NCR_to_UTF8 {
-    my $sRef = shift;
-    $$sRef =~ s,\#{([0-9]+)},___num2utf8($1),ges;
+sub get_document_stats {
+    ASSERT(0, qq{Pure virtual method get_document_stats() not implemented in subclass of Document});
 }
-
 
 
 # =====================================================================
@@ -205,68 +189,47 @@ sub ___Google_NCR_to_UTF8 {
 
 # ---------------------------------------------------------------------
 
-=item PUBLIC CLASS METHOD: clean_xml
+=item handle_debug_save_doc
 
-The input ref may be invalid UTF-8 because of the forgiving read.  Try
-to fix it
-
-As of this date Fri Oct 5 14:36:30 2007 there are 2 problems with the
-Google OCR:
-
-1) Single byte control characters like \x01 and \x03 which are legal
-UTF-8 but illegal in XML
-
-2) Invalid UTF-8 encoding sequences like \xFF
-
-The following eliminates ranges of invalid control characters (1)
-while preserving TAB=U+0009, NEWLINE=U+000A and CARRIAGE
-RETURN=U+000D. To handle (2) we eliminate all byte values with high
-bit set.  We try to test for this so we do not destroy valid UTF-8
-sequences.
+Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub clean_xml {
-    my $s_ref = shift;
+sub handle_debug_save_doc {
+    my $item_id = shift;
+    my $complete_solr_doc_ref = shift;
+    my $state = shift;
 
-    $$s_ref = Encode::encode_utf8($$s_ref);
-    ___Google_NCR_to_UTF8($s_ref);
-    $$s_ref = Encode::decode_utf8($$s_ref);
-
-    if (! Encode::is_utf8($$s_ref, 1))
-    {
-        $$s_ref = Encode::encode_utf8($$s_ref);
-        $$s_ref =~ s,[\200-\377]+,,gs;
-        $$s_ref = Encode::decode_utf8($$s_ref);
+    if (DEBUG('docfulldebug,doconly')) {
+        my $pairtree_item_id = Identifier::get_pairtree_id_wo_namespace($item_id);
+        my $logdir = Utils::get_tmp_logdir();
+        my $temporary_dir = $ENV{'SOLR_DOC_DIR'} ? $ENV{'SOLR_DOC_DIR'} : $logdir;
+        my $complete_solr_doc_filename = "$temporary_dir/" . $pairtree_item_id . "-$$-$state" . '.solr.xml';
+        Utils::write_data_to_file($complete_solr_doc_ref, $complete_solr_doc_filename);
+        chmod(0666, $complete_solr_doc_filename) if (-o $complete_solr_doc_filename);
+        DEBUG('docfulldebug,doconly', qq{build_document: save solr doc: "$complete_solr_doc_filename"});
     }
-    # Decoding changes invalid UTF-8 bytes to the Unicode REPLACEMENT
-    # CHARACTER U+FFFD.  Replace that char with a SPACE for nicer
-    # viewing.
-    $$s_ref =~ s,[\x{FFFD}]+, ,gs;
+}
 
-    # At some time after Wed Aug 5 16:32:34 2009, Google will begin
-    # CJK segmenting using 0x200B ZERO WIDTH SPACE instead of 0x0020
-    # SPACE.  To maintain compatibility change ZERO WIDTH SPACE to
-    # SPACE until we have a Solr query segmenter.
-    $$s_ref =~ s,[\x{200B}]+, ,gs;
+# ---------------------------------------------------------------------
 
-    # Kill characters that are invalid in XML data. Valid XML
-    # characters and ranges are:
+=item PUBLIC: get_rights_f_id
 
-    #  (c == 0x9) || (c == 0xA) || (c == 0xD)
-    #             || ((c >= 0x20) && (c <= 0xD7FF))
-    #             || ((c >= 0xE000) && (c <= 0xFFFD))
-    #             || ((c >= 0x10000) && (c <= 0x10FFFF))
+Description
 
-    # Note that since we have valid Unicode UTF-8 encoded at this
-    # point we don't need to remove any other code
-    # points. \x{D800}-\x{DFFF} compose surrogate pairs in UTF-16
-    # and the rest are not valid Unicode code points.
-    $$s_ref =~ s,[\000-\010\013-\014\016-\037]+, ,gs;
+=cut
 
-    # Protect against non-XML character data like "<"
-    Utils::map_chars_to_cers($s_ref, [q{"}, q{'}], 1);
+# ---------------------------------------------------------------------
+sub get_rights_f_id {
+    my ($C, $id) = @_;
+
+    my $dbh = $C->get_object('Database')->get_DBH($C);
+    my $attr = Db::Select_j_rights_id_attr($C, $dbh, $id);
+
+    DEBUG('doc', qq{METADATA: $id MISSING from j_rights}) if (! $attr);
+
+    return $attr;
 }
 
 
@@ -282,7 +245,7 @@ Description
 sub maybe_preserve_doc {
     my $text_ref = shift;
     my $filename = shift;
-    
+
     if (DEBUG('docfulldebug')) {
         my $clean_filename = $filename . '-clean';
         my $logdir = Utils::get_tmp_logdir();
@@ -303,7 +266,6 @@ Description
 
 # ---------------------------------------------------------------------
 sub apply_algorithms {
-    my $self = shift;
     my $C = shift;
     my $text_ref = shift;
     my $class = shift;
@@ -322,25 +284,6 @@ sub apply_algorithms {
         DEBUG('doc', qq{ALG: apply Garbage_1 algorithm});
         $goc->remove_garbage($C, $text_ref);
     }
-}
-
-# ---------------------------------------------------------------------
-
-=item PUBLIC CLASS METHOD: normalize_solr_date
-
-From mysql we expect e.g. 1999-01-20.  The format Solr needs is of the
-form 1995-12-31T23:59:59Z, and is a more restricted form of the
-canonical representation of dateTime
-http://www.w3.org/TR/xmlschema-2/#dateTime The trailing "Z" designates
-UTC time and is mandatory.  Optional fractional seconds are allowed:
-1995-12-31T23:59:59.999Z All other components are mandatory.
-
-=cut
-
-# ---------------------------------------------------------------------
-sub normalize_solr_date {
-    my $date_in = shift;
-    return $date_in . 'T00:00:00Z';
 }
 
 1;

@@ -1,18 +1,22 @@
-package Searcher::SLIP;
-
-
+package Document::Wrapper;
 
 =head1 NAME
 
-Searcher::SLIP (searcher)
+Document::Wrapper
 
 =head1 DESCRIPTION
 
-This class does X.
+This class defines a sub to wrap multiple instances of Lucene document
+content produced by a Document subclass.  
 
-=head1 VERSION
+The Document::Generator generate_next() method is typically called in
+a loop for a given document_id.  The loop result can be many Solr
+documents (D=<doc>...</doc>). It is more efficient to package up
+several document and wrap them with a single <add>D D D D D...</add>
+element.
 
-$Id: SLIP.pm,v 1.2 2009/03/30 18:08:56 pfarber Exp $
+The caller of Document::Generator and Document::Wrapper can control
+the size of the <add>.
 
 =head1 SYNOPSIS
 
@@ -24,16 +28,18 @@ Coding example
 
 =cut
 
-use strict;
-
-use Search::Searcher;
-use base qw(Search::Searcher);
-
-
-
-
 
 1;
+
+sub wrap {
+    my $C = shift;
+    my $solr_doc_arr_ref = shift;
+    
+    my $wrapped_doc = '<add>' . join('', map { ${$_} } @$solr_doc_arr_ref) . '</add>';
+    
+    return \$wrapped_doc;
+}
+
 
 __END__
 
@@ -43,7 +49,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2009 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2011 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -65,3 +71,5 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =cut
+
+

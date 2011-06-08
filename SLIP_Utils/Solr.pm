@@ -28,10 +28,7 @@ use Debug::DUtils;
 use Context;
 use MdpConfig;
 use Search::Indexer;
-use Search::Constants;
-
-# Local
-use Searcher::SLIP;
+use Search::Searcher;
 
 # ---------------------------------------------------------------------
 
@@ -114,7 +111,7 @@ sub create_VuFind_Solr_Searcher_by_alias {
     my $config = $C->get_object('MdpConfig');
     my $engine_uri = $config->get('engine_for_vSolr');
 
-    my $searcher = new Searcher::SLIP($engine_uri, 30);
+    my $searcher = new Search::Searcher($engine_uri, 30);
 
     return $searcher;
 }

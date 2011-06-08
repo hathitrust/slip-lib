@@ -1,20 +1,15 @@
-package Result::vSolrRaw;
+package Search::Result::vSolrRaw;
 
 
 =head1 NAME
 
-Result::vSolrRaw (rs)
+Search::Result::vSolrRaw (rs)
 
 =head1 DESCRIPTION
 
 This class encapsulates the raw VuFind Solr search response data as
 is. The VuFind Solr schema is a bib record associated with 1 or more
 item records.
-
-
-=head1 VERSION
-
-$Id: vSolrRaw.pm,v 1.2 2009/08/10 20:04:28 pfarber Exp $
 
 =head1 SYNOPSIS
 

@@ -26,43 +26,74 @@ use File::Path;
 use base qw(Document::Doc::Data);
 
 use Utils;
+use Debug::DUtils;
 use Utils::Extract;
 use Identifier;
 use Utils::Logger;
-use Document::Doc::Data::METS_Files;
+
+use SLIP_Utils::Common;
+use Document::Doc::METS;
 
 
 # ---------------------------------------------------------------------
 
-=item PUBLIC API: create_document
+=item PUBLIC API: new
 
 Initialize Document.
 
 =cut
 
 # ---------------------------------------------------------------------
-sub create_document {
-    my $self = shift;
+sub new {
+    my $class = shift;
     my $param_hashref = shift;
 
     my $C = $$param_hashref{'C'};
     my $item_id = $$param_hashref{'id'};
 
-    my ($file_grp_hashref, $has_files) = 
-      Document::Doc::Data::METS_Files::get_filelist_for($item_id, 'ocr');
-           
-    my @files;
-    foreach my $key ( sort {$a <=> $b} keys %$file_grp_hashref; ) {
-        push(@files, $file_grp_hashref->{$key});
-    }
-    $self->{d__files_arr_ref} = \@values;
-    $self->{d__item_id} = $item_id;   
+    my $self = {};
+    bless $self, $class;
+
+    my $mo = new Document::Doc::METS($C, $item_id, ['ocr']);
+    $self->{d__METS_obj} = $mo;
+
+    return $self;
+}
+
+sub get_filelist {
+    my $self = shift;
+    my $C = shift; 
+    return $self->{d__METS_obj}->get_filelist_for($C, 'ocr');
+}
+
+sub get_seq2pgnum_map {
+    my $self = shift;
+    my $C = shift; 
+    return $self->{d__METS_obj}->get_seq2pgnum_map($C, 'ocr');
+}
+
+sub get_num_files {
+    my $self = shift;
+    my $C = shift; 
+    return $self->{d__METS_obj}->get_num_files_for($C, 'ocr');
+}
+
+sub get_has_files {
+    my $self = shift;
+    my $C = shift; 
+    return $self->{d__METS_obj}->get_has_files_for($C, 'ocr');
 }
 
 sub __get_ddo {
     my $self = shift;
     my $key = shift;
     return $self->{$key};
+}
+
+sub __set_ddo {
+    my $self = shift;
+    my ($key, $val) = @_;
+    $self->{$key} = $val;
 }
 
 
@@ -78,29 +109,83 @@ Description
 sub finish_document {
     my $self = shift;
     my $C = shift;
-    
+
     my $temp_dir = $self->__get_ddo('d__temp_dir');
 
-    my $err = [];
-    File::Path::remove_tree($temp_dir, {error => \$err})
-        unless (DEBUG('docfulldebug'));
-
-    if (scalar(@$err)) {
-        for my $diagnostic (@$err) {
-            my ($file, $message) = %$diagnostic;
-            if ($file eq '') {
-                Utils::Logger::__Log_simple(qq{general error: $message});
-            }
-            else {
-                Utils::Logger::__Log_simple(qq{problem unlinking $file: $message});
+    if (defined($temp_dir)) {
+        my $err = [];
+        File::Path::remove_tree($temp_dir, {error => \$err})
+            unless (DEBUG('docfulldebug'));
+        
+        if (scalar(@$err)) {
+            for my $diagnostic (@$err) {
+                my ($file, $message) = %$diagnostic;
+                if ($file eq '') {
+                    Utils::Logger::__Log_simple(qq{general error: $message});
+                }
+                else {
+                    Utils::Logger::__Log_simple(qq{problem unlinking $file: $message});
+                }
             }
         }
     }
 }
 
+
 # ---------------------------------------------------------------------
 
-=item PUBLIC: extract_ocr_to_path
+=item PUBLIC: handle_ocr_extraction
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub handle_ocr_extraction {
+    my $self = shift;
+    my $C = shift;
+    my $item_id = shift;
+    
+    # Already unzipped
+    my $extracted_temp_dir = $self->__get_ddo('d__temp_dir');
+    my $temp_dir_has_ocr = $self->__get_ddo('d__has_ocr');
+
+    if (! $extracted_temp_dir) {
+        # ----- Extract OCR, avoid some obvious junk -----
+        my $file_pattern_arr_ref = ['*.txt'];
+        my $exclude_pattern_arr_ref = ['*/notes.txt', '*/pagedata.txt' ];
+        
+        my $temp_dir =
+          $self->__extract_ocr_to_path(
+                                       $item_id,
+                                       $file_pattern_arr_ref,
+                                       $exclude_pattern_arr_ref
+                                      );
+        my $DIR;
+        if (! opendir($DIR, $temp_dir)) {
+            my $s = qq{OCR: failed to open dir="$temp_dir", item_id="$item_id"};
+            Utils::Logger::__Log_simple($s);
+            DEBUG('doc', $s);
+        }
+        else {
+            $extracted_temp_dir = $temp_dir;
+            $self->__set_ddo('d__temp_dir', $temp_dir);
+
+            # ----- Test OCR files exist: there exist objects without OCR files
+            my $has_ocr = $self->__ocr_existence_test($DIR, $temp_dir, $item_id);
+            $self->__set_ddo('d__has_ocr', $has_ocr);
+
+            closedir($DIR);
+        }
+    }
+    
+    return ($extracted_temp_dir, $temp_dir_has_ocr);
+}
+
+
+# ---------------------------------------------------------------------
+
+=item PRIVATE: __extract_ocr_to_path
 
 For example (Shell file patterns, NOT a perl regexp):
 
@@ -110,7 +195,7 @@ my $exclude_pattern_arr_ref = ['*/notes.txt', '*/pagedata.txt' ];
 =cut
 
 # ---------------------------------------------------------------------
-sub extract_ocr_to_path {
+sub __extract_ocr_to_path {
     my $self = shift;
     my ($id, $file_pattern_arr_ref, $exclude_pattern_arr_ref) = @_;
 
@@ -159,23 +244,23 @@ Description
 sub clean_ocr {
     my $self = shift;
     my $ocr_text_ref = shift;
-    
+
     my $ck = Time::HiRes::time();
-    Document::clean_xml($ocr_text_ref);
+    SLIP_Utils::Common::clean_xml($ocr_text_ref);
     my $cke = Time::HiRes::time() - $ck;
     DEBUG('doc', qq{OCR: cleaned in sec=$cke});
 }
 
 # ---------------------------------------------------------------------
 
-=item PUBLIC: ocr_existence_test
+=item PRIVATE: __ocr_existence_test
 
 Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub ocr_existence_test {
+sub __ocr_existence_test {
     my $self = shift;
     my $dir_handle = shift;
     my $temp_dir = shift;
