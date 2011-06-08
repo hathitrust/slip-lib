@@ -66,11 +66,6 @@ sub ParseSearchTerms {
     my $parsed_terms_arr_ref = [];
 
     clean_user_query_string($s_ref);
-
-    # Default item-level search is AND.  Remove OR so default AND
-    # search will not be over-ridden by accidental occurrence of OR in
-    # user's query
-    $$s_ref =~ s,(\s+OR\s+), ,g;
     
     # yank out quoted terms
     my @quotedTerms = ( $$s_ref =~ m,\"(.*?)\",gis );
@@ -87,6 +82,10 @@ sub ParseSearchTerms {
 
     # yank out single word terms
     my @singleWords = split(/\s+/, $$s_ref);
+    # Default item-level search is OR.  Remove AND so default OR
+    # search will not be over-ridden by accidental occurrence of AND
+    # (outside of a phrase) in user's query
+    @singleWords = grep(! /^AND$/, @singleWords);
 
     foreach my $sTerm (@singleWords) {
         # Remove punctuation in the term to prevent searches on the

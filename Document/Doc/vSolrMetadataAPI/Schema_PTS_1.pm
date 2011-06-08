@@ -110,8 +110,10 @@ sub post_process_metadata {
     # variable. This is called 'hid' and is <uniqueKey>hid</uniqueKey>
     # in schema.xml. Everything else will have been cached.
     #
-    $metadata_hashref->{'record_no'} = $metadata_hashref->{'id'};
-    delete $metadata_hashref->{'id'};
+    if (defined($metadata_hashref->{'id'})) {
+        $metadata_hashref->{'record_no'} = $metadata_hashref->{'id'};
+        delete $metadata_hashref->{'id'};
+    }
     $metadata_hashref->{hid} = [$item_id . qq{_$state}];
 
     # Nothing else to do after the first call.
