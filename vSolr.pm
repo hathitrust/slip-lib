@@ -27,13 +27,14 @@ use Debug::DUtils;
 use Context;
 use MdpConfig;
 use Search::Constants;
+use Search::Result::vSolr;
 use SLIP_Utils::Log;
 
 # Local
 use Db;
 use SLIP_Utils::Common;
 use SLIP_Utils::Solr;
-use Result::vSolr;
+
 
 # ---------------------------------------------------------------------
 
