@@ -12,10 +12,8 @@ double quoted phrases in Phase one.
 
 + - && || ! ( ) { } [ ] ^ " ~ * ? : \
 
-Note this process preserves:
-
-1) double quote chars (") to support a mixture of quoted strings
-(phrases) and single terms
+Note this process preserves double quote chars (") to support a
+mixture of quoted strings (phrases) and single terms
 
 2) asterisk chars (*) 
 
@@ -29,7 +27,7 @@ sub clean_user_query_string {
     my $s_ref = shift;
 
     # Remove Lucene metacharacters
-    $$s_ref =~ s,([|&+^!)(}{:\\?\[\]~-]), ,g;
+    $$s_ref =~ s,([\*|&+^!)(}{:\\?\[\]~-]), ,g;
 
     Utils::trim_spaces($s_ref);
 }
@@ -55,7 +53,12 @@ sub limit_operand_length {
 =item ParseSearchTerms
 
 Prepare user input to send to Solr. Adhere to
-http://lucene.apache.org/java/2_4_0/queryparsersyntax.html
+http://lucene.apache.org/java/2_4_0/queryparsersyntax.html  
+
+Lucene/Solr wildcard searching does not go through the analyzer and so
+is case sensitive.  We could downcase query terms but Lucene gives a
+constant score to wild-carded terms.  That would push them to the end
+of the relevance list.  Useless. We are giving up on wildcard support.
 
 =cut
 
@@ -70,8 +73,6 @@ sub ParseSearchTerms {
     # yank out quoted terms
     my @quotedTerms = ( $$s_ref =~ m,\"(.*?)\",gis );
     $$s_ref =~ s,\"(.*?)\", ,gis;
-    # remove asterisks (*) embedded in phrases
-    @quotedTerms = map { ($_ =~ s/\*//g, $_)[1] } @quotedTerms;
     # replace other punctuation in phrases with SPACE
     @quotedTerms = map { ($_ =~ s/\p{Punctuation}/ /g, $_) } @quotedTerms;
     # remove empty strings between quotes
@@ -89,18 +90,12 @@ sub ParseSearchTerms {
 
     foreach my $sTerm (@singleWords) {
         # Remove punctuation in the term to prevent searches on the
-        # null string when term is only punctuation, but preserve
-        # wildcard (*) at end of term. Other wildcard occurrences are
-        # removed and surrounding chars are concatenated.
-        my $wildcard = ($sTerm =~ m,.+\*$,);
+        # null string when term is only punctuation.
         $sTerm =~ s,\p{Punctuation}, ,g;
 
         # if the term is empty, remove it
         next 
           if ($sTerm =~ m,^\s*$,);
-
-        $sTerm .= '*' 
-          if ($wildcard);
 
         limit_operand_length(\$sTerm);
 
