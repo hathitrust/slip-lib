@@ -51,8 +51,8 @@ sub get_data_fields {
     my  ($ocr_text_ref, $status, $elapsed) = $self->__get_ocr_data($C, $item_id, $state);
     wrap_string_in_tag_by_ref($ocr_text_ref, 'field', [['name', 'ocr']]);
 
-    # seq field
-    my $seq_field = wrap_string_in_tag($state, 'field', [['name', 'seq']]);
+    # seq field is ONE-RELATIVE with respect to the $state
+    my $seq_field = wrap_string_in_tag($state + 1, 'field', [['name', 'seq']]);
 
     # pgnum field
     my  $map_ref = $self->get_seq2pgnum_map($C);
