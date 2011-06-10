@@ -146,11 +146,8 @@ sub handle_ocr_extraction {
     my $C = shift;
     my $item_id = shift;
     
-    # Already unzipped
-    my $extracted_temp_dir = $self->__get_ddo('d__temp_dir');
-    my $temp_dir_has_ocr = $self->__get_ddo('d__has_ocr');
-
-    if (! $extracted_temp_dir) {
+    # Already unzipped?
+    if (! $self->__get_ddo('d__temp_dir')) {
         # ----- Extract OCR, avoid some obvious junk -----
         my $file_pattern_arr_ref = ['*.txt'];
         my $exclude_pattern_arr_ref = ['*/notes.txt', '*/pagedata.txt' ];
@@ -168,7 +165,6 @@ sub handle_ocr_extraction {
             DEBUG('doc', $s);
         }
         else {
-            $extracted_temp_dir = $temp_dir;
             $self->__set_ddo('d__temp_dir', $temp_dir);
 
             # ----- Test OCR files exist: there exist objects without OCR files
@@ -179,7 +175,7 @@ sub handle_ocr_extraction {
         }
     }
     
-    return ($extracted_temp_dir, $temp_dir_has_ocr);
+    return ($self->__get_ddo('d__temp_dir'), $self->__get_ddo('d__has_ocr'));
 }
 
 
