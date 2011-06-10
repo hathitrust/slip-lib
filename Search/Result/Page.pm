@@ -100,12 +100,14 @@ Example Solr result is:
       <str name="pgnum">39</str>
       <int name="seq">41</int>
       <str name="vol_id">mdp.39015015823563</str>
+      <str name="ocr"> --- OPTIONAL --- for retrieval of page w/o highlight matches </str>
     </doc>
     <doc>
       <str name="id">mdp.39015015823563_40</str>
       <str name="pgnum">38</str>
       <int name="seq">40</int>
       <str name="vol_id">mdp.39015015823563</str>
+      <str name="ocr"> --- OPTIONAL --- for retrieval of page w/o highlight matches </str>
     </doc>
   </result>
   <lst name="highlighting">
@@ -138,14 +140,14 @@ sub AFTER_ingest_Solr_search_response {
 
     my $result_ids_arr_ref = [];
     my $complete_result_arr_ref = [];
-
+    
     foreach my $hl_node ($root->findnodes(q{/response/lst[@name="highlighting"]})) {
 
         foreach my $lst_child_node ($hl_node->findnodes(q{lst})) {
-            my $id = $lst_child_node->findvalue(q{@name});
+            my $hid = $lst_child_node->findvalue(q{@name});
 
             my $hashref = {
-                           'id' => $id,
+                           'hid' => $hid,
                           };
 
             my $text_snippet_arr_ref = [];
@@ -160,7 +162,7 @@ sub AFTER_ingest_Solr_search_response {
         }
     }
 
-    my $doc_ct = 0;
+    my $doc_node_ct = 0;
     my @doc_nodes = $root->findnodes(q{/response/result[@name="response"]/doc});
     foreach my $doc_node (@doc_nodes) {
         my @doc_child_nodes = $doc_node->findnodes(q{str | int});
@@ -169,15 +171,15 @@ sub AFTER_ingest_Solr_search_response {
             my $attr_name = $child_node->findvalue(q{@name});
             my $attr_value = $child_node->textContent();
             
-            my $hashref = $complete_result_arr_ref->[$doc_ct];
+            my $hashref = $complete_result_arr_ref->[$doc_node_ct];
 
-            if ($attr_name eq 'id') {
-                soft_ASSERT($hashref->{id} eq $attr_value, qq{Solr highlight response mismatch: id="$attr_value"});
+            if ($attr_name eq 'hid') {
+                soft_ASSERT($hashref->{hid} eq $attr_value, qq{Solr highlight response mismatch: hid="$attr_value"});
                 push(@$result_ids_arr_ref, $attr_value);
             }
-            $hashref->{$attr_name} = $attr_value;
+            $hashref->{$attr_name} = ($attr_name eq 'ocr') ? \$attr_value : $attr_value;
         }    
-        $doc_ct++;
+        $doc_node_ct++;
     }
 
     my $elapsed = Time::HiRes::time() - $start;
