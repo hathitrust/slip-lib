@@ -51,8 +51,8 @@ sub get_data_fields {
     my  ($ocr_text_ref, $status, $elapsed) = $self->__get_ocr_data($C, $item_id, $state);
     wrap_string_in_tag_by_ref($ocr_text_ref, 'field', [['name', 'ocr']]);
 
-    # seq field is ONE-RELATIVE with respect to the $state
-    my $seq_field = wrap_string_in_tag($state + 1, 'field', [['name', 'seq']]);
+    # seq == state
+    my $seq_field = wrap_string_in_tag($state, 'field', [['name', 'seq']]);
 
     # pgnum field
     my  $map_ref = $self->get_seq2pgnum_map($C);
@@ -96,7 +96,8 @@ sub __get_ocr_data {
 
     my $ocr_text_ref;
     my $pairtree_item_id = Identifier::get_pairtree_id_wo_namespace($item_id);
-    my $filename = $files_arr_ref->[$state];
+    # state == seq, state and seq are 1-relative
+    my $filename = $files_arr_ref->[$state - 1];
     my $full_filename = $temp_dir . '/' . $filename;
 
     if ($has_ocr) {
@@ -146,6 +147,8 @@ In the case of Document::Doc::Data::Ocr::Page, we are building
 a Solr document that contains the OCR for just one page of an
 item.
 
+For this subclass state == seq
+
 =cut
 
 # ---------------------------------------------------------------------
@@ -156,11 +159,11 @@ sub get_state_variable {
     my $state_var =
       sub {
           if (! defined($self->{S_state})) {
-              $self->{S_state} = 0;
+              $self->{S_state} = 1;
               return $self->{S_state};
           }
           else {
-              if ($self->{S_state} >= $self->get_num_files($C)) {
+              if ($self->{S_state} > $self->get_num_files($C)) {
                   return undef;
               }
               else {
