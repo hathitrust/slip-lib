@@ -131,6 +131,27 @@ sub delete_document
     return ($index_state, \%stats);
 }
 
+
+# ---------------------------------------------------------------------
+
+=item PUBLIC: delete_by_query
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub delete_by_query {
+    my $self = shift;
+    my $C = shift;
+    my $query = shift;
+
+    my %stats;
+    my $index_state = $self->__delete_by_query($C, $query, \%stats);
+
+    return ($index_state, \%stats);
+}
+
 # ---------------------------------------------------------------------
 
 =item PUBLIC: delete_index
@@ -394,6 +415,41 @@ sub __delete_document
     my $index_state = $self->__response_handler($C, $response);
 
     DEBUG('idx', qq{Index DELETE DOCUMENT FAILURE response: index_state=$index_state status=} . $response->status_line)
+        if (Search::Constants::indexing_failed($index_state));
+
+    return $index_state;
+}
+
+
+# ---------------------------------------------------------------------
+
+=item PRIVATE: __delete_by_query
+
+
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __delete_by_query {
+    my $self = shift;
+    my $C = shift;
+    my $query = shift;
+    my $stats_ref = shift;
+
+    my $ua = $self->__create_user_agent();
+    my $url = $self->__get_Solr_post_update_url($C);
+    my $post_data = qq{<delete><query>$query</query></delete>};
+    my $req = $self->__get_request_object($url, \$post_data);
+
+    my $start = Time::HiRes::time();
+    my $response = $ua->request($req);
+    my $elapsed = Time::HiRes::time() - $start;
+
+    $$stats_ref{'delete'}{'elapsed'} = $elapsed;
+
+    my $index_state = $self->__response_handler($C, $response);
+
+    DEBUG('idx', qq{Index DELETE BY QUERY FAILURE response: index_state=$index_state status=} . $response->status_line)
         if (Search::Constants::indexing_failed($index_state));
 
     return $index_state;

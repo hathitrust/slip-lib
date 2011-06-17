@@ -196,6 +196,45 @@ sub get_slip_config_path {
 
 }
 
+
+# ---------------------------------------------------------------------
+
+=item merge_run_config
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub merge_run_config {
+    my $config = shift;
+   
+    my $run_number = get_run_number($config);
+    my $run_config = gen_run_config($run_number);
+    $config->merge($run_config);
+
+    return $config;
+}
+
+# ---------------------------------------------------------------------
+
+=item get_run_number
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_run_number {
+    my $config = shift;
+
+    my $run_number = defined($ENV{HT_DEV})
+      ? $config->get('development_run_configuration')
+        : $config->get('production_run_configuration');
+
+    return $run_number;
+}
+
 # ---------------------------------------------------------------------
 
 =item gen_run_config

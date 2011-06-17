@@ -45,7 +45,7 @@ use Database;
 # Local
 use Db;
 use SLIP_Utils::Common;
-
+use SLIP_Utils::Solr;
 
 # Timeout to take load off server.  
 # Progression: 20, 20*2, 20*2*2, 20*2*2*2,

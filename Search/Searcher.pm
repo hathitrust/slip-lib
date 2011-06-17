@@ -314,20 +314,20 @@ sub __get_LS_Solr_shards_param {
     my $self = shift;
     my $C = shift;
     
+    my $shards_param;
     my $config = $C->get_object('MdpConfig');
-    ASSERT($config->has('num_shards_list') && $config->has('mbooks_solr_engines'),
-           qq{Search::Searcher not configured for LS shards: missing shard list});
-           
-    my @num_shards_list = $config->get('num_shards_list');
-    my @shard_engine_uris = $config->get('mbooks_solr_engines');
 
-    my @active_shard_engine_uris;
-    foreach my $shard (@num_shards_list) {
-        push(@active_shard_engine_uris, $shard_engine_uris[$shard-1]);
+    my @shard_engine_uris = $config->get('mbooks_solr_engines');
+    my @num_shards_list = $config->get('num_shards_list');
+    if (scalar(@num_shards_list) > 1) {
+        my @active_shard_engine_uris;
+        foreach my $shard (@num_shards_list) {
+            push(@active_shard_engine_uris, $shard_engine_uris[$shard-1]);
+        }
+        map {$_ =~ s,^http://,,} @active_shard_engine_uris;
+        
+        $shards_param = 'shards=' . join(',', @active_shard_engine_uris);
     }
-    map {$_ =~ s,^http://,,} @active_shard_engine_uris;
-    
-    my $shards_param = 'shards=' . join(',', @active_shard_engine_uris);
 
     return $shards_param;
 }

@@ -52,9 +52,9 @@ Description
 # ---------------------------------------------------------------------
 sub Service_ID {
     my ($C, $dbh, $run, $pid, $host, $id, $item_ct) = @_;
-    
+
     my $start = Time::HiRes::time();
-    
+
     # Get the correct indexer for this id.  If this is a
     # re-index and the shard it belongs in is suspended, the
     # id will be added to the error list.
@@ -69,27 +69,29 @@ sub Service_ID {
         ($index_state, $data_status, $metadata_status) =
           (IX_NO_INDEXER_AVAIL, IX_NO_ERROR, IX_NO_ERROR);
     }
-    
+
     my $item_is_Solr_indexed =
       handle_i_result($C, $dbh, $run, $shard, $id, $pid, $host,
                       $index_state, $data_status, $metadata_status);
-    
+
     my $reindexed = 0;
     if ($item_is_Solr_indexed) {
         $reindexed = update_ids_indexed($C, $dbh, $run, $shard, $id);
     }
-    
+
     Log_item($C, $run, $shard, $id, $pid, $host, $stats_ref, $item_ct,
              $index_state, $data_status, $metadata_status, $random, $reindexed);
-    
+
     # Item is now recorded in either mdp.j_errors or
     # mdp.j_indexed or in mdp.j_indexed AND mdp.j_timeouts.
     my $shard_num_docs_processed =
       update_stats($C, $dbh, $run, $shard, $stats_ref, $start, $index_state);
-    
+
     update_checkpoint($C, $dbh, $run, $shard, time(), $shard_num_docs_processed);
-    
-    handle_timeout_delay($C, $dbh, $run, $pid, $shard, $host, $index_state, $item_ct, $id);    
+
+    handle_timeout_delay($C, $dbh, $run, $pid, $shard, $host, $index_state, $item_ct, $id);
+
+    return ($index_state, $data_status, $metadata_status, $stats_ref);
 }
 
 
@@ -104,13 +106,13 @@ Description
 # ---------------------------------------------------------------------
 sub get_INDEXER_POOL {
     my ($C, $dbh, $run) = @_;
-    
+
     # Initialize a pool of Indexers with HTTP timeout=30 sec (default)
-    my $indexer_pool = 
+    my $indexer_pool =
       defined($INDEXER_POOL)
-        ? $INDEXER_POOL 
+        ? $INDEXER_POOL
           : ($INDEXER_POOL = new SLIP_Utils::IndexerPool($C, $dbh, $run));
-    
+
     return $indexer_pool;
 }
 
@@ -154,7 +156,7 @@ sub process_one_id {
             push(@$doc_arr_ref, $doc_content_ref);
         }
     }
-    
+
     #
     # --------------------  Index Document  --------------------
     #
@@ -162,10 +164,10 @@ sub process_one_id {
         my $full_Solr_doc_ref = Document::Wrapper::wrap($C, $doc_arr_ref);
 
         my $idx_stats_ref;
-        ($index_state, $idx_stats_ref) = $indexer->index_Solr_document($C, $full_Solr_doc_ref);    
+        ($index_state, $idx_stats_ref) = $indexer->index_Solr_document($C, $full_Solr_doc_ref);
         SLIP_Utils::Common::merge_stats($C, \%merged_stats, $idx_stats_ref);
     }
-    
+
     return ($index_state, $data_status, $metadata_status, \%merged_stats);
 }
 
@@ -555,7 +557,7 @@ sub Log_error_stop {
 }
 
 1;
-    
+
 __END__
 
 =head1 AUTHOR
