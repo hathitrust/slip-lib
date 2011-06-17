@@ -91,7 +91,7 @@ sub ParseSearchTerms {
     foreach my $sTerm (@singleWords) {
         # Remove punctuation in the term to prevent searches on the
         # null string when term is only punctuation.
-        $sTerm =~ s,\p{Punctuation}, ,g;
+        $sTerm =~ s,^\p{Punctuation}*$, ,g;
 
         # if the term is empty, remove it
         next 
