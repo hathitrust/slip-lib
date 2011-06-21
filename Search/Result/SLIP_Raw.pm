@@ -61,8 +61,7 @@ Example Solr result is anything
 =cut
 
 # ---------------------------------------------------------------------
-sub AFTER_ingest_Solr_search_response
-{
+sub AFTER_ingest_Solr_search_response {
     my $self = shift;
     my $Solr_response_ref = shift;
 
@@ -70,6 +69,7 @@ sub AFTER_ingest_Solr_search_response
     @result_docs = map { '<doc>' . $_ . '</doc>' } @result_docs;
 
     $self->__set_result_docs(\@result_docs);
+    $self->__set_rows_returned(scalar @result_docs);
 }
 
 
@@ -82,11 +82,25 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub __set_result_docs
-{
+sub __set_result_docs {
     my $self = shift;
     my $arr_ref = shift;
     $self->{'result_response_docs_arr_ref'} = $arr_ref;
+}
+
+# ---------------------------------------------------------------------
+
+=item PRIVATE: __set_rows_returned
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __set_rows_returned {
+    my $self = shift;
+    my $rows = shift;
+    $self->{'rows_returned'} = $rows;
 }
 
 # ---------------------------------------------------------------------
@@ -98,8 +112,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub get_result_docs
-{
+sub get_result_docs {
     my $self = shift;
     return $self->{'result_response_docs_arr_ref'};
 }
