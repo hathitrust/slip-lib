@@ -378,6 +378,7 @@ sub __update_doc
 
     my $elapsed = Time::HiRes::time() - $start;
     $$stats_ref{'update'}{'elapsed'} = $elapsed;
+    ($$stats_ref{'update'}{'qtime'}) = ($response->{_content} =~ m,<int name="QTime">(.*?)</int>,);
 
     my $index_state = $self->__response_handler($C, $response);
 
