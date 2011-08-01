@@ -116,9 +116,15 @@ Description
 sub init_vSolr_timestamp {
     my ($C, $dbh, $time) = @_;
 
+    my ($statement, $sth);
+
     my $timestamp = defined($time) ? $time : $Db::vSOLR_ZERO_TIMESTAMP;
-    my $statement = qq{REPLACE INTO j_vsolr_timestamp SET time=$timestamp};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    $statement = qq{DELETE FROM j_vsolr_timestamp};
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+
+    $statement = qq{INSERT INTO j_vsolr_timestamp SET time=$timestamp};
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
