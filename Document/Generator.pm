@@ -35,7 +35,7 @@ the Document data.
 my $RUN = 1;
 my $C = new Context;
 
-my $config = SLIP_Utils::Common::gen_run_config($RUN);
+my $config = SLIP_Utils::Common::gen_run_config($app, $RUN);
 $C->set_object('MdpConfig', $config);
 
 my $db = new Database($config);
