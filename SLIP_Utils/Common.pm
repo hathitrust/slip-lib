@@ -174,14 +174,15 @@ sub get_solr_host_list {
 
 # ---------------------------------------------------------------------
 
-=item get_slip_config_path
+=item get_common_config_path
 
 Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub get_slip_config_path {
+sub get_common_config_path {
+    my $app = shift;
     my $conf_file = shift;
     
     my $path;
@@ -189,13 +190,29 @@ sub get_slip_config_path {
         $path = $ENV{SDRROOT} . "/slip-lib/Config/$conf_file"
     }
     else {
-        $path = $ENV{SDRROOT} . "/slip/vendor/slip-lib/lib/Config/$conf_file"
+        $path = $ENV{SDRROOT} . "/$app/vendor/slip-lib/lib/Config/$conf_file"
     }
 
     return $path;
 
 }
 
+# ---------------------------------------------------------------------
+
+=item get_app_config_path
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_app_config_path {
+    my $app = shift;
+    my $conf_file = shift;
+    
+    my $path = $ENV{SDRROOT} . "/$app/lib/Config/$conf_file";
+    return $path;
+}
 
 # ---------------------------------------------------------------------
 
@@ -207,10 +224,11 @@ Description
 
 # ---------------------------------------------------------------------
 sub merge_run_config {
+    my $app = shift;
     my $config = shift;
    
     my $run_number = get_run_number($config);
-    my $run_config = gen_run_config($run_number);
+    my $run_config = gen_run_config($app, $run_number);
     $config->merge($run_config);
 
     return $config;
@@ -239,22 +257,34 @@ sub get_run_number {
 
 =item gen_run_config
 
-Description
+A run configuration consists of:
+
+1) uber.conf from mdp-lib or the app submodule vendor/common-lib/lib
+(if debug=local)
+
+plus
+
+2) common.conf from slip-lib or the app submodule vendor/slip-lib/lib
+(if debug=local)
+
+plus
+
+3) run-<run_number>.conf from the app lib/Config (always)
 
 =cut
 
 # ---------------------------------------------------------------------
 sub gen_run_config {
+    my $app = shift;
     my $run = shift;
     
-    my $uber_configfile = Utils::get_uber_config_path('slip'),
-    my $global_configfile;
-    my $common_configfile = get_slip_config_path('common.conf');
-    
-    if ($run) {
-        $global_configfile = get_slip_config_path(qq{run-$run.conf});
-    }
-    my $config = new MdpConfig($uber_configfile, $common_configfile, $global_configfile);
+    ASSERT(defined($app) && defined($run), qq{app or run_number missing.});
+
+    my $uber_configfile = Utils::get_uber_config_path($app),
+    my $common_configfile = get_common_config_path($app, 'common.conf');
+    my $app_configfile = get_app_config_path($app, qq{run-$run.conf});
+
+    my $config = new MdpConfig($uber_configfile, $common_configfile, $app_configfile);
     
     return $config;
 }
