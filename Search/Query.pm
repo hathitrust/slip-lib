@@ -10,10 +10,6 @@ Search::Query ((Q)
 This class represents the form of the Solr query as based on the
 user's query string.
 
-=head1 VERSION
-
-$Id: Query.pm,v 1.20 2010/01/26 21:57:49 tburtonw Exp $
-
 =head1 SYNOPSIS
 
 my $Q = new Search::Query($query_string, [[1,234,4,456,563456,43563,3456345634]]);
@@ -25,13 +21,6 @@ $Q->get_Solr_query_string();
 =over 8
 
 =cut
-
-BEGIN {
-    if ($ENV{'HT_DEV'}) {
-        require "strict.pm";
-        strict::import();
-    }
-}
 
 use Utils;
 use Utils::Time;
@@ -210,7 +199,9 @@ the query will devolve to the default AND query.
 
 4) All other punctuation is _removed_
 
-5) added code to allow query string as an argument for advanced search processing (tbw)
+5) added code to allow query string as an argument for advanced search
+processing (tbw)
+
 =cut
 
 # ---------------------------------------------------------------------
@@ -219,7 +210,7 @@ sub get_processed_user_query_string {
     my $query_string = shift;
 
     my $user_query_string;
-    
+
     if (defined ($query_string))
     {
         $user_query_string= $query_string;
@@ -228,7 +219,7 @@ sub get_processed_user_query_string {
     {
         $user_query_string = $self->get_query_string();
     }
-    
+
 
     # Replace sequences of 2 or more double-quotes (") with a single
     # double-quote
@@ -268,7 +259,16 @@ sub get_processed_user_query_string {
     # token whereas if we remove the punctuation, the query parser
     # will see 2 or more operands and perform a boolean AND which is
     # slow.
-    $user_query_string =~ s/[!&:?\[\]\\^{|}~]/ /g;
+    $user_query_string =~ s/[!:?\[\]\\^{~}]/ /g;
+    $user_query_string =~ s/\|\|/ /g;
+    $user_query_string =~ s/\&\&/ /g;
+           #XXX  temporarily remove single ampersand
+           # Solr ICUTokenizer will remove it anyway and current code that displays processed
+           # query string assumes &amp; and blows up with unescaped &
+           # Need to work through code and determine just where and when to change &amp; to & and
+           # vice versa
+           $user_query_string =~ s/\&/ /g;
+
 
     # Remove leading and trailing whitespace
     Utils::trim_spaces(\$user_query_string);
@@ -278,11 +278,16 @@ sub get_processed_user_query_string {
     # spaces.
     my @tokens = parse_preprocess($user_query_string);
 
-    # Attempt to parse the query as a boolean expression.
-    my $valid = valid_boolean_expression(@tokens);
+    # If user is not attempting a boolean query skip the parse here
+    my $valid = 1;
+    if (grep(/^(AND|OR)$/, @tokens)) {
+        # Attempt to parse the query as a boolean expression.
+        $valid = valid_boolean_expression(@tokens);
+    }
+
     if (! $valid) {
         $self->set_well_formed(0);
-        
+
         # The parse fails. remove parentheses and lower case _all_
         # occurrences of AND|OR and compose a default AND query.
         my @final_tokens = ();
@@ -295,8 +300,8 @@ sub get_processed_user_query_string {
     else {
         $self->set_well_formed(1);
     }
+
     $self->set_processed_query_string($user_query_string);
-    
     DEBUG('parse,all', sub {return qq{Final processed user query: $user_query_string}});
 
     return $user_query_string;
@@ -401,7 +406,7 @@ sub log_query {
 =item Boolean Expression Validation Routines
 
 expression ::= term [ OR term ]
-term       ::= factor [ AND factor ] | factor [factor]
+term       ::= factor [ AND factor ]
 factor     ::= literal | ( expression )
 
 =cut
@@ -412,15 +417,66 @@ my %Reserved =
      'lparen' => '(',
      'rparen' => ')',
      'and'    => 'AND',
-     'or'     => 'OR'
+     'or'     => 'OR',
     );
 
 my @Tokens = ();
 my %ParsedToken = ();
 
+sub suppress_boolean_in_phrase {
+    my $s = shift;
+    $s =~ s,([\(\)]), ,g;
+    $s =~ s,AND,and,;
+    $s =~ s,OR,or,;
+    return qq{$s };
+}
+
+sub parse_preprocess {
+    my $query = shift;
+
+    my @token_array = ();
+
+    # Set parens off from operands for parsing ease
+    $query =~ s,\(, \( ,g;
+    $query =~ s,\), \) ,g;
+
+    Utils::trim_spaces(\$query);
+    my @PreTokens = split(/\s+/, $query);
+
+    # Handle AND, OR, RPAREN, LPAREN within double quotes, i.e. within a
+    # phrase. We assume balanced quotes at this point in the processing.
+    while (1) {
+        my $t = shift @PreTokens;
+        last if (! $t);
+        if ($t =~ m,^",) {
+            my $quote;
+            $quote .= suppress_boolean_in_phrase($t);
+            while (($t !~ m,"$,) && ($t)) {
+                $t =  shift @PreTokens;
+                $quote .= suppress_boolean_in_phrase($t);
+            }
+            push(@token_array, $quote);
+        }
+        else {
+            push(@token_array, $t);
+        }
+    }
+    return @token_array;
+}
+
+sub IsReserved {
+    my $tok = shift;
+    if (grep(/^\Q$tok\E$/, values(%Reserved))) {
+        DEBUG('parse,all', sub {return qq{Reserved: $tok\n};});
+        return 1;
+    }
+    return 0;
+}
+
+
 sub HandleReserved {
     my $s = shift;
-    my $rc = 1;    
+    my $rc = 1;
     if ($s eq $Reserved{'lparen'}) {
         %ParsedToken = ( 'type'  => 'LPAREN',
                          'token' => 'LPAREN' );
@@ -443,33 +499,36 @@ sub HandleReserved {
     return $rc;
 }
 
+sub IsEmpty() {
+    return (scalar @Tokens == 0);
+}
+
+
 sub GetToken {
     my $token = '';
-    
+
+    if (IsEmpty()) {
+        %ParsedToken = ( 'type' => 'ENDTOK',
+                         'token' => 'ENDTOK' );
+        DEBUG('parse,all', sub {return q{Get: [} . $ParsedToken{'token'} . q{] } . join(' ', @Tokens)});
+        return;
+    }
+
     while (1) {
-        my $tok = shift @Tokens;
-        if (! $tok) {
-            if ($token) {
-                if (! HandleReserved($token)) {
-                    %ParsedToken = ( 'type' => 'LITERAL',
-                                     'token' => $token );
-                    DEBUG('parse,all', sub {return q{Get: [} . $ParsedToken{'token'} . q{] } . join(' ', @Tokens)});
-                }
-            }
-            else {
-                %ParsedToken = ( 'type' => 'ENDTOK',
-                                 'token' => 'ENDTOK' );
-                DEBUG('parse,all', sub {return q{Get: [} . $ParsedToken{'token'} . q{] } . join(' ', @Tokens)});
-            }
+        if (IsEmpty()) {
             return;
         }
 
-        if (grep(/^\Q$tok\E$/, values(%Reserved))) {
+        my $tok = shift @Tokens;
+        DEBUG('parse,all', sub {return qq{Get: token="$tok"};});
+
+        if ($token) {
+            die unless(IsReserved($tok));
+        }
+
+        if (IsReserved($tok)) {
             if ($token) {
-                unshift @Tokens, $tok;
-                %ParsedToken = ( 'type' => 'LITERAL',
-                                 'token' => $token );
-                DEBUG('parse,all', sub {return q{Get: [} . $ParsedToken{'token'} . q{] } . join(' ', @Tokens)});
+                unshift(@Tokens, $tok);
                 return;
             }
             else {
@@ -477,27 +536,22 @@ sub GetToken {
                 return;
             }
         }
-        else {
-            $token .= qq{$tok};
-        }
+
+        $token .= $tok;
+
+        %ParsedToken = ( 'type' => 'LITERAL',
+                         'token' => $token );
+        DEBUG('parse,all', sub {return q{Get: [} . $ParsedToken{'token'} . q{] } . join(' ', @Tokens)});
     }
 }
 
-sub EmptyBuffer {
-    return (! $Tokens[0]);
-}
-
-
-# expression ::= term [ OR term ]
-# term       ::= factor [ AND factor ] | factor [factor]
-# factor     ::= literal | ( expression )
 
 sub Accept {
     my $s = shift;
+
     if ($ParsedToken{'type'} eq $s) {
         DEBUG('parse,all', sub {return qq{Accept: } . $ParsedToken{'token'}});
-        GetToken() 
-            unless ($ParsedToken{'type'} eq 'ENDTOK');
+        GetToken();
         return 1;
     }
     return 0;
@@ -515,8 +569,7 @@ sub Expect {
 sub Term {
     DEBUG('parse,all', sub {qq{Term}});
     Factor();
-    while ($ParsedToken{'type'} eq 'AND') {
-        GetToken();
+    if (Accept('AND')) {
         Factor();
     }
 }
@@ -542,13 +595,12 @@ sub Expression {
         GetToken();
         Term();
     }
-    return 1;
 }
 
 sub valid_boolean_expression {
     my @toks = @_;
     @Tokens = @toks;
-    
+
     eval {
         GetToken();
         Expression();
@@ -557,7 +609,7 @@ sub valid_boolean_expression {
     if ($@) {
         return 0;
     }
-    DEBUG('parse,all', sub {return qq{Valid boolean expression}}); 
+    DEBUG('parse,all', sub {return qq{Valid boolean expression}});
     return 1;
 }
 
