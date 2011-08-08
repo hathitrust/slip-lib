@@ -1,7 +1,0 @@
-#
-# enqueuer host crontab fragment
-#
-
-ENQUEUER = $SDRROOT/slip/index/enqueuer-j -r$RUN 2> /tmp/solr-error  || /bin/mail -s "[SLIP] critical enqueuer-j error ($HOST)" $TOADDR < /tmp/solr-error; rm /tmp/solr-error
-
-*/1 * * * *  eval $ENQUEUER

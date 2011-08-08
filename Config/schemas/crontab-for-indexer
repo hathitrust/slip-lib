@@ -1,9 +1,0 @@
-#
-# index crontab fragment
-#
-
-# number that can run in parallel on this host is limited by a mysql table
-INDEXER = $SDRROOT/slip/index/index-j -r$RUN -R1 2> /tmp/solr-error || /bin/mail -s "[SLIP] critical index-j error ($HOST shard=1)" pfarber@umich.edu < /tmp/solr-error; rm /tmp/solr-error
-
-*/1 * * * *  eval $INDEXER
-

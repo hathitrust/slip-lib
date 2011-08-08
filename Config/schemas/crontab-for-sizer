@@ -1,7 +1,0 @@
-#
-# sizer host crontab fragment
-#
-
-SIZER = $SDRROOT/slip/index/sizer-j -r$RUN -H$HOST 2> /tmp/solr-error || /bin/mail -s "[SLIP] critical sizer-j -r1 error ($HOST)" pfarber@umich.edu < /tmp/solr-error; rm /tmp/solr-error
-
-*/1 * * * *  eval $SIZER
