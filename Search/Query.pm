@@ -149,6 +149,88 @@ sub set_processed_query_string {
 
 # ---------------------------------------------------------------------
 
+=item get_Solr_no_fulltext_filter_query
+
+Construct a filter query informed by the authentication and holdings
+environment for 'search-only'.  This is the negation of
+get_Solr_fulltext_filter_query() + attr 8
+
+WAITING FOR INSTITUTION DATA TO BE AVAILABLE IN Solr INDEX
+
+=cut
+
+# ---------------------------------------------------------------------
+sub XXX___get_Solr_no_fulltext_filter_query {
+    my $self = shift;
+    my $C = shift;
+    
+    my $fulltext_FQ_string = $self->get_Solr_fulltext_filter_query($C);
+
+    my $no_fulltext_FQ_string = 
+      '((NOT+(' . $fulltext_FQ_string . '))' . join('+OR+', 'rights:' . RightsGlobals::g_available_to_no_one_attribute_value) . ')';
+    
+    return $no_fulltext_FQ_string;
+}
+
+# ---------------------------------------------------------------------
+
+=item get_Solr_fulltext_filter_query
+
+Construct a filter query informed by the authentication and holdings
+environment.
+
+Construct, given the users institution (inst):
+   e.g. fq=(rights:1+OR+rights:7)+OR+(ht_holding_inst:inst+AND+attr:3)+OR+(ht_holding_inst:inst+AND+attr:4)
+
+WAITING FOR INSTITUTION DATA TO BE AVAILABLE IN Solr INDEX
+
+=cut
+
+# ---------------------------------------------------------------------
+sub XXX___get_Solr_fulltext_filter_query {
+    my $self = shift;
+    my $C = shift;
+    
+    # These are the attrs, for this users access type (e.g. SSD) and
+    # institution that equate to the 'allow' status, i.e. fulltext.
+    # If any of them also require the institution to hold the volumes
+    # those attrs will be qualified by institution.
+    my $fulltext_attr_list_ref = Access::Rights::get_fulltext_attr_list($C);
+    
+    my @holdings_qualified_attr_list = ();
+    my @unqualified_attr_list = @$fulltext_attr_list_ref;
+    
+    foreach my $fulltext_attr (@$fulltext_attr_list_ref) {
+        if (grep(/^$fulltext_attr$/, @RightsGlobals::g_access_requires_holdings_attribute_values)) {
+            push(@holdings_qualified_attr_list, $fulltext_attr);
+            @unqualified_attr_list = grep(! /^$fulltext_attr$/, @unqualified_attr_list);
+        }
+    }
+    
+    my $unqualified_string = '';
+    if (scalar @unqualified_attr_list) {
+        $unqualified_string = 
+          '(' . join('+OR+', map { 'rights:' . $_ } @unqualified_attr_list) . ')';
+    }
+    
+    # Qualify by holdings.  If there is no institution, these attrs
+    # should be filtered by an institution value that never matches.
+    my $holdings_qualified_string = '';
+    if (scalar @holdings_qualified_attr_list) {
+        my $inst = $C->get_object('Auth')->get_institution();
+        $inst = '___NO_INST___' if (! $inst);
+        $holdings_qualified_string = 
+          '(' . join('+OR+', map { 'ht_holding_inst:$inst+AND+rights:' . $_ } @holdings_qualified_attr_list) . ')';
+    }
+    
+    my $fulltext_FQ_string = $unqualified_string . ($holdings_qualified_string ? '+OR+' . $holdings_qualified_string : '');
+    
+    return $fulltext_FQ_string;
+}
+
+
+# ---------------------------------------------------------------------
+
 =item set_well_formed
 
 Description
@@ -302,7 +384,7 @@ sub get_processed_user_query_string {
     }
 
     $self->set_processed_query_string($user_query_string);
-    DEBUG('parse,all', sub {return qq{Final processed user query: $user_query_string}});
+    DEBUG('parse', sub {return qq{Final processed user query: $user_query_string}});
 
     return $user_query_string;
 }
@@ -467,7 +549,7 @@ sub parse_preprocess {
 sub IsReserved {
     my $tok = shift;
     if (grep(/^\Q$tok\E$/, values(%Reserved))) {
-        DEBUG('parse,all', sub {return qq{Reserved: $tok\n};});
+        DEBUG('parse', sub {return qq{Reserved: $tok\n};});
         return 1;
     }
     return 0;
@@ -510,7 +592,7 @@ sub GetToken {
     if (IsEmpty()) {
         %ParsedToken = ( 'type' => 'ENDTOK',
                          'token' => 'ENDTOK' );
-        DEBUG('parse,all', sub {return q{Get: [} . $ParsedToken{'token'} . q{] } . join(' ', @Tokens)});
+        DEBUG('parse', sub {return q{Get: [} . $ParsedToken{'token'} . q{] } . join(' ', @Tokens)});
         return;
     }
 
@@ -520,7 +602,7 @@ sub GetToken {
         }
 
         my $tok = shift @Tokens;
-        DEBUG('parse,all', sub {return qq{Get: token="$tok"};});
+        DEBUG('parse', sub {return qq{Get: token="$tok"};});
 
         if ($token) {
             die unless(IsReserved($tok));
@@ -541,7 +623,7 @@ sub GetToken {
 
         %ParsedToken = ( 'type' => 'LITERAL',
                          'token' => $token );
-        DEBUG('parse,all', sub {return q{Get: [} . $ParsedToken{'token'} . q{] } . join(' ', @Tokens)});
+        DEBUG('parse', sub {return q{Get: [} . $ParsedToken{'token'} . q{] } . join(' ', @Tokens)});
     }
 }
 
@@ -550,7 +632,7 @@ sub Accept {
     my $s = shift;
 
     if ($ParsedToken{'type'} eq $s) {
-        DEBUG('parse,all', sub {return qq{Accept: } . $ParsedToken{'token'}});
+        DEBUG('parse', sub {return qq{Accept: } . $ParsedToken{'token'}});
         GetToken();
         return 1;
     }
@@ -559,7 +641,7 @@ sub Accept {
 
 sub Expect {
     my $s = shift;
-    DEBUG('parse,all', sub {return qq{Expect: } . $ParsedToken{'token'}});
+    DEBUG('parse', sub {return qq{Expect: } . $ParsedToken{'token'}});
     if (Accept($s)) {
         return 1;
     }
@@ -567,15 +649,15 @@ sub Expect {
 }
 
 sub Term {
-    DEBUG('parse,all', sub {qq{Term}});
+    DEBUG('parse', sub {qq{Term}});
     Factor();
-    if (Accept('AND')) {
+    while (Accept('AND')) {
         Factor();
     }
 }
 
 sub Factor {
-    DEBUG('parse,all', sub {return qq{Factor}});
+    DEBUG('parse', sub {return qq{Factor}});
     if (Accept('LITERAL')) {
     }
     elsif (Accept('LPAREN')) {
@@ -589,7 +671,7 @@ sub Factor {
 
 
 sub Expression {
-    DEBUG('parse,all', sub {return qq{Expression\n}});
+    DEBUG('parse', sub {return qq{Expression\n}});
     Term();
     while ($ParsedToken{'type'} eq 'OR') {
         GetToken();
@@ -607,9 +689,10 @@ sub valid_boolean_expression {
         Expect('ENDTOK');
     };
     if ($@) {
+        DEBUG('parse', qq{valid_boolean_expression: die: $@});
         return 0;
     }
-    DEBUG('parse,all', sub {return qq{Valid boolean expression}});
+    DEBUG('parse', sub {return qq{Valid boolean expression}});
     return 1;
 }
 
