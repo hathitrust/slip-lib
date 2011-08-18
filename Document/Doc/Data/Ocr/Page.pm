@@ -47,6 +47,11 @@ sub get_data_fields {
     my $self = shift;
     my ($C, $item_id, $state) = @_;
 
+    # METS object must be valid to proceed
+    if (! $self->METS_is_valid($C)) {
+        return (undef, IX_DATA_FAILURE, 0);
+    }
+
     # OCR field
     my  ($ocr_text_ref, $status, $elapsed) = $self->__get_ocr_data($C, $item_id, $state);
     wrap_string_in_tag_by_ref($ocr_text_ref, 'field', [['name', 'ocr']]);

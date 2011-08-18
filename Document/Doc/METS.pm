@@ -54,15 +54,39 @@ sub _initialize {
     my ($C, $id, $USE_attr_arr_ref) = @_;
 
     my $mets_xml_filename = __get_METS_xml_filename($id);
-    my $mets_xml_ref = Utils::read_file($mets_xml_filename);
+    # Not all IDs have data in the repository
+    my $mets_xml_ref = Utils::read_file($mets_xml_filename, 'optional');
+    
+    if (! $$mets_xml_ref) {
+        foreach my $USE (@$USE_attr_arr_ref) {
+            $self->__set_USE_member_data $self($C, $USE, 0, [], 0, {});
+        }
+    }
+    else {
+        my $parser = XML::LibXML->new();
+        my $tree = $parser->parse_string($$mets_xml_ref);
+        my $root = $tree->getDocumentElement();
 
-    my $parser = XML::LibXML->new();
-    my $tree = $parser->parse_string($$mets_xml_ref);
-    my $root = $tree->getDocumentElement();
-
-    $self->build_METS_dataset($root, $USE_attr_arr_ref);
+        $self->build_METS_dataset($C, $root, $USE_attr_arr_ref);
+    }
 }
 
+
+# ---------------------------------------------------------------------
+
+=item dataset_is_valid
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub dataset_is_valid {
+    my $self = shift;
+    my ($C, $USE) = @_;
+
+    return $self->{dataset}{$USE}{is_valid};
+}
 
 # ---------------------------------------------------------------------
 
@@ -77,6 +101,9 @@ sub get_seq2pgnum_map {
     my $self = shift;
     my ($C, $USE) = @_;
 
+    ASSERT(0, qq{Invalid METS dataset})
+      if (! $self->dataset_is_valid($C, $USE));
+    
     my $map = $self->{dataset}{$USE}{METS_seq2pgnum};
     return $map;
 }
@@ -93,6 +120,9 @@ Description
 sub get_filelist_for {
     my $self = shift;
     my ($C, $USE) = @_;
+
+    ASSERT(0, qq{Invalid METS dataset})
+      if (! $self->dataset_is_valid($C, $USE));
 
     my $files_arr_ref = $self->{dataset}{$USE}{METS_filelist};
     return $files_arr_ref;
@@ -111,6 +141,9 @@ sub get_has_files_for {
     my $self = shift;
     my ($C, $USE) = @_;
 
+    ASSERT(0, qq{Invalid METS dataset})
+      if (! $self->dataset_is_valid($C, $USE));
+
     my $has_files =  $self->{dataset}{$USE}{METS_has_files};    
     return $has_files;
 }
@@ -128,10 +161,31 @@ sub get_num_files_for {
     my $self = shift;
     my ($C, $USE) = @_;
 
+    ASSERT(0, qq{Invalid METS dataset})
+      if (! $self->dataset_is_valid($C, $USE));
+
     my $num_files =  $self->{dataset}{$USE}{METS_has_files};    
     return $num_files;
 }
 
+# ---------------------------------------------------------------------
+
+=item __set_USE_member_data
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __set_USE_member_data {
+    my $self = shift;
+    my ($C, $USE, $is_valid, $files_arr_ref, $has_files, $seq2pgnum_hashref ) = @_;
+
+    $self->{dataset}{$USE}{is_valid} = $is_valid;
+    $self->{dataset}{$USE}{METS_filelist} = $files_arr_ref;
+    $self->{dataset}{$USE}{METS_has_files} = $has_files;
+    $self->{dataset}{$USE}{METS_seq2pgnum} = $seq2pgnum_hashref;
+}
 
 # ---------------------------------------------------------------------
 
@@ -144,7 +198,7 @@ Description
 # ---------------------------------------------------------------------
 sub build_METS_dataset {
     my $self = shift;
-    my ($root, $USE_attr_arr_ref) = @_;
+    my ($C, $root, $USE_attr_arr_ref) = @_;
 
     my %METS_hash = ();
     my $file_grp_hashref = $self->parse_fileGrp($root, $USE_attr_arr_ref);
@@ -186,9 +240,8 @@ sub build_METS_dataset {
             push(@$files_arr_ref, $METS_hash{$USE}{seq}{$order}->{filename});
             $seq2pgnum_hashref->{$order} = $METS_hash{$USE}{seq}{$order}->{'pgnum'}
         }
-        $self->{dataset}{$USE}{METS_filelist} = $files_arr_ref;
-        $self->{dataset}{$USE}{METS_has_files} = $METS_hash{$USE}{has_files};
-        $self->{dataset}{$USE}{METS_seq2pgnum} = $seq2pgnum_hashref;
+        $self->__set_USE_member_data($C, $USE, 1, 
+                                     $files_arr_ref, $METS_hash{$USE}{has_files}, $seq2pgnum_hashref);
     }
 }
 

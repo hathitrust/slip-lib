@@ -52,6 +52,11 @@ sub get_data_fields {
 
     my $start = Time::HiRes::time();
 
+    # METS object must be valid to proceed
+    if (! $self->METS_is_valid($C)) {
+        return (undef, IX_DATA_FAILURE, 0);
+    }
+
     # ----- Extract OCR if METS says files exist and are non-zero size -----
     my $has_files = $self->get_has_files($C);
 

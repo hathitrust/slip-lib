@@ -60,6 +60,12 @@ sub new {
     return $self;
 }
 
+sub METS_is_valid {
+    my $self = shift;
+    my $C = shift;
+    return $self->{d__METS_obj}->dataset_is_valid($C, 'ocr');
+}
+
 sub get_filelist {
     my $self = shift;
     my $C = shift; 
