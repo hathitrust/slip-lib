@@ -314,8 +314,8 @@ sub __response_handler
     {
         my $s = qq{Solr error response: code=$code, status="$status_line"\n} 
             . $response->content();
-        Utils::Logger::__Log_simple($s);
-        DEBUG('idx', qq{DEBUG: INDEXER: Bad HTTP response: $code status=} . $response->status_line() . q{ (see logfile)} );
+        my $path = Utils::Logger::__Log_simple($s);
+        DEBUG('idx', qq{DEBUG: INDEXER: Bad HTTP response: $code status=} . $response->status_line() . qq{ (see $path)} );
 
         if ($code =~ m,^5\d\d,)
         {
