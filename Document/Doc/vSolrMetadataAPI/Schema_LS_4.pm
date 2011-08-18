@@ -161,9 +161,6 @@ sub get_auxiliary_field_data {
 
     # More metadata
     if ($status == IX_NO_ERROR) {
-        # namespace-qualified id field
-        $primary_metadata_hashref->{id} = [$item_id];
-
         # rights attribute field
         my $rights_attribute = Document::get_rights_f_id($C, $item_id);
         if ($rights_attribute) {
@@ -205,7 +202,7 @@ sub post_process_metadata {
     # and in ls UI code?
 
     $metadata_hashref->{'record_no'} = $metadata_hashref->{'id'};
-    delete $metadata_hashref->{'id'};
+    $metadata_hashref->{'id'} = $item_id;
 
     # Title is used as a proxy for metadata validity
     my @titles = @{$metadata_hashref->{'title'}};
