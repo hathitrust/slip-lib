@@ -59,7 +59,7 @@ sub _initialize {
     
     if (! $$mets_xml_ref) {
         foreach my $USE (@$USE_attr_arr_ref) {
-            $self->__set_USE_member_data $self($C, $USE, 0, [], 0, {});
+            $self->__set_USE_member_data($C, $USE, 0, [], 0, {});
         }
     }
     else {
