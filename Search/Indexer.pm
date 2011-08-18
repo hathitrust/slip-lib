@@ -584,6 +584,8 @@ sub __get_Solr_post_update_url
     my $script = $C->get_object('MdpConfig')->get('solr_update_script');
     my $url = $engine_uri . $script;
 
+    DEBUG('idx', qq{Solr POST url="$url"} );
+    
     return $url;
 }
 
