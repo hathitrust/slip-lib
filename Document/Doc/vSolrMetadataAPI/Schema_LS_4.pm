@@ -202,7 +202,7 @@ sub post_process_metadata {
     # and in ls UI code?
 
     $metadata_hashref->{'record_no'} = $metadata_hashref->{'id'};
-    $metadata_hashref->{'id'} = $item_id;
+    $metadata_hashref->{'id'} = [$item_id];
 
     # Title is used as a proxy for metadata validity
     my @titles = @{$metadata_hashref->{'title'}};
