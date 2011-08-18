@@ -250,7 +250,6 @@ sub get_data_fields {
     my $self = shift;
     my ($C, $item_id, $state) = @_;
     
-    if (! $self->D_get_data_obj()->dataset_is_valid
     return $self->D_get_data_obj()->get_data_fields($C, $item_id, $state);
 }
 
