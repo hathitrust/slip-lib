@@ -283,7 +283,7 @@ sub gen_run_config {
     
     ASSERT(defined($app) && defined($run), qq{app or run_number missing.});
 
-    my $uber_configfile = Utils::get_uber_config_path($app),
+    my $uber_configfile = Utils::get_uber_config_path($app);
     ASSERT(-e $uber_configfile, qq{get_uber_config_path <- gen_run_config: $uber_configfile does not exist});
 
     my $common_configfile = get_common_config_path($app, 'common.conf');
