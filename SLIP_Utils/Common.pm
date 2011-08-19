@@ -192,6 +192,7 @@ sub get_common_config_path {
     else {
         $path = $ENV{SDRROOT} . "/$app/vendor/slip-lib/lib/Config/$conf_file"
     }
+    ASSERT(-e $path, qq{get_common_config_path: $path does not exist});
 
     return $path;
 
@@ -211,6 +212,8 @@ sub get_app_config_path {
     my $conf_file = shift;
     
     my $path = $ENV{SDRROOT} . "/$app/lib/Config/$conf_file";
+    ASSERT(-e $path, qq{get_app_config_path: $path does not exist});
+           
     return $path;
 }
 
@@ -281,6 +284,8 @@ sub gen_run_config {
     ASSERT(defined($app) && defined($run), qq{app or run_number missing.});
 
     my $uber_configfile = Utils::get_uber_config_path($app),
+    ASSERT(-e $uber_configfile, qq{get_uber_config_path <- gen_run_config: $uber_configfile does not exist});
+
     my $common_configfile = get_common_config_path($app, 'common.conf');
     my $app_configfile = get_app_config_path($app, qq{run-$run.conf});
 
