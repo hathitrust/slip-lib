@@ -260,6 +260,34 @@ sub well_formed {
 
 # ---------------------------------------------------------------------
 
+=item valid_boolean_expression
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub valid_boolean_expression {
+    my $self = shift;
+    return $self->{'validbooleanexpression'};
+}
+
+# ---------------------------------------------------------------------
+
+=item set_valid_boolean_expression
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub set_valid_boolean_expression {
+    my $self = shift;
+    $self->{'validbooleanexpression'} = 1;
+}
+
+# ---------------------------------------------------------------------
+
 =item get_processed_user_query_string
 
 Perform some common ops on the user query string to make it work with
@@ -365,6 +393,9 @@ sub get_processed_user_query_string {
     if (grep(/^(AND|OR)$/, @tokens)) {
         # Attempt to parse the query as a boolean expression.
         $valid = valid_boolean_expression(@tokens);
+        if ($valid) {
+            $self->set_valid_boolean_expression();
+        }
     }
 
     if (! $valid) {
@@ -404,49 +435,6 @@ sub get_final_token {
     }
     return $s;
 }
-
-# ---------------------------------------------------------------------
-
-=item parse_preprocess
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub parse_preprocess {
-    my $query = shift;
-
-    my @token_array = ();
-
-    # Set parens off from operands for parsing ease
-    $query =~ s,\(, \( ,g;
-    $query =~ s,\), \) ,g;
-
-    Utils::trim_spaces(\$query);
-    my @PreTokens = split(/\s+/, $query);
-
-    # Handle AND, OR, RPAREN, LPAREN within double quotes, i.e. within a
-    # phrase. We assume balanced quotes at this point in the processing.
-    while (1) {
-        my $t = shift @PreTokens;
-        last if (! $t);
-        if ($t =~ m,^",) {
-            my $quote;
-            $quote .= suppress_boolean_in_phrase($t);
-            while (($t !~ m,"$,) && ($t)) {
-                $t =  shift @PreTokens;
-                $quote .= suppress_boolean_in_phrase($t);
-            }
-            push(@token_array, $quote);
-        }
-        else {
-            push(@token_array, $t);
-        }
-    }
-    return @token_array;
-}
-
 
 # ---------------------------------------------------------------------
 
