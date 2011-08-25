@@ -267,9 +267,9 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub valid_boolean_expression {
+sub parse_was_valid_boolean_expression {
     my $self = shift;
-    return $self->{'validbooleanexpression'};
+    return $self->{'wasvalidbooleanexpression'};
 }
 
 # ---------------------------------------------------------------------
@@ -281,9 +281,9 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub set_valid_boolean_expression {
+sub set_was_valid_boolean_expression {
     my $self = shift;
-    $self->{'validbooleanexpression'} = 1;
+    $self->{'wasvalidbooleanexpression'} = 1;
 }
 
 # ---------------------------------------------------------------------
@@ -394,7 +394,7 @@ sub get_processed_user_query_string {
         # Attempt to parse the query as a boolean expression.
         $valid = valid_boolean_expression(@tokens);
         if ($valid) {
-            $self->set_valid_boolean_expression();
+            $self->set_was_valid_boolean_expression();
         }
     }
 
