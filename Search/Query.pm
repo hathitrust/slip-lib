@@ -217,7 +217,7 @@ sub XXX___get_Solr_fulltext_filter_query {
     # should be filtered by an institution value that never matches.
     my $holdings_qualified_string = '';
     if (scalar @holdings_qualified_attr_list) {
-        my $inst = $C->get_object('Auth')->get_institution();
+        my $inst = $C->get_object('Auth')->get_institution($C);
         $inst = '___NO_INST___' if (! $inst);
         $holdings_qualified_string = 
           '(' . join('+OR+', map { 'ht_holding_inst:$inst+AND+rights:' . $_ } @holdings_qualified_attr_list) . ')';
@@ -418,14 +418,6 @@ sub get_processed_user_query_string {
     DEBUG('parse', sub {return qq{Final processed user query: $user_query_string}});
 
     return $user_query_string;
-}
-
-sub suppress_boolean_in_phrase {
-    my $s = shift;
-    $s =~ s,([\(\)]), ,g;
-    $s =~ s,AND,and,;
-    $s =~ s,OR,or,;
-    return qq{$s };
 }
 
 sub get_final_token {
