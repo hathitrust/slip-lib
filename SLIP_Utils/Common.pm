@@ -32,6 +32,7 @@ use Debug::DUtils;
 use Context;
 use MdpConfig;
 use Search::Constants;
+use Search::Site;
 use Utils;
 use Utils::Time;
 
@@ -44,7 +45,7 @@ use SLIP_Utils::Log;
 
 use Exporter;
 @SLIP_Utils::Common::ISA = qw(Exporter);
-@SLIP_Utils::Common::EXPORT = qw( __output __confirm __non_interactive_err_output );
+@SLIP_Utils::Common::EXPORT = qw( __output __output_non_interactive __confirm __non_interactive_err_output );
 
 # ---------------------------------------------------------------------
 
@@ -249,9 +250,13 @@ Description
 sub get_run_number {
     my $config = shift;
 
+    # Different sites can use different run numbers (pt/search)
+    my $production_site = Search::Site::get_server_site_name();
+    my $production_key = 'production_run_configuration_' . $production_site; 
+    
     my $run_number = defined($ENV{HT_DEV})
       ? $config->get('development_run_configuration')
-        : $config->get('production_run_configuration');
+        : $config->get($production_key);
 
     return $run_number;
 }
@@ -440,6 +445,22 @@ sub __output {
     my $msg = shift;
     
     return if (! $ENV{'TERM'});
+    print STDOUT qq{$msg};
+}
+
+# ---------------------------------------------------------------------
+
+=item __output_non_interactive
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __output_non_interactive {
+    my $msg = shift;
+    
+    return if ($ENV{'TERM'});
     print STDOUT qq{$msg};
 }
 
