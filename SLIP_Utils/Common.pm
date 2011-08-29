@@ -252,7 +252,7 @@ sub get_run_number {
 
     # Different sites can use different run numbers (pt/search)
     my $production_site = Search::Site::get_server_site_name();
-    my $production_key = 'production_run_configuration_' . $production_site; 
+    my $production_key = 'production_run_configuration' . "_$production_site"; 
     
     my $run_number = defined($ENV{HT_DEV})
       ? $config->get('development_run_configuration')
