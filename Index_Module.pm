@@ -469,6 +469,15 @@ sub handle_i_result {
             Db::update_shard_enabled($C, $dbh, $run, $shard, 0);
             Db::set_shard_build_error($C, $dbh, $run, $shard);
         }
+        
+        if (! $metadata_ok) {
+            # Dump the HTTP response dump to the log
+            if ($C->has_object('Result')) {
+                my $rs = $C->get_object('Result');
+                my $dump = $rs->get_failed_HTTP_dump();
+                Log_metadata_error($C, $run, $shard, $pid, $host, $dump);
+            }
+        }
     }
 
     return $item_is_Solr_indexed;
@@ -553,6 +562,23 @@ sub Log_error_stop {
     my ($C, $run, $shard, $pid, $host, $s) = @_;
 
     my $ss = qq{***ERROR STOP: } . Utils::Time::iso_Time() . qq{ run=$run pid=$pid host=$host shard=$shard stop=$s};
+    SLIP_Utils::Log::this_string($C, $ss, 'indexer_logfile', '___RUN___', $run);
+}
+
+
+# ---------------------------------------------------------------------
+
+=item Log_metadata_error
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Log_metadata_error {
+    my ($C, $run, $shard, $pid, $host, $s) = @_;
+
+    my $ss = qq{***METADATA ERROR: } . Utils::Time::iso_Time() . qq{ run=$run pid=$pid host=$host shard=$shard error=$s};
     SLIP_Utils::Log::this_string($C, $ss, 'indexer_logfile', '___RUN___', $run);
 }
 

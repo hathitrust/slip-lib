@@ -305,6 +305,9 @@ sub __get_metadata_from_vufind_f_item_id {
         # Retrieve VuFind Solr doc for q=id:$sysid
         $rs = $searcher->get_Solr_raw_internal_query_result($C, $query, $rs);
 
+        # Add Result to Context for upstream reporting
+        $C->set_object('Result', $rs);
+
         # Could have server error or the record with sysid=$sysid may
         # have been removed -- usually a staff error
         if ($rs->http_status_ok() && ($rs->get_num_found() > 0)) {
