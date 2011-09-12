@@ -1107,7 +1107,10 @@ sub Delete_errors {
 
     my $statement = qq{DELETE FROM j_errors WHERE run=$run};
     DEBUG('lsdb', qq{DEBUG: $statement});
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $ct = 0;
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, \$ct);
+    
+    return ($ct == '0E0') ? 0 : $ct;;
 }
 
 
