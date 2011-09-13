@@ -124,7 +124,7 @@ sub get_filelist_for {
     ASSERT(0, qq{Invalid METS dataset})
       if (! $self->dataset_is_valid($C, $USE));
 
-    my $files_arr_ref = $self->{dataset}{$USE}{METS_filelist};
+    my $files_arr_ref = $self->{dataset}{$USE}{METS_filelist} || [];
     return $files_arr_ref;
 }
 

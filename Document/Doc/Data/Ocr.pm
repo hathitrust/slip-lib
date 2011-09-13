@@ -137,6 +137,25 @@ sub finish_document {
     }
 }
 
+# ---------------------------------------------------------------------
+
+=item PUBLIC: build_dummy_ocr_data
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub build_dummy_ocr_data {
+    my $self = shift;
+    my $C = shift;
+
+    my $empty_ocr_sentinel = $C->get_object('MdpConfig')->get('ix_index_empty_string');
+    my $ocr_text_ref = \$empty_ocr_sentinel;
+
+    return $ocr_text_ref;
+}
+
 
 # ---------------------------------------------------------------------
 

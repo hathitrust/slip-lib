@@ -58,47 +58,60 @@ sub get_data_fields {
     }
 
     # ----- Extract OCR if METS says files exist and are non-zero size -----
-    my $has_files = $self->get_has_files($C);
-
-    my ($temp_dir, $has_ocr) = $self->handle_ocr_extraction($C, $item_id)
-      unless (! $has_files);
-
     my $ocr_text_ref;
+
     my $pairtree_item_id = Identifier::get_pairtree_id_wo_namespace($item_id);
     my $concat_filename = Utils::Extract::get_formatted_path("/ram/OCR-$pairtree_item_id", ".txt");
 
-    if ($has_ocr) {
-        # ----- Create concatenated file -----
-        my $files_arr_ref = $self->get_filelist($C);
-        my $rc = __concat_files($temp_dir, $files_arr_ref, $concat_filename);
-        if ($rc > 0) {
-            return (undef, IX_DATA_FAILURE, 0);
-        }
-        # POSSIBLY NOTREACHED
+    my $has_files = $self->get_has_files($C);
 
-        $ocr_text_ref = Utils::read_file($concat_filename, 1);
-        if (! $ocr_text_ref) {
-            my $s = qq{Utils::read_file failed: concat_file=$concat_filename};
+    if ($has_files) {
+        my ($temp_dir, $has_ocr) = $self->handle_ocr_extraction($C, $item_id);
+        
+        if ($temp_dir) {
+            if ($has_ocr) {
+                # ----- Create concatenated file -----
+                my $files_arr_ref = $self->get_filelist($C);
+                my $rc = __concat_files($temp_dir, $files_arr_ref, $concat_filename);
+                if ($rc > 0) {
+                    return (undef, IX_DATA_FAILURE, 0);
+                }
+                # POSSIBLY NOTREACHED
+
+                $ocr_text_ref = Utils::read_file($concat_filename, 1);
+                if (! $ocr_text_ref) {
+                    my $s = qq{Utils::read_file failed: concat_file=$concat_filename};
+                    Utils::Logger::__Log_simple($s);
+                    DEBUG('doc', $s);
+
+                    return (undef, IX_DATA_FAILURE, 0);
+                }
+                # POSSIBLY NOTREACHED
+
+                if ($$ocr_text_ref eq '') {
+                    $ocr_text_ref = $self->build_dummy_ocr_data($C);
+                }
+                else {
+                    $self->clean_ocr($ocr_text_ref);
+                    Document::apply_algorithms($C, $ocr_text_ref, 'garbage_ocr_class');
+                }
+            }
+            else {
+                $ocr_text_ref = $self->build_dummy_ocr_data($C);
+            }
+        }
+        else {
+            # No temp_dir !!
+            my $s = qq{OCR extraction failed};
             Utils::Logger::__Log_simple($s);
             DEBUG('doc', $s);
 
             return (undef, IX_DATA_FAILURE, 0);
         }
-        # POSSIBLY NOTREACHED
-
-        if ($$ocr_text_ref eq '') {
-            my $empty_ocr_sentinel = $C->get_object('MdpConfig')->get('ix_index_empty_string');
-            $ocr_text_ref = \$empty_ocr_sentinel;
-        }
-
-        $self->clean_ocr($ocr_text_ref);
-
-        Document::apply_algorithms($C, $ocr_text_ref, 'garbage_ocr_class');
     }
     else {
-        system("touch", $concat_filename);
-        my $empty_ocr_sentinel = $C->get_object('MdpConfig')->get('ix_index_empty_string');
-        $ocr_text_ref = \$empty_ocr_sentinel;
+        # Object has no OCR
+        $ocr_text_ref = $self->build_dummy_ocr_data($C, $concat_filename);
     }
 
     Document::maybe_preserve_doc($ocr_text_ref, $concat_filename);

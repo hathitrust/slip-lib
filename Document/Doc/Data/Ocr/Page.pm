@@ -89,50 +89,63 @@ sub __get_ocr_data {
     my $self = shift;
     my ($C, $item_id, $state) = @_;
 
+    my $ocr_text_ref;
+
     my $files_arr_ref = $self->get_filelist($C);
+    # state == seq, state and seq are 1-relative
+    my $filename = $files_arr_ref->[$state - 1];
 
     my $start = Time::HiRes::time();
 
     # ----- Extract OCR if METS says files exist and are non-zero size -----
     my $has_files = $self->get_has_files($C);
 
-    my ($temp_dir, $has_ocr) = $self->handle_ocr_extraction($C, $item_id)
-      unless (! $has_files);
+    if ($has_files) {
+        my ($temp_dir, $has_ocr) = $self->handle_ocr_extraction($C, $item_id);
+        
+        if ($temp_dir) {
+            if ($has_ocr) {
+                # ----- Read file[$state] -----
+                my $full_filename = $temp_dir . '/' . $filename;
 
-    my $ocr_text_ref;
-    my $pairtree_item_id = Identifier::get_pairtree_id_wo_namespace($item_id);
-    # state == seq, state and seq are 1-relative
-    my $filename = $files_arr_ref->[$state - 1];
-    my $full_filename = $temp_dir . '/' . $filename;
+                $ocr_text_ref = Utils::read_file($full_filename, 1);
+                if (! $ocr_text_ref) {
+                    my $s = qq{Utils::read_file failed: page_file=$full_filename};
+                    Utils::Logger::__Log_simple($s);
+                    DEBUG('doc', $s);
+                    
+                    return (undef, IX_DATA_FAILURE, 0);
+                }
+                # POSSIBLY NOTREACHED
 
-    if ($has_ocr) {
-        # ----- Read file[$state] -----
-        $ocr_text_ref = Utils::read_file($full_filename, 1);
-        if (! $ocr_text_ref) {
-            my $s = qq{Utils::read_file failed: page_file=$full_filename};
+                if ($$ocr_text_ref eq '') {
+                    $ocr_text_ref = $self->build_dummy_ocr_data($C);
+                }
+                else {
+                    $self->clean_ocr($ocr_text_ref);
+                    Document::apply_algorithms($C, $ocr_text_ref, 'garbage_ocr_class');
+                }
+            }
+            else {
+                $ocr_text_ref = $self->build_dummy_ocr_data($C);
+            }
+        }
+        else {
+            # No temp_dir !!
+            my $s = qq{OCR: extration failed};
             Utils::Logger::__Log_simple($s);
             DEBUG('doc', $s);
-
+            
             return (undef, IX_DATA_FAILURE, 0);
+
         }
-        # POSSIBLY NOTREACHED
-
-        if ($$ocr_text_ref eq '') {
-            my $empty_ocr_sentinel = $C->get_object('MdpConfig')->get('ix_index_empty_string');
-            $ocr_text_ref = \$empty_ocr_sentinel;
-        }
-
-        $self->clean_ocr($ocr_text_ref);
-
-        Document::apply_algorithms($C, $ocr_text_ref, 'garbage_ocr_class');
     }
     else {
-        system("touch", $full_filename);
-        my $empty_ocr_sentinel = $C->get_object('MdpConfig')->get('ix_index_empty_string');
-        $ocr_text_ref = \$empty_ocr_sentinel;
+        # Object has no OCR
+        $ocr_text_ref = $self->build_dummy_ocr_data($C);
     }
 
-    Document::maybe_preserve_doc($ocr_text_ref, $filename . qq{_$state});
+    Document::maybe_preserve_doc($ocr_text_ref, qq{/ram/$filename} . qq{_$state});
 
     my $elapsed = Time::HiRes::time() - $start;
     DEBUG('doc', qq{OCR: total elapsed sec=$elapsed});
