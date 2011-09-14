@@ -54,8 +54,7 @@ use constant NO_DELAY => 0;
 use constant DEFAULT_DELAY => 20;
 use constant DEFAULT_DELAY_MULTIPLIER => 2;
 
-sub new
-{
+sub new {
     my $class = shift;
 
     my $self = {};
@@ -115,8 +114,7 @@ Description PUBLIC
 =cut
 
 # ---------------------------------------------------------------------
-sub set_shard_waiting
-{
+sub set_shard_waiting {
     my $self = shift;
     my ($C, $dbh, $run, $shard) = @_;
 
@@ -126,12 +124,10 @@ sub set_shard_waiting
     # control), do not mark it waiting.  It could be re-enabled but
     # would still not run even if the timeout situation no longer
     # applied.  Let it run and prove whether it is ok to run or not.
-    if (Db::Select_shard_enabled($C, $dbh, $run, $shard))
-    {
+    if (Db::Select_shard_enabled($C, $dbh, $run, $shard)) {
         my $io = $self->__get_indexer_obj_at(__sh_2_io_idx($shard));
 
-        if ($io->___get_delay_multiplier() > NO_DELAY)
-        {
+        if ($io->___get_delay_multiplier() > NO_DELAY) {
             # Already waiting: Escalate the wait
             my $new_Wait_multiplier = $io->___get_delay_multiplier() * DEFAULT_DELAY_MULTIPLIER;
             $Wait_For_secs = (DEFAULT_DELAY * $new_Wait_multiplier);
@@ -139,8 +135,7 @@ sub set_shard_waiting
 
             $io->___set_Wait($new_Wait_Until, $new_Wait_multiplier);
         }
-        else
-        {
+        else {
             $Wait_For_secs = DEFAULT_DELAY;
             my $Wait_Until = time() + $Wait_For_secs;
             $io->___set_Wait($Wait_Until, 1);
@@ -159,8 +154,7 @@ Description PUBLIC
 =cut
 
 # ---------------------------------------------------------------------
-sub Reset_shard_waiting
-{
+sub Reset_shard_waiting {
     my $self = shift;
     my ($C, $shard) = @_;
 
@@ -176,13 +170,13 @@ sub Reset_shard_waiting
 # ---------------------------------------------------------------------
 
 =item get_num_indexers_available
+
 Description PUBLIC
 
 =cut
 
 # ---------------------------------------------------------------------
-sub get_num_indexers_available
-{
+sub get_num_indexers_available {
     my $self = shift;
     my $C = shift;
 
@@ -214,8 +208,7 @@ for the minimum sleep time over enabled indexers.
 =cut
 
 # ---------------------------------------------------------------------
-sub get_indexer
-{
+sub get_indexer {
     my $self = shift;
     my $C = shift;
 
@@ -228,21 +221,17 @@ sub get_indexer
 
     my $tries = 0;
 
-    while (1)
-    {
+    while (1) {
         my $io = $self->__get_Next_enabled_indexer_obj($C);
         $tries++;
 
-        if ($io)
-        {
+        if ($io) {
             my $wait_Time = $io->___get_Wait_Time();
-            if ($wait_Time > 0)
-            {
+            if ($wait_Time > 0) {
                 $min_Sleep_Time = min($min_Sleep_Time, $wait_Time);
                 $io_min = $io;
             }
-            else
-            {
+            else {
                 return ($io->___get_indexer(), $io->___get_shard());
             }
         }
@@ -253,13 +242,11 @@ sub get_indexer
     # indexers are sleeping. If there's a minimum sleeping indexer,
     # block until it wakes up and return it. If there isn't a minimum
     # sleeping indexer, return an arbitrary disabled indexer.
-    if ($io_min)
-    {
+    if ($io_min) {
         sleep $min_Sleep_Time;
         return ($io_min->___get_indexer(), $io_min->___get_shard());
     }
-    else
-    {
+    else {
         my $arbitrary_io = $self->__get_arbitrary_indexer_obj($C);
         return ($arbitrary_io->___get_indexer(), $arbitrary_io->___get_shard());
     }
@@ -281,8 +268,7 @@ return this indexer.
 =cut
 
 # ---------------------------------------------------------------------
-sub get_indexer_For_shard
-{
+sub get_indexer_For_shard {
     my $self = shift;
     my ($C, $shard) = @_;
 
@@ -294,8 +280,7 @@ sub get_indexer_For_shard
         my $io = $self->__get_indexer_obj_at(__sh_2_io_idx($shard));
         my $wait_Time = $io->___get_Wait_Time();
 
-        if ($wait_Time > 0)
-        {
+        if ($wait_Time > 0) {
             sleep $wait_Time;
         }
 
@@ -314,8 +299,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub __indexer_available
-{
+sub __indexer_available {
     my $self = shift;
     my $C = shift;
     my $indexer_idx = shift;
@@ -342,8 +326,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub __get_indexer_obj_at
-{
+sub __get_indexer_obj_at {
     my $self = shift;
     my $indexer_idx = shift;
 
@@ -363,21 +346,18 @@ of configured indexers, fail.
 =cut
 
 # ---------------------------------------------------------------------
-sub __get_Next_enabled_indexer_obj
-{
+sub __get_Next_enabled_indexer_obj {
     my $self = shift;
     my $C = shift;
 
     my $tries = 0;
     my $num_enabled = $self->get_num_indexers_available($C);
 
-    while (1)
-    {
+    while (1) {
         my $indexer_idx = $self->__get_Next_indexer_idx();
         $tries++;
 
-        if ($self->__indexer_available($C, $indexer_idx))
-        {
+        if ($self->__indexer_available($C, $indexer_idx)) {
             # Success
             my $io = $self->__get_indexer_obj_at($indexer_idx);
             return $io;
@@ -399,8 +379,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub __get_arbitrary_indexer_obj
-{
+sub __get_arbitrary_indexer_obj {
     my $self = shift;
     my $C = shift;
 
@@ -419,8 +398,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub __get_Next_indexer_idx
-{
+sub __get_Next_indexer_idx {
     my $self = shift;
 
     my $current_idx = $self->{'indexer_index'};
@@ -438,13 +416,11 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub __sh_2_io_idx
-{
+sub __sh_2_io_idx {
     my $shard = shift;
     return $shard - 1;
 }
-sub __io_idx_2_sh
-{
+sub __io_idx_2_sh {
     my $indexer_obj_idx = shift;
     return $indexer_obj_idx + 1;
 }
@@ -458,8 +434,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub __get_run
-{
+sub __get_run {
     my $self = shift;
     return $self->{'run'};
 }
@@ -473,8 +448,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub __get_dbh
-{
+sub __get_dbh {
     my $self = shift;
     return $self->{'dbh'};
 }
@@ -488,8 +462,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub __get_num_indexers
-{
+sub __get_num_indexers {
     my $self = shift;
     return $self->{'num_indexers'};
 }
@@ -501,8 +474,7 @@ sub __get_num_indexers
 #
 package IndexerPool::IndexerObj;
 
-sub new
-{
+sub new {
     my $class = shift;
 
     my $self = {};
@@ -528,8 +500,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub ___set_Wait
-{
+sub ___set_Wait {
     my $self = shift;
     my ($wait_Until, $multiplier) = @_;
 
@@ -546,8 +517,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub ___get_delay_multiplier
-{
+sub ___get_delay_multiplier {
     my $self = shift;
     return $self->{'multiplier'};
 }
@@ -561,8 +531,7 @@ Description:
 =cut
 
 # ---------------------------------------------------------------------
-sub ___Reset_Wait
-{
+sub ___Reset_Wait {
     my $self = shift;
 
     $self->{'wait_until'} = 0;
@@ -578,8 +547,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub ___get_indexer
-{
+sub ___get_indexer {
     my $self = shift;
     return $self->{'indexer'};
 }
@@ -593,8 +561,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub ___get_Wait_multiplier
-{
+sub ___get_Wait_multiplier {
     my $self = shift;
     return $self->{'multiplier'};
 }
@@ -608,8 +575,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub ___get_shard
-{
+sub ___get_shard {
     my $self = shift;
     return $self->{'shard'};
 }
@@ -623,8 +589,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub ___get_Wait_Time
-{
+sub ___get_Wait_Time {
     my $self = shift;
 
     my $wait_Time = $self->{'wait_until'} - time();
@@ -641,7 +606,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2008 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2008-11 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
