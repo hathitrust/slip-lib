@@ -122,18 +122,31 @@ sub build_document {
     my $metadata_status = IX_NO_ERROR;
     
     # Metadata fields
-    my ($metadata_fields_ref, $m_status) = 
-      $self->D_get_metadata_obj()->get_metadata_fields($C, $dbh, $item_id, $state);
-    if ($m_status != IX_NO_ERROR) {
+    my ($metadata_fields_ref, $m_status);
+    eval {
+        ($metadata_fields_ref, $m_status) 
+          = $self->D_get_metadata_obj()->get_metadata_fields($C, $dbh, $item_id, $state);
+        if ($m_status != IX_NO_ERROR) {
+            $metadata_status = IX_METADATA_FAILURE;
+        } 
+    };    
+    if ($@) {
         $metadata_status = IX_METADATA_FAILURE;
     }
+        
     my $ck = Time::HiRes::time() - $start;
     DEBUG('doc', qq{METADATA: read metadata in sec=$ck});
 
     # Data (like OCR)
-    my ($data_fields_ref, $d_status, $data_elapsed) = 
-      $self->D_get_data_obj()->get_data_fields($C, $item_id, $state);
-    if ($d_status != IX_NO_ERROR) {
+    my ($data_fields_ref, $d_status, $data_elapsed);
+    eval {
+        ($data_fields_ref, $d_status, $data_elapsed) = 
+          $self->D_get_data_obj()->get_data_fields($C, $item_id, $state);
+        if ($d_status != IX_NO_ERROR) {
+            $data_status = IX_DATA_FAILURE;
+        }
+    };
+    if ($@) {
         $data_status = IX_DATA_FAILURE;
     }
     DEBUG('doc', qq{DATA: read data in sec=$data_elapsed});

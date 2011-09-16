@@ -63,11 +63,18 @@ sub _initialize {
         }
     }
     else {
-        my $parser = XML::LibXML->new();
-        my $tree = $parser->parse_string($$mets_xml_ref);
-        my $root = $tree->getDocumentElement();
+        eval {
+            my $parser = XML::LibXML->new();
+            my $tree = $parser->parse_string($$mets_xml_ref);
+            my $root = $tree->getDocumentElement();
 
-        $self->build_METS_dataset($C, $root, $USE_attr_arr_ref);
+            $self->build_METS_dataset($C, $root, $USE_attr_arr_ref);
+        };
+        if ($@) {
+            foreach my $USE (@$USE_attr_arr_ref) {
+                $self->__set_USE_member_data($C, $USE, 0, [], 0, {});
+            }
+        }
     }
 }
 
