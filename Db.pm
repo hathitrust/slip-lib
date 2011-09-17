@@ -387,6 +387,27 @@ sub Select_j_rights_id_sysid
 
 # ---------------------------------------------------------------------
 
+=item Test_j_rights_timestamp
+
+Simple test to see if a run exists.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Test_j_rights_timestamp {
+    my ($C, $dbh, $run) = @_;
+
+    my $statement = qq{SELECT count(*) FROM j_rights_timestamp WHERE run=$run};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $ct = $sth->fetchrow_array;
+    DEBUG('lsdb', qq{DEBUG: $statement ::: $ct});
+
+    return $ct;
+}
+
+
+# ---------------------------------------------------------------------
+
 =item Select_j_rights_timestamp
 
 Description: holds timestamp into j_rights when last enqueue to j_queue
@@ -456,6 +477,23 @@ sub delete_j_rights_timestamp {
     my ($C, $dbh, $run) = @_;
 
     my $statement = qq{DELETE FROM j_rights_timestamp WHERE run=$run};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+}
+
+# ---------------------------------------------------------------------
+
+=item Renumber_j_rights_timestamp
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_j_rights_timestamp {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE j_rights_timestamp SET run=$to_run WHERE run=$from_run};
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
@@ -1057,6 +1095,46 @@ sub insert_item_id_error {
 }
 
 
+
+# ---------------------------------------------------------------------
+
+=item Delete_errors
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Delete_errors {
+    my ($C, $dbh, $run) = @_;
+
+    my $statement = qq{DELETE FROM j_errors WHERE run=$run};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    my $ct = 0;
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, \$ct);
+    
+    return ($ct == '0E0') ? 0 : $ct;;
+}
+
+
+# ---------------------------------------------------------------------
+
+=item Renumber_errors
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_errors {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE j_errors SET run=$to_run WHERE run=$from_run};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+}
+
+
 # ---------------------------------------------------------------------
 
 =item insert_item_id_timeout
@@ -1091,28 +1169,6 @@ sub delete_timeouts {
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
-
-
-# ---------------------------------------------------------------------
-
-=item Delete_errors
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub Delete_errors {
-    my ($C, $dbh, $run) = @_;
-
-    my $statement = qq{DELETE FROM j_errors WHERE run=$run};
-    DEBUG('lsdb', qq{DEBUG: $statement});
-    my $ct = 0;
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, \$ct);
-    
-    return ($ct == '0E0') ? 0 : $ct;;
-}
-
 
 
 # =====================================================================
@@ -1163,6 +1219,23 @@ sub Select_indexdir_size {
     DEBUG('lsdb', qq{DEBUG: $statement ::: $index_size});
 
     return $index_size;
+}
+
+# ---------------------------------------------------------------------
+
+=item Renumber_Index_size
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_Index_size {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE j_index_size SET run=$to_run WHERE run=$from_run};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
 
 
@@ -1397,6 +1470,24 @@ sub Delete_id_from_shard {
 
 # ---------------------------------------------------------------------
 
+=item Renumber_indexed
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_indexed {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+    
+    my $statement = qq{UPDATE j_indexed SET run=$to_run WHERE run=$from_run};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+}
+
+
+# ---------------------------------------------------------------------
+
 =item Delete_id_from_j_rights
 
 Description
@@ -1526,6 +1617,25 @@ sub Select_shard_stats {
     return ($s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
 }
 
+
+# ---------------------------------------------------------------------
+
+=item Renumber_shard_stats 
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_shard_stats {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE j_shard_stats SET run=$to_run WHERE run=$from_run};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+}
+
+
 # ---------------------------------------------------------------------
 
 =item Reset_rate_stats
@@ -1622,6 +1732,24 @@ sub Select_rate_stats {
     my $rate = $sth->fetchrow_array || 0;
 
     return $rate;
+}
+
+
+# ---------------------------------------------------------------------
+
+=item Renumber_rate_stats
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_rate_stats {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE j_rate_stats SET run=$to_run WHERE run=$from_run};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
 
