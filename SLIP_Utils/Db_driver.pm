@@ -44,6 +44,25 @@ use DbUtils;
 
 # ---------------------------------------------------------------------
 
+=item Renumber_driver
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_driver {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE j_driver_control SET run=$to_run WHERE run=$from_run};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+}
+
+
+
+# ---------------------------------------------------------------------
+
 =item delete_driver
 
 Description

@@ -1781,6 +1781,23 @@ sub Renumber_rate_stats {
 
 # ---------------------------------------------------------------------
 
+=item Renumber_shard_control
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_shard_control {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE j_shard_control SET run=$to_run WHERE run=$from_run};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+}
+
+# ---------------------------------------------------------------------
+
 =item delete_shard_control
 
 Description
@@ -2288,6 +2305,23 @@ sub Select_shard_build_state {
 
 # ---------------------------------------------------------------------
 
+=item Renumber_host_control
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_host_control {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE j_host_control SET run=$to_run WHERE run=$from_run};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+}
+
+# ---------------------------------------------------------------------
+
 =item Reset_host_control
 
 Description
@@ -2439,6 +2473,23 @@ sub update_host_enabled {
 
 # ---------------------------------------------------------------------
 
+=item Renumber_enqueuer_control
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_enqueuer_control {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE j_enqueuer_control SET run=$to_run WHERE run=$from_run};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+}
+
+# ---------------------------------------------------------------------
+
 =item Select_enqueuer_enabled
 
 Description
@@ -2556,6 +2607,23 @@ sub set_rights_enabled {
 
 # ---------------------------------------------------------------------
 
+=item Renumber_optimize_control
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_optimize_control {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE j_commit_control SET run=$to_run WHERE run=$from_run};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+}
+
+# ---------------------------------------------------------------------
+
 =item delete_optimize_control
 
 Description
@@ -2609,6 +2677,24 @@ sub Select_optimize_enabled {
 
     return $enabled;
 }
+
+# ---------------------------------------------------------------------
+
+=item Renumber_check_control
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_check_control {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE j_check_control SET run=$to_run WHERE run=$from_run};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+}
+
 
 # ---------------------------------------------------------------------
 
