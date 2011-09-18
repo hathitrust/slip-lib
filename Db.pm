@@ -570,6 +570,23 @@ sub Delete_queue {
     } until ($num_affected <= 0);
 }
 
+# ---------------------------------------------------------------------
+
+=item Renumber_queue
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_queue {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE j_queue SET run=$to_run WHERE run=$from_run};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+}
+
 
 # ---------------------------------------------------------------------
 
