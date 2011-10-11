@@ -1366,6 +1366,23 @@ sub insert_item_id_indexed {
 
 # ---------------------------------------------------------------------
 
+=item Delete_item_id_indexed
+
+To handle Deletes
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Delete_item_id_indexed {
+    my ($C, $dbh, $run, $shard, $id) = @_;
+
+    my $statement = qq{DELETE FROM j_indexed WHERE run=$run AND id='$id' AND shard=$shard};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+}
+
+# ---------------------------------------------------------------------
+
 =item Reset_indexed_ct
 
 For a given run to check how may were re-indexed, i.e. indexed_ct > 1.

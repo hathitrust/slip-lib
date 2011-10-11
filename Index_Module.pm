@@ -25,7 +25,9 @@ use Time::HiRes;
 
 use Db;
 use Utils;
+use Identifier;
 use Debug::DUtils;
+use RightsGlobals;
 
 use Search::Constants;
 use Document::Generator;
@@ -40,6 +42,9 @@ my $INDEXER_POOL;
 
 my $GLOBAL_SHARD_FOR_ERROR_REPORT = 0;
 my $MAX_ERRORS_SEEN = 0;
+
+use constant INDEX_OP => 0;
+use constant DELETE_OP => 1;
 
 # ---------------------------------------------------------------------
 
@@ -60,30 +65,46 @@ sub Service_ID {
     # id will be added to the error list.
     my ($index_state, $data_status, $metadata_status, $stats_ref);
     my ($indexer, $shard, $random) = get_Next_indexer($C, $dbh, $run, $pid, $host, $id);
+    my $op = get_required_op($C, $dbh, $id);
     if ($indexer) {
-        # Index
-        ($index_state, $data_status, $metadata_status, $stats_ref) =
-          process_one_id($C, $dbh, $run, $id, $indexer);
+        # Index or delete
+        if ($op == INDEX_OP) {
+            ($index_state, $data_status, $metadata_status, $stats_ref) =
+              index_one_id($C, $dbh, $run, $id, $indexer);
+        }
+        elsif ($op == DELETE_OP) {
+            ($index_state, $data_status, $metadata_status, $stats_ref) =
+              delete_one_id($C, $dbh, $id, $indexer);
+        }
+        else {
+            ASSERT(0, qq{invalid opcode="$op"});
+        }
     }
     else {
         ($index_state, $data_status, $metadata_status) =
           (IX_NO_INDEXER_AVAIL, IX_NO_ERROR, IX_NO_ERROR);
     }
 
-    my $item_is_Solr_indexed =
+    my $item_is_Solr_handled =
       handle_i_result($C, $dbh, $run, $shard, $id, $pid, $host,
                       $index_state, $data_status, $metadata_status);
 
     my $reindexed = 0;
-    if ($item_is_Solr_indexed) {
-        $reindexed = update_ids_indexed($C, $dbh, $run, $shard, $id);
+    my $deleted = 0;
+    if ($item_is_Solr_handled) {
+        if ($op == INDEX_OP) {
+            $reindexed = update_ids_indexed($C, $dbh, $run, $shard, $id);
+        }
+        elsif ($op == DELETE_OP) {
+            $deleted = update_ids_deleted($C, $dbh, $run, $shard, $id);
+        }
     }
 
     Log_item($C, $run, $shard, $id, $pid, $host, $stats_ref, $item_ct,
-             $index_state, $data_status, $metadata_status, $random, $reindexed);
+             $index_state, $data_status, $metadata_status, $random, $reindexed, $deleted);
 
-    # Item is now recorded in either mdp.j_errors or
-    # mdp.j_indexed or in mdp.j_indexed AND mdp.j_timeouts.
+    # Item is now recorded in either mdp.j_errors or mdp.j_indexed or
+    # in mdp.j_indexed AND mdp.j_timeouts.  Unless deleted.
     my $shard_num_docs_processed =
       update_stats($C, $dbh, $run, $shard, $stats_ref, $start, $index_state);
 
@@ -94,6 +115,40 @@ sub Service_ID {
     return ($index_state, $data_status, $metadata_status, $stats_ref);
 }
 
+# ---------------------------------------------------------------------
+
+=item get_required_op
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_required_op {
+    my ($C, $dbh, $id) = @_;
+
+    my $stripped_id = Identifier::get_id_wo_namespace($id);
+    my $namespace = Identifier::the_namespace($id);
+
+    my $statement = qq{SELECT attr, reason FROM rights_current WHERE  namespace='$namespace' AND id='$stripped_id'};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+
+    my $row_hashref = $sth->fetchrow_hashref();
+
+    my $attr = $$row_hashref{'attr'};
+    my $reason = $$row_hashref{'reason'};
+
+    my $op = INDEX_OP;
+    if (
+        ($attr == $RightsGlobals::g_available_to_no_one_attribute_value)
+        &&
+        ($reason == 99999)
+       ) {
+        $op = DELETE_OP;
+    }
+
+    return $op;
+}
 
 # ---------------------------------------------------------------------
 
@@ -116,16 +171,44 @@ sub get_INDEXER_POOL {
     return $indexer_pool;
 }
 
+
 # ---------------------------------------------------------------------
 
-=item process_one_id
+=item delete_one_id
+
+Handles deletion of the different document types Volume, Page by using
+delete by query
+
+=cut
+
+# ---------------------------------------------------------------------
+sub delete_one_id {
+    my ($C, $dbh, $id, $indexer) = @_;
+
+    my ($index_state, $data_status, $metadata_status) = (IX_NO_ERROR, IX_NO_ERROR, IX_NO_ERROR);
+    #
+    # --------------------  Delete Document By Query  --------------------
+    #
+    my $del_stats_ref;
+    my $delete_field = $C->get_object('MdpConfig')->get('default_Solr_delete_field');
+    my $query = qq{$delete_field:$id};
+    
+    ($index_state, $del_stats_ref) = $indexer->delete_by_query($C, $query);
+
+    return ($index_state, $data_status, $metadata_status, $del_stats_ref);
+}
+
+
+# ---------------------------------------------------------------------
+
+=item index_one_id
 
 Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub process_one_id {
+sub index_one_id {
     my ($C, $dbh, $run, $id, $indexer) = @_;
 
     my %merged_stats;
@@ -185,6 +268,22 @@ sub update_ids_indexed {
     my ($C, $dbh, $run, $shard, $id) = @_;
 
     return Db::insert_item_id_indexed($C, $dbh, $run, $shard, $id);
+}
+
+# ---------------------------------------------------------------------
+
+=item update_ids_deleted
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub update_ids_deleted {
+    my ($C, $dbh, $run, $shard, $id) = @_;
+
+    Db::Delete_item_id_indexed($C, $dbh, $run, $shard, $id);
+    return 1;
 }
 
 
@@ -418,7 +517,7 @@ sub handle_i_result {
     my ($C, $dbh, $run, $shard, $id, $pid, $host, $index_state, $data_status, $metadata_status) = @_;
 
     # Optimistic
-    my $item_is_Solr_indexed = 1;
+    my $item_is_Solr_handled = 1;
 
     # determine reason code in priority order: 1)indexing, 2)ocr, 3)metadata.
     my $index_ok = (! Search::Constants::indexing_failed($index_state));
@@ -428,15 +527,15 @@ sub handle_i_result {
     my $reason;
     if (! $index_ok) {
         $reason = $index_state;
-        $item_is_Solr_indexed = 0;
+        $item_is_Solr_handled = 0;
     }
     elsif (! $ocr_ok) {
         $reason = $data_status;
-        $item_is_Solr_indexed = 0;
+        $item_is_Solr_handled = 0;
     }
     elsif (! $metadata_ok) {
         $reason = $metadata_status;
-        $item_is_Solr_indexed = 0;
+        $item_is_Solr_handled = 0;
     }
 
     # IX_INDEX_TIMEOUT is NOT an indexing error and thus the id will
@@ -450,7 +549,7 @@ sub handle_i_result {
         Db::insert_item_id_timeout($C, $dbh, $run, $id, $shard, $pid, $host);
     }
 
-    if (! $item_is_Solr_indexed) {
+    if (! $item_is_Solr_handled) {
         Db::insert_item_id_error($C, $dbh, $run, $shard, $id, $pid, $host, $reason);
 
         my ($max_errors_seen, $condition, $num, $max) = max_errors_reached($C, $dbh, $run, $shard);
@@ -480,7 +579,7 @@ sub handle_i_result {
         }
     }
 
-    return $item_is_Solr_indexed;
+    return $item_is_Solr_handled;
 }
 
 
@@ -495,7 +594,7 @@ Description
 
 # ---------------------------------------------------------------------
 sub Log_item {
-    my ($C, $run, $shard, $id, $pid, $host, $stats_ref, $ct, $index_state, $data_status, $metadata_status, $random, $reindexed) = @_;
+    my ($C, $run, $shard, $id, $pid, $host, $stats_ref, $ct, $index_state, $data_status, $metadata_status, $random, $reindexed, $deleted) = @_;
 
     my $buf;
 
@@ -523,6 +622,9 @@ sub Log_item {
     my $ri = '';
     if ($reindexed) {
         $ri = ' - REINDEX';
+    }
+    elsif ($deleted) {
+        $ri = ' - DELETE';
     }
 
     $shard = $random ? qq{rand_$shard} : qq{REQD_$shard};
