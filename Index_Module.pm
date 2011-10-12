@@ -119,7 +119,9 @@ sub Service_ID {
 
 =item get_required_op
 
-Description
+As of Wed Oct 12 12:06:32 2011, any id that has attr==8 (nobody)
+regardless of "reason" will send a delete to Solr for that id.  It
+could be a no-op if the item is not in the index.
 
 =cut
 
@@ -130,20 +132,14 @@ sub get_required_op {
     my $stripped_id = Identifier::get_id_wo_namespace($id);
     my $namespace = Identifier::the_namespace($id);
 
-    my $statement = qq{SELECT attr, reason FROM rights_current WHERE  namespace='$namespace' AND id='$stripped_id'};
+    my $statement = qq{SELECT attr FROM rights_current WHERE  namespace='$namespace' AND id='$stripped_id'};
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     my $row_hashref = $sth->fetchrow_hashref();
-
     my $attr = $$row_hashref{'attr'};
-    my $reason = $$row_hashref{'reason'};
 
     my $op = INDEX_OP;
-    if (
-        ($attr == $RightsGlobals::g_available_to_no_one_attribute_value)
-        &&
-        ($reason == 99999)
-       ) {
+    if ($attr == $RightsGlobals::g_available_to_no_one_attribute_value) {
         $op = DELETE_OP;
     }
 
