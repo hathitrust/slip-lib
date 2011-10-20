@@ -72,11 +72,11 @@ sub initialize_j_rights_temp {
     my ($statement, $sth);
 
     $statement = qq{DROP TABLE IF EXISTS j_rights_temp};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     $statement = qq{CREATE TABLE `j_rights_temp` (`nid` varchar(32) NOT NULL default '', `attr` tinyint(4) NOT NULL default '0', `reason` tinyint(4) NOT NULL default '0', `source` tinyint(4) NOT NULL default '0', `user` varchar(32) NOT NULL default '', `time` timestamp NOT NULL default CURRENT_TIMESTAMP, `sysid` varchar(32) NOT NULL default '', `update_time` int NOT NULL default '00000000', PRIMARY KEY (`nid`), KEY `update_time` (`update_time`), KEY `attr` (`attr`))};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
 
@@ -95,11 +95,11 @@ sub Drop_j_rights_Rename_j_rights_temp {
     my ($statement, $sth);
     
     $statement = qq{DROP TABLE j_rights};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     $statement = qq{RENAME TABLE j_rights_temp TO j_rights};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
 
@@ -121,11 +121,11 @@ sub init_vSolr_timestamp {
     my $timestamp = defined($time) ? $time : $Db::vSOLR_ZERO_TIMESTAMP;
     $statement = qq{DELETE FROM j_vsolr_timestamp};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
 
     $statement = qq{INSERT INTO j_vsolr_timestamp SET time=$timestamp};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
 # ---------------------------------------------------------------------
@@ -170,7 +170,7 @@ sub update_vSolr_timestamp {
     DEBUG('lsdb', qq{DEBUG: $statement ::: $latest_timestamp});
 
     $statement = qq{UPDATE j_vsolr_timestamp SET time=$latest_timestamp};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
 
@@ -517,7 +517,7 @@ sub Select_id_slice_from_queue {
     my $proc_status = $SLIP_Utils::States::Q_AVAILABLE;
 
     $statement = qq{LOCK TABLES j_queue WRITE};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     # mark a slice of available ids as being processed by a producer
@@ -536,7 +536,7 @@ sub Select_id_slice_from_queue {
     DEBUG('lsdb', qq{DEBUG: SELECT returned num_items=} . scalar(@$ref_to_ary_of_hashref));
 
     $statement = qq{UNLOCK TABLES};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     return $ref_to_ary_of_hashref;
@@ -606,7 +606,7 @@ sub insert_queue_items {
     my $num_inserted = 0;
 
     $statement = qq{LOCK TABLES j_queue WRITE};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     foreach my $id (@$ref_to_ary_of_ids) {
@@ -617,7 +617,7 @@ sub insert_queue_items {
     }
 
     $statement = qq{UNLOCK TABLES};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     return $num_inserted;
@@ -689,7 +689,7 @@ sub insert_latest_into_queue {
     # Lock
     $statement = qq{LOCK TABLES j_rights WRITE, j_queue WRITE, j_rights_timestamp WRITE};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
 
     # Get the timestamp of the newest items last enqueued from
     # j_rights into j_queue. NOTE: non-overlap (>) Talk to Tim and see
@@ -713,7 +713,7 @@ sub insert_latest_into_queue {
     # Unlock
     $statement = qq{UNLOCK TABLES};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
 
     return $num_inserted;
 }
@@ -805,7 +805,7 @@ sub insert_restore_errors_to_queue {
     # Lock
     $statement = qq{LOCK TABLES j_errors WRITE, j_queue WRITE};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
 
     $statement = qq{SELECT id FROM j_errors WHERE run=?};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
@@ -826,7 +826,7 @@ sub insert_restore_errors_to_queue {
     DEBUG('lsdb', qq{DEBUG: $statement : $run});
 
     $statement = qq{UNLOCK TABLES};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     return $num_inserted;
@@ -851,7 +851,7 @@ sub insert_restore_timeouts_to_queue {
     # Lock
     $statement = qq{LOCK TABLES j_timeouts WRITE, j_queue WRITE};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
 
     my $SELECT_clause =
         qq{SELECT $run AS run, id AS id, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM j_timeouts WHERE run=?};
@@ -866,7 +866,7 @@ sub insert_restore_timeouts_to_queue {
     DEBUG('lsdb', qq{DEBUG: $statement : $run});
 
     $statement = qq{UNLOCK TABLES};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     return $num_inserted;
@@ -1329,7 +1329,7 @@ sub Delete_indexed {
         my $begin = time();
         
         $statement = qq{LOCK TABLES j_indexed WRITE};
-        DEBUG('lsdb', qq{DEBUG: $statement : });
+        DEBUG('lsdb', qq{DEBUG: $statement});
         $sth = DbUtils::prep_n_execute($dbh, $statement);
 
         $statement = qq{DELETE FROM j_indexed WHERE run=? LIMIT $DELETE_SLICE_SIZE};
@@ -1337,7 +1337,7 @@ sub Delete_indexed {
         $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$num_affected);
 
         $statement = qq{UNLOCK TABLES};
-        DEBUG('lsdb', qq{DEBUG: $statement : });
+        DEBUG('lsdb', qq{DEBUG: $statement});
         $sth = DbUtils::prep_n_execute($dbh, $statement);
 
         my $elapsed = time() - $begin;
@@ -1591,7 +1591,7 @@ sub update_shard_stats {
     my $statement;
 
     $statement = qq{LOCK TABLES j_shard_stats WRITE};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     $statement = qq{SELECT s_num_docs, s_doc_size, s_doc_time, s_idx_time, s_tot_time FROM j_shard_stats WHERE run=? AND shard=?};
@@ -1627,7 +1627,7 @@ sub update_shard_stats {
     }
 
     $statement = qq{UNLOCK TABLES};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     return ($s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
@@ -1714,7 +1714,7 @@ sub update_rate_stats {
     my $ref_to_ary_of_hashref;
 
     $statement = qq{LOCK TABLES j_rate_stats WRITE};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     $statement = qq{SELECT * FROM j_rate_stats WHERE run=? AND shard=?};
@@ -1752,7 +1752,7 @@ sub update_rate_stats {
     }
 
     $statement = qq{UNLOCK TABLES};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
 
@@ -1770,7 +1770,7 @@ sub Select_rate_stats {
     my ($C, $dbh, $run, $shard) = @_;
 
     my $statement = qq{SELECT rate_a_100 FROM j_rate_stats WHERE run=? AND shard=?};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
 
     my $rate = $sth->fetchrow_array || 0;
@@ -2170,14 +2170,14 @@ sub set_shard_optimize_state {
     my ($statement, $sth);
 
     $statement = qq{LOCK TABLES j_shard_control WRITE};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     # Error state is terminal
     my $current_state = Select_shard_optimize_state($C, $dbh, $run, $shard);
     if ($current_state == $SLIP_Utils::States::Sht_Optimize_Error) {
         $statement = qq{UNLOCK TABLES};
-        DEBUG('lsdb', qq{DEBUG: $statement : });
+        DEBUG('lsdb', qq{DEBUG: $statement});
         $sth = DbUtils::prep_n_execute($dbh, $statement);
 
         return;
@@ -2189,7 +2189,7 @@ sub set_shard_optimize_state {
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 
     $statement = qq{UNLOCK TABLES};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
 
@@ -2229,14 +2229,14 @@ sub set_shard_check_state {
     my ($statement, $sth);
 
     $statement = qq{LOCK TABLES j_shard_control WRITE};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     # Error state is terminal
     my $current_state = Select_shard_check_state($C, $dbh, $run, $shard);
     if ($current_state == $SLIP_Utils::States::Sht_Check_Error) {
         $statement = qq{UNLOCK TABLES};
-        DEBUG('lsdb', qq{DEBUG: $statement : });
+        DEBUG('lsdb', qq{DEBUG: $statement});
         $sth = DbUtils::prep_n_execute($dbh, $statement);
 
         return;
@@ -2248,7 +2248,7 @@ sub set_shard_check_state {
     DEBUG('lsdb', qq{DEBUG: $statement : $state, $run, $shard});
 
     $statement = qq{UNLOCK TABLES};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
 
@@ -2288,7 +2288,7 @@ sub set_shard_build_error {
     my ($statement, $sth);
 
     $statement = qq{LOCK TABLES j_shard_control WRITE};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     $statement = qq{UPDATE j_shard_control SET build=$SLIP_Utils::States::Sht_Build_Error WHERE run=? AND shard=?};
@@ -2296,7 +2296,7 @@ sub set_shard_build_error {
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 
     $statement = qq{UNLOCK TABLES};
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
 
@@ -2618,7 +2618,7 @@ sub set_rights_enabled {
 
     $statement = qq{DELETE FROM j_rights_control};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
-    DEBUG('lsdb', qq{DEBUG: $statement : });
+    DEBUG('lsdb', qq{DEBUG: $statement});
     $statement = qq{INSERT INTO j_rights_control SET enabled=$enabled};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
     DEBUG('lsdb', qq{DEBUG: $statement : $enabled});
