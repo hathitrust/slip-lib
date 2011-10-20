@@ -887,7 +887,7 @@ sub Select_timeouts_count {
     my @params;
     my $AND_clause;
     if ( defined($shard) ) {
-        $AND_clause = qq{ AND shared=? };
+        $AND_clause = qq{ AND shard=? };
         @params = ( $shard );
     }
     my $statement =
