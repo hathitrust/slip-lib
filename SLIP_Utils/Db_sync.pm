@@ -55,9 +55,9 @@ use constant C_INSERT_SIZE => 100000;
 sub Select_j_rights_id {
     my ($C, $dbh, $nid) = @_;
 
-    my $statement = qq{SELECT count(*) FROM j_rights WHERE nid='$nid'};
+    my $statement = qq{SELECT count(*) FROM j_rights WHERE nid=?};
     DEBUG('lsdb', qq{DEBUG: $statement});
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $nid);
 
     my $in_j_rights = $sth->fetchrow_array() || 0;
 
@@ -150,11 +150,20 @@ idempotent
 sub insert_item_id_j_indexed_temp {
     my ($C, $dbh, $shard, $id_arr_ref) = @_;
 
-    my $values = join(',', map("($shard, '$_')", @$id_arr_ref));    
+    # my $values = join(',', map("($shard, '$_')", @$id_arr_ref));    
+    
+    my @values = ();
+    my @params = ();
+    foreach my $id ( @$id_arr_ref ) {
+        push @params, $shard, $id;
+        push @values, qq{(?, ?)};
+    }
+    my $values = join(', ', @values);
+    
     my $statement = qq{INSERT INTO j_indexed_temp (`shard`, `id`) VALUES $values};
 
     my $begin = time();
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, @params);
     DEBUG('lsdb', qq{DEBUG: $statement});
     my $elapsed = time() - $begin;
 
@@ -174,8 +183,8 @@ idempotent
 sub Select_error_item_id {
     my ($C, $dbh, $run, $id) = @_;
 
-    my $statement = qq{SELECT id FROM j_errors WHERE run=$run AND id='$id'};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{SELECT id FROM j_errors WHERE run=? AND id=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
     my $error_id = $sth->fetchrow_array() || 0;
@@ -216,8 +225,8 @@ Description
 sub Select_shards_of_duplicate_id_j_indexed_temp {
     my ($C, $dbh, $id) = @_;
 
-    my $statement = qq{SELECT shard FROM j_indexed_temp WHERE id='$id'};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{SELECT shard FROM j_indexed_temp WHERE id=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $id);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
     my $ref_to_arr_of_ary_ref = $sth->fetchall_arrayref([]);
@@ -237,8 +246,8 @@ Description
 sub Delete_duplicate_id_j_indexed_temp {
     my ($C, $dbh, $id, $shard) = @_;
 
-    my $statement = qq{DELETE FROM j_indexed_temp WHERE id='$id' AND shard=$shard};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{DELETE FROM j_indexed_temp WHERE id=? AND shard=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $id, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 

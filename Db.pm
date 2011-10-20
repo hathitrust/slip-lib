@@ -229,9 +229,9 @@ sub Select_latest_rights_row {
     my ($C, $dbh, $namespace, $id) = @_;
 
     my $statement =
-        qq{SELECT CONCAT(namespace, '.', id) AS nid, attr, reason, source, user, time FROM rights_current WHERE namespace='$namespace' AND id='$id'};
+        qq{SELECT CONCAT(namespace, '.', id) AS nid, attr, reason, source, user, time FROM rights_current WHERE namespace=? AND id=?};
     DEBUG('lsdb', qq{DEBUG: $statement});
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $namespace, $id);
     my $row_hashref = $sth->fetchrow_hashref();
 
     return $row_hashref;
@@ -273,9 +273,9 @@ sub Replace_j_rights_id {
     my $J_RIGHTS_TABLE_NAME = ($Rebuild ? 'j_rights_temp' : 'j_rights');
 
     # See what we already have in $J_RIGHTS_TABLE_NAME
-    $statement = qq{SELECT nid, update_time, sysid FROM $J_RIGHTS_TABLE_NAME WHERE nid='$nid'};
+    $statement = qq{SELECT nid, update_time, sysid FROM $J_RIGHTS_TABLE_NAME WHERE nid=?};
     DEBUG('lsdb', qq{DEBUG: $statement});
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $nid);
 
     my $ref_to_arr_of_hashref = $sth->fetchall_arrayref({});
 
@@ -320,13 +320,13 @@ sub Replace_j_rights_id {
         }
     }
 
-    $statement = qq{REPLACE INTO $J_RIGHTS_TABLE_NAME SET nid='$nid', attr=$attr, reason=$reason, source=$source, user='$user', time='$time', sysid='$sysid', update_time=$updateTime_in_vSolr};
+    $statement = qq{REPLACE INTO $J_RIGHTS_TABLE_NAME SET nid=?, attr=?, reason=?, source=?, user=?, time=?, sysid=?, update_time=?};
     DEBUG('lsdb', qq{DEBUG [Check=$Check_only, case=$case]: $statement});
 
     if (! $Check_only) {
         if ($case ne 'NOOP') {
             # insert or replace
-            $sth = DbUtils::prep_n_execute($dbh, $statement);
+            $sth = DbUtils::prep_n_execute($dbh, $statement, $nid, $attr, $reason, $source, $user, $time, $sysid, $updateTime_in_vSolr);
         }
     }
 
@@ -346,8 +346,8 @@ sub Select_j_rights_id_attr
 {
     my ($C, $dbh, $nid) = @_;
 
-    my $statement = qq{SELECT attr FROM j_rights WHERE nid='$nid'};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{SELECT attr FROM j_rights WHERE nid=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $nid);
     my $attr = $sth->fetchrow_array() || 0;
 
     return $attr;
@@ -367,8 +367,8 @@ sub Select_j_rights_id_sysid
 {
     my ($C, $dbh, $nid) = @_;
 
-    my $statement = qq{SELECT sysid FROM j_rights WHERE nid='$nid'};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{SELECT sysid FROM j_rights WHERE nid=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $nid);
     my $sysid = $sth->fetchrow_array() || 0;
 
     return $sysid;
@@ -397,8 +397,8 @@ Simple test to see if a run exists.
 sub Test_j_rights_timestamp {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{SELECT count(*) FROM j_rights_timestamp WHERE run=$run};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{SELECT count(*) FROM j_rights_timestamp WHERE run=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
     my $ct = $sth->fetchrow_array;
     DEBUG('lsdb', qq{DEBUG: $statement ::: $ct});
 
@@ -419,8 +419,8 @@ occured.
 sub Select_j_rights_timestamp {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{SELECT time FROM j_rights_timestamp WHERE run=$run};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{SELECT time FROM j_rights_timestamp WHERE run=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
     my $timestamp = $sth->fetchrow_array || $Db::vSOLR_ZERO_TIMESTAMP;
     DEBUG('lsdb', qq{DEBUG: $statement ::: $timestamp});
 
@@ -441,8 +441,8 @@ occured.
 sub update_j_rights_timestamp {
     my ($C, $dbh, $run, $timestamp) = @_;
 
-    my $statement = qq{UPDATE j_rights_timestamp SET time=$timestamp WHERE run=$run};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{UPDATE j_rights_timestamp SET time=? WHERE run=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $timestamp, $run);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
@@ -459,8 +459,8 @@ sub init_j_rights_timestamp {
     my ($C, $dbh, $run, $time) = @_;
 
     my $timestamp = defined($time) ? $time : $Db::vSOLR_ZERO_TIMESTAMP;
-    my $statement = qq{REPLACE INTO j_rights_timestamp SET run=$run, time=$timestamp};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{REPLACE INTO j_rights_timestamp SET run=?, time=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $timestamp);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
@@ -476,8 +476,8 @@ Description
 sub delete_j_rights_timestamp {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{DELETE FROM j_rights_timestamp WHERE run=$run};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{DELETE FROM j_rights_timestamp WHERE run=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
@@ -493,8 +493,8 @@ Description
 sub Renumber_j_rights_timestamp {
     my ($C, $dbh, $from_run, $to_run) = @_;
 
-    my $statement = qq{UPDATE j_rights_timestamp SET run=$to_run WHERE run=$from_run};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{UPDATE j_rights_timestamp SET run=? WHERE run=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $to_run, $from_run);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
@@ -522,14 +522,14 @@ sub Select_id_slice_from_queue {
 
     # mark a slice of available ids as being processed by a producer
     # process
-    $statement = qq{UPDATE j_queue SET pid=$pid, host='$host', proc_status=$SLIP_Utils::States::Q_PROCESSING WHERE run=$run AND proc_status=$proc_status LIMIT $slice_size};
+    $statement = qq{UPDATE j_queue SET pid=?, host=?, proc_status=? WHERE run=? AND proc_status=? LIMIT $slice_size};
     DEBUG('lsdb', qq{DEBUG: $statement});
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $pid, $host, $SLIP_Utils::States::Q_PROCESSING, $run, $proc_status);
 
     # get the ids in the slice just marked for this process
-    $statement = qq{SELECT id FROM j_queue WHERE run=$run AND proc_status=$SLIP_Utils::States::Q_PROCESSING AND pid=$pid AND host='$host'; };
+    $statement = qq{SELECT id FROM j_queue WHERE run=? AND proc_status=? AND pid=? AND host=?; };
     DEBUG('lsdb', qq{DEBUG: $statement});
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $SLIP_Utils::States::Q_PROCESSING, $pid, $host);
 
     my $ref_to_ary_of_hashref = $sth->fetchall_arrayref({});
 
@@ -560,9 +560,9 @@ sub Delete_queue {
     do {
         my $begin = time();
 
-        my $statement = qq{DELETE FROM j_queue WHERE run=$run LIMIT $DELETE_Q_SLICE_SIZE};
+        my $statement = qq{DELETE FROM j_queue WHERE run=? LIMIT $DELETE_Q_SLICE_SIZE};
         DEBUG('lsdb', qq{DEBUG: $statement});
-        my $sth = DbUtils::prep_n_execute($dbh, $statement, \$num_affected);
+        my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$num_affected);
 
         my $elapsed = time() - $begin;
         sleep $elapsed/2;
@@ -582,8 +582,8 @@ Description
 sub Renumber_queue {
     my ($C, $dbh, $from_run, $to_run) = @_;
 
-    my $statement = qq{UPDATE j_queue SET run=$to_run WHERE run=$from_run};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{UPDATE j_queue SET run=? WHERE run=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $to_run, $from_run);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
@@ -610,9 +610,9 @@ sub insert_queue_items {
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     foreach my $id (@$ref_to_ary_of_ids) {
-        $statement = qq{REPLACE INTO j_queue SET run=$run, id='$id', pid=0, host='', proc_status=$SLIP_Utils::States::Q_AVAILABLE};
+        $statement = qq{REPLACE INTO j_queue SET run=?, id=?, pid=0, host='', proc_status=?};
         DEBUG('lsdb', qq{DEBUG: $statement});
-        $sth = DbUtils::prep_n_execute($dbh, $statement);
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $SLIP_Utils::States::Q_AVAILABLE);
         $num_inserted++;
     }
 
@@ -662,10 +662,10 @@ sub count_insert_latest_into_queue {
 
     # NOTE: non-overlap (>) Talk to Tim and see
     # insert_latest_into_queue(). If timestamp is 0, we want all.
-    my $WHERE_clause = __get_update_time_WHERE_clause($C, $dbh, $run);
+    my ($WHERE_clause, @params) = __get_update_time_WHERE_clause($C, $dbh, $run);
     my $statement = qq{SELECT count(*) FROM j_rights } . $WHERE_clause;
     DEBUG('lsdb', qq{DEBUG: $statement});
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, @params);
 
     my $num = $sth->fetchrow_array || 0;
 
@@ -694,14 +694,14 @@ sub insert_latest_into_queue {
     # Get the timestamp of the newest items last enqueued from
     # j_rights into j_queue. NOTE: non-overlap (>) Talk to Tim and see
     # count_insert_latest_into_queue()
-    my $WHERE_clause = __get_update_time_WHERE_clause($C, $dbh, $run);
+    my ($WHERE_clause, @params) = __get_update_time_WHERE_clause($C, $dbh, $run);
     my $SELECT_clause =
       qq{SELECT $run AS run, nid AS id, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM j_rights} 
         . $WHERE_clause;
 
     $statement = qq{INSERT INTO j_queue ($SELECT_clause)};
     my $num_inserted = 0;
-    $sth = DbUtils::prep_n_execute($dbh, $statement, \$num_inserted);
+    $sth = DbUtils::prep_n_execute($dbh, $statement, @params, \$num_inserted);
     DEBUG('lsdb', qq{DEBUG: $statement ::: inserted=$num_inserted});
 
     # Get the maximum update_time in j_rights to use as the new timestamp.
@@ -731,8 +731,8 @@ Description
 sub dequeue {
     my ($C, $dbh, $run, $id, $pid, $host) = @_;
 
-    my $statement = qq{DELETE FROM j_queue WHERE run=$run AND id='$id' AND pid=$pid AND host='$host'};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{DELETE FROM j_queue WHERE run=? AND id=? AND pid=? AND host=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $pid, $host);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
@@ -749,8 +749,8 @@ Description
 sub Delete_id_from_j_queue {
     my ($C, $dbh, $run, $id) = @_;
 
-    my $statement = qq{DELETE FROM j_queue WHERE run=$run AND id='$id'};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{DELETE FROM j_queue WHERE run=? AND id=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
@@ -769,16 +769,16 @@ sub update_unstick_inprocess {
     my $sth;
     my $statement;
 
-    $statement = qq{SELECT count(*) FROM j_queue WHERE run=$run AND proc_status=$SLIP_Utils::States::Q_PROCESSING};
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    $statement = qq{SELECT count(*) FROM j_queue WHERE run=? AND proc_status=?};
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $SLIP_Utils::States::Q_PROCESSING);
     my $num_inprocess = $sth->fetchrow_array || 0;
     DEBUG('lsdb', qq{DEBUG: $statement ::: inprocess=$num_inprocess});
 
     if ($num_inprocess > 0) {
         # Mark a slice of ids being processed by a producer process as
         # available
-        $statement = qq{UPDATE j_queue SET proc_status=$SLIP_Utils::States::Q_AVAILABLE WHERE run=$run AND proc_status=$SLIP_Utils::States::Q_PROCESSING};
-        $sth = DbUtils::prep_n_execute($dbh, $statement);
+        $statement = qq{UPDATE j_queue SET proc_status=? WHERE run=? AND proc_status=?};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $SLIP_Utils::States::Q_AVAILABLE, $run, $SLIP_Utils::States::Q_PROCESSING);
         DEBUG('lsdb', qq{DEBUG: $statement});
     }
 
@@ -807,22 +807,22 @@ sub insert_restore_errors_to_queue {
     $sth = DbUtils::prep_n_execute($dbh, $statement);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
-    $statement = qq{SELECT id FROM j_errors WHERE run=$run};
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    $statement = qq{SELECT id FROM j_errors WHERE run=?};
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
     my $ref_to_ary_of_hashref = $sth->fetchall_arrayref({});
     foreach my $ref (@$ref_to_ary_of_hashref) {
         my $id = $ref->{'id'};
         my $num = 0;
-        $statement = qq{INSERT INTO j_queue SET run=$run, id='$id', pid=0, host='', proc_status=$SLIP_Utils::States::Q_AVAILABLE};
-        $sth = DbUtils::prep_n_execute($dbh, $statement, \$num);
+        $statement = qq{INSERT INTO j_queue SET run=?, id=?, pid=0, host='', proc_status=};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $SLIP_Utils::States::Q_AVAILABLE, \$num);
         DEBUG('lsdb', qq{DEBUG: $statement});
         $num_inserted += $num;
     }
 
-    $statement = qq{DELETE FROM j_errors WHERE run=$run};
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    $statement = qq{DELETE FROM j_errors WHERE run=?};
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
     $statement = qq{UNLOCK TABLES};
@@ -854,15 +854,15 @@ sub insert_restore_timeouts_to_queue {
     DEBUG('lsdb', qq{DEBUG: $statement});
 
     my $SELECT_clause =
-        qq{SELECT $run AS run, id AS id, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM j_timeouts WHERE run=$run};
+        qq{SELECT $run AS run, id AS id, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM j_timeouts WHERE run=?};
 
     $statement = qq{INSERT INTO j_queue ($SELECT_clause)};
     my $num_inserted = 0;
-    $sth = DbUtils::prep_n_execute($dbh, $statement, \$num_inserted);
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$num_inserted);
     DEBUG('lsdb', qq{DEBUG: $statement ::: inserted=$num_inserted});
 
-    $statement = qq{DELETE FROM j_timeouts WHERE run=$run};
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    $statement = qq{DELETE FROM j_timeouts WHERE run=?};
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
     $statement = qq{UNLOCK TABLES};
@@ -884,12 +884,17 @@ idempotent
 sub Select_timeouts_count {
     my ($C, $dbh, $run, $shard) = @_;
 
-    my $AND_clause = defined($shard) ? qq{ AND shard=$shard } : '';
+    my @params;
+    my $AND_clause;
+    if ( defined($shard) ) {
+        $AND_clause = qq{ AND shared=? };
+        @params = ( $shard );
+    }
     my $statement =
-        qq{SELECT count(*) FROM j_timeouts WHERE run=$run}
+        qq{SELECT count(*) FROM j_timeouts WHERE run=?}
             . $AND_clause;
     DEBUG('lsdb', qq{DEBUG: $statement});
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, @params);
 
     my $count = $sth->fetchrow_array() || 0;
 
@@ -1078,9 +1083,9 @@ sub Select_id_from_j_errors {
     my $sth;
     my $statement;
 
-    $statement = qq{SELECT reason FROM j_errors WHERE run=$run AND id='$id'};
+    $statement = qq{SELECT reason FROM j_errors WHERE run=? AND id=?};
     DEBUG('lsdb', qq{DEBUG: $statement});
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
 
     my $reason = $sth->fetchrow_array() || $C_NO_ERROR;
 
@@ -1101,8 +1106,8 @@ sub insert_item_id_error {
     my ($C, $dbh, $run, $shard, $id, $pid, $host, $index_state) = @_;
 
     my $statement =
-        qq{REPLACE INTO j_errors SET run=$run, shard=$shard, id='$id', pid=$pid, host='$host', error_time=CURRENT_TIMESTAMP, reason=$index_state};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+        qq{REPLACE INTO j_errors SET run=?, shard=?, id=?, pid=?, host=?, error_time=CURRENT_TIMESTAMP, reason=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $pid, $host, $index_state);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
     # If called to handle critical errors must dequeue here due to
@@ -1165,8 +1170,8 @@ sub insert_item_id_timeout {
     my ($C, $dbh, $run, $id, $shard, $pid, $host) = @_;
 
     my $statement =
-        qq{INSERT INTO j_timeouts SET run=$run, id='$id', shard=$shard, pid=$pid, host='$host', timeout_time=CURRENT_TIMESTAMP};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+        qq{INSERT INTO j_timeouts SET run=?, id=?, shard=?, pid=?, host=?, timeout_time=CURRENT_TIMESTAMP};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard, $pid, $host);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
@@ -1350,16 +1355,16 @@ sub insert_item_id_indexed {
 
     my ($statement, $sth);
 
-    $statement = qq{SELECT indexed_ct FROM j_indexed WHERE run=$run AND id='$id' AND shard=$shard};
+    $statement = qq{SELECT indexed_ct FROM j_indexed WHERE run=? AND id=? AND shard=?};
     DEBUG('lsdb', qq{DEBUG: $statement});
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard);
 
     my $indexed_ct = $sth->fetchrow_array() || 0;
     $indexed_ct++;
 
-    $statement = qq{REPLACE INTO j_indexed SET run=$run, shard=$shard, id='$id', time=CURRENT_TIMESTAMP, indexed_ct=$indexed_ct};
+    $statement = qq{REPLACE INTO j_indexed SET run=?, shard=?, id=?, time=CURRENT_TIMESTAMP, indexed_ct=?};
     DEBUG('lsdb', qq{DEBUG: $statement});
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $indexed_ct);
 
     return ($indexed_ct > 1);
 }
@@ -1376,9 +1381,9 @@ To handle Deletes
 sub Delete_item_id_indexed {
     my ($C, $dbh, $run, $shard, $id) = @_;
 
-    my $statement = qq{DELETE FROM j_indexed WHERE run=$run AND id='$id' AND shard=$shard};
+    my $statement = qq{DELETE FROM j_indexed WHERE run=? AND id=? AND shard=?};
     DEBUG('lsdb', qq{DEBUG: $statement});
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard);
 }
 
 # ---------------------------------------------------------------------
@@ -1412,9 +1417,9 @@ idempotent
 sub Select_item_id_shard {
     my ($C, $dbh, $run, $id) = @_;
 
-    my $statement = qq{SELECT shard FROM j_indexed WHERE run=$run AND id='$id'};
+    my $statement = qq{SELECT shard FROM j_indexed WHERE run=? AND id=?};
     DEBUG('lsdb', qq{DEBUG: $statement});
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
 
     my $shard = $sth->fetchrow_array() || 0;
 
@@ -1497,8 +1502,8 @@ Description
 sub Delete_id_from_shard {
     my ($C, $dbh, $run, $id, $shard) = @_;
 
-    my $statement = qq{DELETE FROM j_indexed WHERE run=$run AND id='$id' AND shard=$shard};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{DELETE FROM j_indexed WHERE run=? AND id=? AND shard=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
@@ -1532,8 +1537,8 @@ Description
 sub Delete_id_from_j_rights {
     my ($C, $dbh, $id) = @_;
 
-    my $statement = qq{DELETE FROM j_rights WHERE nid='$id'};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $statement = qq{DELETE FROM j_rights WHERE nid=$id};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $id);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
