@@ -231,9 +231,11 @@ sub post_process_metadata {
     # 0      1            2          3
     # htid | ingestDate | enumcron | rightsCodeForThisItem
     my @ht_id_display = split(/\|/, $hathiTrust_str[0]);
+    #store enumcron as separate Solr field and concatenate at a later stage prior to display.  See emails on October 18th, 2011 re: 245$c and wierd punctuation when there is an enumcron.
+
     my $volume_enumcron = $ht_id_display[2];
     if ($volume_enumcron) {
-        $metadata_hashref->{'title'}[0] .= qq{, $volume_enumcron};
+        $metadata_hashref->{'volume_enumcron'} = qq{$volume_enumcron};
     }
     delete $metadata_hashref->{'ht_id_display'};
 
