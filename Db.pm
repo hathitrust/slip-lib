@@ -1060,7 +1060,7 @@ sub Select_error_ids {
     my $AND_shard_clause;
     if ( defined($shard) ) {
         @params = ( $shard );
-        my $AND_shard_clause = qq{AND shard=?};
+        $AND_shard_clause = qq{AND shard=?};
     }
     
     my $sth;
