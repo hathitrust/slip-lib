@@ -237,7 +237,7 @@ sub post_process_metadata {
 
     my $volume_enumcron = $ht_id_display[2];
     if ($volume_enumcron) {
-        $metadata_hashref->{'volume_enumcron'} = qq{$volume_enumcron};
+        $metadata_hashref->{'volume_enumcron'} = [$volume_enumcron];
     }
     delete $metadata_hashref->{'ht_id_display'};
 
