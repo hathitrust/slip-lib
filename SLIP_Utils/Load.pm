@@ -21,7 +21,7 @@ Coding example
 
 use strict;
 use SLIP_Utils::States;
-
+use SLIP_Utils::Common;
 # ---------------------------------------------------------------------
 
 =item load_ids_from_file
