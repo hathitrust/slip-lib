@@ -401,11 +401,12 @@ sub max_producers_running
     
     my $run_pattern = q{-r[ ]*} . $run;
     my $producer_pattern = qq{index-j.*?($run_pattern).*?};
-    my $exclude_pattern = qq{-F};
+    my $effective_uid = `whoami`;
+    
     my $num_producers_running =
       SLIP_Utils::Processes::num_producers_running($C,
                                                    $producer_pattern,
-                                                   $exclude_pattern);
+                                                   $effective_uid);
     
     # don't count myself
     my $num_running = $num_producers_running - 1;    

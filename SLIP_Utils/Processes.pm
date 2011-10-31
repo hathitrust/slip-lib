@@ -22,9 +22,6 @@ Coding example
 =cut
 
 
-# Perl
-use Proc::ProcessTable;
-
 # ---------------------------------------------------------------------
 
 =item num_producers_running
@@ -35,22 +32,9 @@ Description
 
 # ---------------------------------------------------------------------
 sub num_producers_running {
-    my ($C, $producer_pattern, $exclude_pattern) = @_;
+    my ($C, $producer_pattern, $effective_uid) = @_;
 
-    my $gp = new Proc::ProcessTable;
-    my $num_producers = 0;
-
-    # look for producer processes
-    foreach $proc ( @{$gp->table} ) {
-        # does this process match the pattern
-        if ($proc->cmndline =~ /$producer_pattern/) {
-            if ($proc->cmndline !~ /$exclude_pattern/) {
-                $num_producers++;
-            }
-        }
-    }
-
-    return $num_producers;
+    return __count_processes_this_pattern($producer_pattern, $effective_uid);
 }
 
 # ---------------------------------------------------------------------
@@ -65,17 +49,30 @@ Description
 sub is_tomcat_running {
     my ($C, $tomcat_pattern) = @_;
 
-    my $gp = new Proc::ProcessTable;
-
-    # look for tomcat processes
-    foreach $proc ( @{$gp->table} ) {
-        if ($proc->cmndline =~ /$tomcat_pattern/) {
-            return 1;
-        }
-    }
-
-    return 0;
+    return __count_processes_this_pattern($tomcat_pattern, 'tomcat');
 }
+
+# ---------------------------------------------------------------------
+
+=item __count_processes_this_pattern 
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __count_processes_this_pattern {
+    my $pattern = shift;
+    my $euid = shift;
+
+    chomp($euid);
+    my $ct = `pgrep -fl -u $euid '$pattern' | wc -l`;
+    chomp($ct);
+    
+    return $ct;
+}
+
+
 
 1;
 
