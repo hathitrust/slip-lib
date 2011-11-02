@@ -146,48 +146,64 @@ sub set_processed_query_string {
     $self->{'processedquerystring'} = $s;
 }
 
-
 # ---------------------------------------------------------------------
 
 =item get_Solr_no_fulltext_filter_query
 
 Construct a filter query informed by the authentication and holdings
 environment for 'search-only'.  This is the negation of
-get_Solr_fulltext_filter_query() + attr 8
-
-WAITING FOR INSTITUTION DATA TO BE AVAILABLE IN Solr INDEX
+get_Solr_fulltext_filter_query() 
 
 =cut
 
 # ---------------------------------------------------------------------
-sub XXX___get_Solr_no_fulltext_filter_query {
+sub get_Solr_no_fulltext_filter_query {
     my $self = shift;
     my $C = shift;
     
-    my $fulltext_FQ_string = $self->get_Solr_fulltext_filter_query($C);
+    my $fulltext_FQ_arg = __HELPER_get_Solr_fulltext_filter_query_arg(undef,$C);
+    my $full_no_fulltext_FQ_string = 'fq=(NOT+' . $fulltext_FQ_arg . ')';
 
-    my $no_fulltext_FQ_string = 
-      '((NOT+(' . $fulltext_FQ_string . '))' . join('+OR+', 'rights:' . RightsGlobals::g_available_to_no_one_attribute_value) . ')';
-    
-    return $no_fulltext_FQ_string;
+    return $full_no_fulltext_FQ_string;
 }
 
 # ---------------------------------------------------------------------
 
 =item get_Solr_fulltext_filter_query
 
-Construct a filter query informed by the authentication and holdings
-environment.
+Construct a full filter query (fq) informed by the
+authentication and holdings environment.
 
 Construct, given the users institution (inst):
    e.g. fq=(rights:1+OR+rights:7)+OR+(ht_holding_inst:inst+AND+attr:3)+OR+(ht_holding_inst:inst+AND+attr:4)
 
-WAITING FOR INSTITUTION DATA TO BE AVAILABLE IN Solr INDEX
+=cut
+
+# ---------------------------------------------------------------------
+sub get_Solr_fulltext_filter_query {
+    my $self = shift;
+    my $C = shift;
+
+    my $full_fulltext_FQ_string = 'fq=' . __HELPER_get_Solr_fulltext_filter_query_arg(undef, $C);
+
+    return $full_fulltext_FQ_string;
+}
+
+
+# ---------------------------------------------------------------------
+
+=item __HELPER_get_Solr_fulltext_filter_query_arg
+
+Construct a the argument to a filter query (fq) informed by the
+authentication and holdings environment.
+
+Construct, given the users institution (inst):
+   e.g. ((rights:1+OR+rights:7)+OR+(ht_heldby:inst+AND+attr:3)+OR+(ht_heldby:inst+AND+attr:4))
 
 =cut
 
 # ---------------------------------------------------------------------
-sub XXX___get_Solr_fulltext_filter_query {
+sub __HELPER_get_Solr_fulltext_filter_query_arg {
     my $self = shift;
     my $C = shift;
     
@@ -220,13 +236,14 @@ sub XXX___get_Solr_fulltext_filter_query {
         my $inst = $C->get_object('Auth')->get_institution($C);
         $inst = '___NO_INST___' if (! $inst);
         $holdings_qualified_string = 
-          '(' . join('+OR+', map { 'ht_holding_inst:$inst+AND+rights:' . $_ } @holdings_qualified_attr_list) . ')';
+          '(' . join('+OR+', map { "ht_heldby:$inst+AND+rights:" . $_ } @holdings_qualified_attr_list) . ')';
     }
     
-    my $fulltext_FQ_string = $unqualified_string . ($holdings_qualified_string ? '+OR+' . $holdings_qualified_string : '');
+    my $fulltext_FQ_string = '(' . $unqualified_string . ($holdings_qualified_string ? '+OR+' . $holdings_qualified_string : '') . ')';
     
     return $fulltext_FQ_string;
 }
+
 
 
 # ---------------------------------------------------------------------
