@@ -161,7 +161,7 @@ sub get_Solr_no_fulltext_filter_query {
     my $self = shift;
     my $C = shift;
     
-    my $fulltext_FQ_arg = __HELPER_get_Solr_fulltext_filter_query_arg(undef,$C);
+    my $fulltext_FQ_arg = $self->__HELPER_get_Solr_fulltext_filter_query_arg($C);
     my $full_no_fulltext_FQ_string = 'fq=(NOT+' . $fulltext_FQ_arg . ')';
 
     return $full_no_fulltext_FQ_string;
@@ -184,7 +184,7 @@ sub get_Solr_fulltext_filter_query {
     my $self = shift;
     my $C = shift;
 
-    my $full_fulltext_FQ_string = 'fq=' . __HELPER_get_Solr_fulltext_filter_query_arg(undef, $C);
+    my $full_fulltext_FQ_string = 'fq=' . $self->__HELPER_get_Solr_fulltext_filter_query_arg($C);
 
     return $full_fulltext_FQ_string;
 }
