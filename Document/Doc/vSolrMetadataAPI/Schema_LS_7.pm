@@ -249,7 +249,9 @@ sub post_process_metadata {
 
     #derive htsource per item from mapping of item id namespace to label
     # if namespace= mdp= htsource = "University of Michigan"
-    my $ns2label= $C->get_object('ns2label');
+    my $yaml_config= $C->get_object('yaml_config');
+    my $ns2label = $yaml_config->get_ns2label();
+    
     my $namespace;
     my $htsource_display_name;
     if ($item_id=~/([^\.]+)\./)
