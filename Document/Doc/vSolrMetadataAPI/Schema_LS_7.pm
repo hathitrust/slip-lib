@@ -260,7 +260,7 @@ sub post_process_metadata {
         $htsource_display_name = $ns2label->{$namespace};
         if (defined( $htsource_display_name))
         {
-            $metadata_hashref->{'htsource'}=$htsource_display_name;
+            $metadata_hashref->{'htsource'}=[$htsource_display_name];
         }
     }
 }
