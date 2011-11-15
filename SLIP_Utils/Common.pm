@@ -26,6 +26,8 @@ use strict;
 # Perl
 use Mail::Mailer;
 use Encode;
+use YAML::XS;
+use LWP;
 
 # App
 use Debug::DUtils;
