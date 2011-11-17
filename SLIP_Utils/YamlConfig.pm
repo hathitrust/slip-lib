@@ -1,4 +1,4 @@
-package SLIP_Utils::Yaml;
+package SLIP_Utils::YamlConfig;
 
 
 =head1 NAME
@@ -13,7 +13,7 @@ This class reads yaml files from disk or url
 
 =head1 SYNOPSIS
 
-my $yaml = new SLIP_Utils::Yaml()
+my $yaml = new SLIP_Utils::YamlConfig()
 my $data =$yaml->get_data($key)
 XXX currently specialized just for ns2label hash !
 
