@@ -24,7 +24,7 @@ XXX currently specialized just for ns2label hash !
 =cut
 
 use strict;
-use YAML::XS;
+use YAML::Any;
 use LWP;
 
 
