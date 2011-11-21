@@ -43,7 +43,7 @@ sub _initialize
 {
     my $self = shift;
     my ($url,$filename) = @_;
-    my $ns2label = $self->__get_ns2label_hash($url);
+    my $ns2label = $self->__get_ns2label_hash($url,$filename);
     if ($ns2label=~/ERROR/)
     {
         die " need better error handling $ns2label $!";
@@ -90,14 +90,21 @@ sub __get_ns2label_hash
     my $filename = shift;
     
     my $ns2label= {};
-    my $yaml = $self->__get_yaml_from_url($url);
-    #   my $yaml = $self->__get_yaml_from_file($filename);
-    if ($yaml =~/ERROR/)
-    {
-        #if url fetching failed $yaml will have http error message
-        return $yaml;
-    }
+    my $yaml = $self->__get_yaml_from_url($url,$filename);
 
+    if ($yaml =~/ERROR/)
+    {  
+        #if url fetching failed $yaml will have http error message
+        # if we couldn't get current file from http assume mirlyn-aleph is temporarily down and get
+        # last cached copy from $filename
+        $yaml = $self->__get_yaml_from_file($filename);
+        
+        if ($yaml =~/ERROR/)
+        {
+            return $yaml;
+        }
+    }
+    
     my $parsed = Load $yaml;
 
     # create hash key = ns value= display label
@@ -116,6 +123,8 @@ sub __get_yaml_from_url
 {
     my $self = shift;
     my $url = shift;
+    my $filename = shift;
+    
     my $yaml;
     my $errormsg = "get_yaml_from_url failed";
     
@@ -130,6 +139,7 @@ sub __get_yaml_from_url
     
     if ($res->is_success) 
     {
+        $self->__write_yaml_to_tmpfile($filename,$res->content);
         return $res->content;
     }
     else 
@@ -138,6 +148,19 @@ sub __get_yaml_from_url
     }
     return $errormsg;
 }
+# ---------------------------------------------------------------------
+sub __write_yaml_to_tmpfile{
+    my $self = shift;
+    my $filename =shift;
+    my $yaml = shift;
+    # open tmp file
+    open my ($fh), '>', $filename or die "YamlConfig can't open $filename for writing $!";
+    print $fh $yaml;
+    close ($fh)
+        
+}
+
+
 # ---------------------------------------------------------------------
 sub __get_yaml_from_file
 {
