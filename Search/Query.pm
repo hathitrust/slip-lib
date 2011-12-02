@@ -207,10 +207,11 @@ sub __HELPER_get_Solr_fulltext_filter_query_arg {
     my $self = shift;
     my $C = shift;
     
-    # These are the attrs, for this users access type (e.g. SSD) and
-    # institution that equate to the 'allow' status, i.e. fulltext.
-    # If any of them also require the institution to hold the volumes
-    # those attrs will be qualified by institution.
+    # These are the attrs, for this users authorization type
+    # (e.g. SSD), geo location and institution that equate to the
+    # 'allow' status, i.e. fulltext.  This code takes into account
+    # whether the attr requires institution to hold the volumes and
+    # qualifies accordingly.
     my $fulltext_attr_list_ref = Access::Rights::get_fulltext_attr_list($C);
     
     my @holdings_qualified_attr_list = ();
