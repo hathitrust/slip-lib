@@ -237,7 +237,7 @@ sub __HELPER_get_Solr_fulltext_filter_query_arg {
         my $inst = $C->get_object('Auth')->get_institution($C);
         $inst = '___NO_INST___' if (! $inst);
         $holdings_qualified_string = 
-          '(' . join('+OR+', map { "ht_heldby:$inst+AND+rights:" . $_ } @holdings_qualified_attr_list) . ')';
+          '(' . join('+OR+', map { '(' . "ht_heldby:$inst+AND+rights:" . $_ . ')'} @holdings_qualified_attr_list) . ')';
     }
     
     my $fulltext_FQ_string = '(' . $unqualified_string . ($holdings_qualified_string ? '+OR+' . $holdings_qualified_string : '') . ')';
