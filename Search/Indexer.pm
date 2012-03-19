@@ -298,7 +298,7 @@ Description
 sub __response_handler
 {
     my $self = shift;
-    my ($C, $response) = @_;
+    my ($C, $response, $from_ref) = @_;
 
     my $index_state;
     my $success = $response->is_success;
@@ -312,7 +312,7 @@ sub __response_handler
     }
     else
     {
-        my $s = qq{Solr error response: code=$code, status="$status_line"\n} 
+        my $s = qq{Solr error response: code=$code, status="$status_line" from=$$from_ref\n} 
             . $response->content();
         my $path = Utils::Logger::__Log_simple($s);
         DEBUG('idx', qq{DEBUG: INDEXER: Bad HTTP response: $code status=} . $response->status_line() . qq{ (see $path)} );
@@ -380,7 +380,9 @@ sub __update_doc
     $$stats_ref{'update'}{'elapsed'} = $elapsed;
     ($$stats_ref{'update'}{'qtime'}) = ($response->{_content} =~ m,<int name="QTime">(.*?)</int>,);
 
-    my $index_state = $self->__response_handler($C, $response);
+    my ($id) = ($$data_ref =~ m,<field name="hid">(.*?)</field>,);
+    my $from = qq{__update_doc e=$elapsed d="$id"};
+    my $index_state = $self->__response_handler($C, $response, \$from);
 
     return $index_state;
 }
@@ -413,7 +415,8 @@ sub __delete_document
 
     $$stats_ref{'delete'}{'elapsed'} = $elapsed;
 
-    my $index_state = $self->__response_handler($C, $response);
+    my $from = "__delete_document e=$elapsed d=$post_data";
+    my $index_state = $self->__response_handler($C, $response, \$from);
 
     DEBUG('idx', qq{Index DELETE DOCUMENT FAILURE response: index_state=$index_state status=} . $response->status_line)
         if (Search::Constants::indexing_failed($index_state));
@@ -448,7 +451,8 @@ sub __delete_by_query {
 
     $$stats_ref{'delete'}{'elapsed'} = $elapsed;
 
-    my $index_state = $self->__response_handler($C, $response);
+    my $from = "__delete_by_query e=$elapsed d=$post_data";
+    my $index_state = $self->__response_handler($C, $response, \$from);
 
     DEBUG('idx', qq{Index DELETE BY QUERY FAILURE response: index_state=$index_state status=} . $response->status_line)
         if (Search::Constants::indexing_failed($index_state));
@@ -482,7 +486,8 @@ sub __delete_index
 
     $$stats_ref{'delete'}{'elapsed'} = $elapsed;
 
-    my $index_state = $self->__response_handler($C, $response);
+    my $from = "__delete_index e=$elapsed d=$post_data";
+    my $index_state = $self->__response_handler($C, $response, \$from);
 
     DEBUG('idx', qq{Index DELETE FAILURE response: index_state=$index_state status=} . $response->status_line)
         if (Search::Constants::indexing_failed($index_state));
@@ -517,7 +522,8 @@ sub __commit_updates
 
     $$stats_ref{'commit'}{'elapsed'} = $elapsed;
 
-    my $index_state = $self->__response_handler($C, $response);
+    my $from = "__commit_updates e=$elapsed d=$post_data";
+    my $index_state = $self->__response_handler($C, $response, \$from);
 
     DEBUG('idx', qq{Index COMMIT FAILURE response: index_state=$index_state status=} . $response->status_line)
         if (Search::Constants::indexing_failed($index_state));
@@ -558,7 +564,8 @@ sub __optimize_index
 
     $$stats_ref{'optimize'}{'elapsed'} = $elapsed;
 
-    my $index_state = $self->__response_handler($C, $response);
+    my $from = "__optimize_index e=$elapsed d=$post_data";
+    my $index_state = $self->__response_handler($C, $response, \$from);
 
     DEBUG('idx', qq{Index OPTIMIZE FAILURE response: index_state=$index_state status=} . $response->status_line)
         if (Search::Constants::indexing_failed($index_state));
