@@ -396,6 +396,7 @@ sub get_processed_user_query_string {
            # Need to work through code and determine just where and when to change &amp; to & and
            # vice versa
            $user_query_string =~ s/\&/ /g;
+           $user_query_string =~ s/</ /g;
 
 
     # Remove leading and trailing whitespace
