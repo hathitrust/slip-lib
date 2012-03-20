@@ -371,18 +371,35 @@ sub __update_doc
     my $url = $self->__get_Solr_post_update_url($C);
     my $req = $self->__get_request_object($url, $data_ref);
 
-    my $start = Time::HiRes::time();
+    my $index_state;
 
-    # Here be HTTP 
-    my $response = $ua->request($req);
+    use constant MAX_RETRIES => 1;
+    my $retries = 0;
 
-    my $elapsed = Time::HiRes::time() - $start;
-    $$stats_ref{'update'}{'elapsed'} = $elapsed;
-    ($$stats_ref{'update'}{'qtime'}) = ($response->{_content} =~ m,<int name="QTime">(.*?)</int>,);
+    while (1) {
+        my $start = Time::HiRes::time();
 
-    my ($id) = ($$data_ref =~ m,<field name="hid">(.*?)</field>,);
-    my $from = qq{__update_doc e=$elapsed d="$id"};
-    my $index_state = $self->__response_handler($C, $response, \$from);
+        # Here be HTTP 
+        my $response = $ua->request($req);
+
+        my $elapsed = Time::HiRes::time() - $start;
+        $$stats_ref{'update'}{'elapsed'} = $elapsed;
+        ($$stats_ref{'update'}{'qtime'}) = ($response->{_content} =~ m,<int name="QTime">(.*?)</int>,);
+
+        my ($id) = ($$data_ref =~ m,<field name="hid">(.*?)</field>,);
+        my $from = qq{__update_doc e=$elapsed d="$id" retry=$retries};
+        $index_state = $self->__response_handler($C, $response, \$from);
+        
+        if ($index_state == IX_INDEXED) {
+            last;
+        }
+        elsif ($retries < MAX_RETRIES) {
+            $retries++;
+        }
+        else {
+            last;
+        }
+    }    
 
     return $index_state;
 }
