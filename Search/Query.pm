@@ -409,7 +409,7 @@ sub get_processed_user_query_string {
 
     # If user is not attempting a boolean query skip the parse here
     my $valid = 1;
-    if (grep(/^(AND|OR)$/, @tokens)) {
+    if (grep(/^(AND|OR|\(|\))$/, @tokens)) {
         # Attempt to parse the query as a boolean expression.
         $valid = valid_boolean_expression(@tokens);
         if ($valid) {
@@ -433,10 +433,12 @@ sub get_processed_user_query_string {
         $self->set_well_formed(1);
     }
 
-    $self->set_processed_query_string($user_query_string);
-    DEBUG('parse', sub {return qq{Final processed user query: $user_query_string}});
+    my $Lucene_safe_query_string = '(' . $user_query_string . ')';
 
-    return $user_query_string;
+    $self->set_processed_query_string($Lucene_safe_query_string);
+    DEBUG('parse', sub {return qq{Final processed user query: $Lucene_safe_query_string}});
+
+    return $Lucene_safe_query_string;
 }
 
 sub get_final_token {
