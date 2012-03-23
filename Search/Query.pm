@@ -433,12 +433,10 @@ sub get_processed_user_query_string {
         $self->set_well_formed(1);
     }
 
-    my $Lucene_safe_query_string = '(' . $user_query_string . ')';
+    $self->set_processed_query_string($user_query_string);
+    DEBUG('parse', sub {return qq{Final processed user query: $user_query_string}});
 
-    $self->set_processed_query_string($Lucene_safe_query_string);
-    DEBUG('parse', sub {return qq{Final processed user query: $Lucene_safe_query_string}});
-
-    return $Lucene_safe_query_string;
+    return $user_query_string;
 }
 
 sub get_final_token {
