@@ -347,62 +347,11 @@ sub get_processed_user_query_string {
     {
         $user_query_string = $self->get_query_string();
     }
-
-
-    # Replace sequences of 2 or more double-quotes (") with a single
-    # double-quote
-    $user_query_string =~ s,["]+,",g;
-    # Remove all double-quote (") if any are unbalanced
-    my $num_chars = $user_query_string =~ tr/"//;
-    $user_query_string =~ s,", ,g
-        if ($num_chars % 2);
-
-# stemming
-# stemming    # Asterisk (*) must follow wordchars and be followed by whitespace
-# stemming    # or EOL.  In other words, a free standing, leading or embedded *
-# stemming    # is ignored
-# stemming    while ($user_query_string =~ s,(\w)\*+(\w),$1 $2,){}
-# stemming    while ($user_query_string =~ s,(^|\s)\*+,$1,){}
-# stemming
-# stemming    # If any asterisk (*) remains, we have right stemming. Solr right
-# stemming    # stemmed query strings have to be lowercase
-# stemming    if ($user_query_string =~ m,\*,) {
-# stemming        $user_query_string = lc($user_query_string);
-# stemming    }
-# stemming
-
-    # Temporarily disable stemming
-    $user_query_string =~ s,\*, ,g;
-
-    # Preserve only word-leading plus and minus (+) (-)
-    while ($user_query_string =~ s,(^|\W)[-+]+(\W|$),$1 $2,){}
-
-    # Note: Lucene special chars are: + - && || ! ( ) { } [ ] ^ " ~ * ? : \
-
-    # Note: See "stemming note" above. Except for + - * " ( ) special
-    # chars are removed to prevent query parsing errors.  Other
-    # punctuation, (e.g. ' . , @) is more likely to appear in normal
-    # text) is left in place, (e.g. 1,000) because the
-    # PunctFilterFactory will tokenize the punctuated term as a single
-    # token whereas if we remove the punctuation, the query parser
-    # will see 2 or more operands and perform a boolean AND which is
-    # slow.
-    $user_query_string =~ s/[!:?\[\]\\^{~}]/ /g;
-    $user_query_string =~ s/\|\|/ /g;
-    $user_query_string =~ s/\&\&/ /g;
-           #XXX  temporarily remove single ampersand
-           # Solr ICUTokenizer will remove it anyway and current code that displays processed
-           # query string assumes &amp; and blows up with unescaped &
-           # Need to work through code and determine just where and when to change &amp; to & and
-           # vice versa
-           $user_query_string =~ s/\&/ /g;
-           $user_query_string =~ s/</ /g;
-
-
-    # Remove leading and trailing whitespace
-    Utils::trim_spaces(\$user_query_string);
-
+    
+    $user_query_string = $self->filter_lucene_chars($user_query_string);
+    
     # At this point double quotes are balanced. Lower-case AND|OR
+    
     # embedded in phrases and replace phrase-embedded parentheses with
     # spaces.
     my @tokens = parse_preprocess($user_query_string);
@@ -445,6 +394,64 @@ sub get_final_token {
         return '';
     }
     return $s;
+}
+
+# ---------------------------------------------------------------------
+sub filter_lucene_chars {
+    my $self = shift;
+    my $user_query_string = shift;
+ 
+    Utils::remap_cers_to_chars(\$user_query_string);
+ 
+    # Replace sequences of 2 or more double-quotes (") with a single
+    # double-quote
+    $user_query_string =~ s,["]+,",g;
+    # Remove all double-quote (") if any are unbalanced
+    my $num_chars = $user_query_string =~ tr/"//;
+    $user_query_string =~ s,", ,g
+        if ($num_chars % 2);
+    
+    # stemming
+    # stemming    # Asterisk (*) must follow wordchars and be followed by whitespace
+    # stemming    # or EOL.  In other words, a free standing, leading or embedded *
+    # stemming    # is ignored
+    # stemming    while ($user_query_string =~ s,(\w)\*+(\w),$1 $2,){}
+    # stemming    while ($user_query_string =~ s,(^|\s)\*+,$1,){}
+    # stemming
+    # stemming    # If any asterisk (*) remains, we have right stemming. Solr right
+    # stemming    # stemmed query strings have to be lowercase
+    # stemming    if ($user_query_string =~ m,\*,) {
+    # stemming        $user_query_string = lc($user_query_string);
+    # stemming    }
+    # stemming
+    
+    # Temporarily disable stemming
+    $user_query_string =~ s,\*, ,g;
+    
+    # Preserve only word-leading plus and minus (+) (-)
+    while ($user_query_string =~ s,(^|\W)[-+]+(\W|$),$1 $2,){}
+    
+    # Note: Lucene special chars are: + - && || ! ( ) { } [ ] ^ " ~ * ? : \
+    
+    # Note: See "stemming note" above. Except for + - * " ( ) special
+    # chars are removed to prevent query parsing errors.  Other
+    # punctuation, (e.g. ' . , @) is more likely to appear in normal
+    # text) is left in place, (e.g. 1,000) because the
+    # PunctFilterFactory will tokenize the punctuated term as a single
+    # token whereas if we remove the punctuation, the query parser
+    # will see 2 or more operands and perform a boolean AND which is
+    # slow.
+    $user_query_string =~ s/[!:?\[\]\\^{~}]/ /g;
+    $user_query_string =~ s/\|\|/ /g;
+    $user_query_string =~ s/\&\&/ /g;
+    
+    # Remove leading and trailing whitespace
+    Utils::trim_spaces(\$user_query_string);
+    
+    # convert the xml special characters " < > & back to character entities
+    Utils::map_chars_to_cers(\$user_query_string, [q{"}, q{'}], 1);
+    
+    return $user_query_string;
 }
 
 # ---------------------------------------------------------------------
