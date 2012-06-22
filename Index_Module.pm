@@ -625,7 +625,7 @@ sub Log_item {
 
     $shard = $reindexed ? qq{REQD_$shard} : qq{rand_$shard};
     my $s = qq{ITEM[$ct$ri$error]: } . Utils::Time::iso_Time() . qq{ r=$run s=$shard id=$id pid=$pid h=$host} . $buf;
-#    SLIP_Utils::Log::this_string($C, $s, 'indexer_logfile', '___RUN___', $run);
+    SLIP_Utils::Log::this_string($C, $s, 'indexer_logfile', '___RUN___', $run);
 }
 
 # ---------------------------------------------------------------------
