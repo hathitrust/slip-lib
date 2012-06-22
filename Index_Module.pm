@@ -35,12 +35,11 @@ use Document::Wrapper;
 
 use SLIP_Utils::Log;
 use SLIP_Utils::States;
-use SLIP_Utils::IndexerPool;
+use SLIP_Utils::IndexerMgr;
 
 # Initialize a pool of Indexers with HTTP timeout=30 sec (default)
-my $INDEXER_POOL;
+my $INDEXER_Mgr;
 
-my $GLOBAL_SHARD_FOR_ERROR_REPORT = 0;
 my $MAX_ERRORS_SEEN = 0;
 
 use constant INDEX_OP => 0;
@@ -56,7 +55,7 @@ Description
 
 # ---------------------------------------------------------------------
 sub Service_ID {
-    my ($C, $dbh, $run, $pid, $host, $id, $item_ct) = @_;
+    my ($C, $dbh, $run, $dedicated_shard, $pid, $host, $id, $item_ct) = @_;
 
     my $start = Time::HiRes::time();
 
@@ -64,7 +63,7 @@ sub Service_ID {
     # re-index and the shard it belongs in is suspended, the
     # id will be added to the error list.
     my ($index_state, $data_status, $metadata_status, $stats_ref);
-    my ($indexer, $shard, $random) = get_Next_indexer($C, $dbh, $run, $pid, $host, $id);
+    my $indexer = get_Shard_indexer($C, $dbh, $run, $pid, $host, $id, $dedicated_shard);
     my $op = get_required_op($C, $dbh, $id);
     if ($indexer) {
         # Index or delete
@@ -86,31 +85,31 @@ sub Service_ID {
     }
 
     my $item_is_Solr_handled =
-      handle_i_result($C, $dbh, $run, $shard, $id, $pid, $host,
+      handle_i_result($C, $dbh, $run, $dedicated_shard, $id, $pid, $host,
                       $index_state, $data_status, $metadata_status);
 
     my $reindexed = 0;
     my $deleted = 0;
     if ($item_is_Solr_handled) {
         if ($op == INDEX_OP) {
-            $reindexed = update_ids_indexed($C, $dbh, $run, $shard, $id);
+            $reindexed = update_ids_indexed($C, $dbh, $run, $dedicated_shard, $id);
         }
         elsif ($op == DELETE_OP) {
-            $deleted = update_ids_deleted($C, $dbh, $run, $shard, $id);
+            $deleted = update_ids_deleted($C, $dbh, $run, $dedicated_shard, $id);
         }
     }
 
-    Log_item($C, $run, $shard, $id, $pid, $host, $stats_ref, $item_ct,
-             $index_state, $data_status, $metadata_status, $random, $reindexed, $deleted);
+    Log_item($C, $run, $dedicated_shard, $id, $pid, $host, $stats_ref, $item_ct,
+             $index_state, $data_status, $metadata_status, $reindexed, $deleted);
 
     # Item is now recorded in either mdp.j_errors or mdp.j_indexed or
     # in mdp.j_indexed AND mdp.j_timeouts.  Unless deleted.
     my $shard_num_docs_processed =
-      update_stats($C, $dbh, $run, $shard, $stats_ref, $start, $index_state);
+      update_stats($C, $dbh, $run, $dedicated_shard, $stats_ref, $start, $index_state);
 
-    update_checkpoint($C, $dbh, $run, $shard, time(), $shard_num_docs_processed);
+    update_checkpoint($C, $dbh, $run, $dedicated_shard, time(), $shard_num_docs_processed);
 
-    handle_timeout_delay($C, $dbh, $run, $pid, $shard, $host, $index_state, $item_ct, $id);
+    handle_timeout_delay($C, $dbh, $run, $pid, $dedicated_shard, $host, $index_state, $item_ct, $id);
 
     return ($index_state, $data_status, $metadata_status, $stats_ref);
 }
@@ -148,23 +147,23 @@ sub get_required_op {
 
 # ---------------------------------------------------------------------
 
-=item get_INDEXER_POOL
+=item get_INDEXER_Mgr
 
 Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub get_INDEXER_POOL {
-    my ($C, $dbh, $run) = @_;
+sub get_INDEXER_Mgr {
+    my ($C, $dbh, $run, $shard) = @_;
 
-    # Initialize a pool of Indexers with HTTP timeout=30 sec (default)
-    my $indexer_pool =
-      defined($INDEXER_POOL)
-        ? $INDEXER_POOL
-          : ($INDEXER_POOL = new SLIP_Utils::IndexerPool($C, $dbh, $run));
+    # Initialize a pool of Indexers
+    my $indexer_mgr =
+      defined($INDEXER_Mgr)
+        ? $INDEXER_Mgr
+          : ($INDEXER_Mgr = new SLIP_Utils::IndexerMgr($C, $dbh, $run, $shard));
 
-    return $indexer_pool;
+    return $indexer_mgr;
 }
 
 
@@ -332,19 +331,6 @@ sub update_checkpoint {
 
 # ---------------------------------------------------------------------
 
-=item get_GLOBAL_error_shard
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub get_GLOBAL_error_shard {
-    return $GLOBAL_SHARD_FOR_ERROR_REPORT;
-}
-
-# ---------------------------------------------------------------------
-
 =item get_MAX_ERRORS_SEEN
 
 Description
@@ -434,38 +420,22 @@ sub max_errors_reached {
 
 # ---------------------------------------------------------------------
 
-=item get_Next_indexer
+=item get_Shard_indexer
 
-If id already indexed, select an indexer that will re-index it in into
-the correct shard otherwise just take whichever indexer comes up next.
-
-If all indexers in the pool or the specific indexer for the shard
-are/is waiting, this call will block until the wait has expired for at
-least one indexer in the pool or the specific indexer for the shard,
-as the case may be.
+Select the indexer for the given shard. This call will block until the
+wait, if any, has expired for the shard.
 
 =cut
 
 # ---------------------------------------------------------------------
-sub get_Next_indexer {
-    my ($C, $dbh, $run, $pid, $host, $id) = @_;
+sub get_Shard_indexer {
+    my ($C, $dbh, $run, $pid, $host, $id, $shard) = @_;
 
-    my ($indexer, $shard);
+    ASSERT(($shard != 0), qq{invalid shard value="$shard"});
+    my $indexer = get_INDEXER_Mgr($C, $dbh, $run, $shard)->get_indexer_For_shard($C);
+    ASSERT($indexer, qq{get_Shard_indexer: indexer not defined});
 
-    my $s = '';
-    my $shard_of_id = Db::Select_item_id_shard($C, $dbh, $run, $id);
-    my $random = (! $shard_of_id);
-
-    if ($shard_of_id) {
-        ($indexer, $shard) = get_INDEXER_POOL($C, $dbh, $run)->get_indexer_For_shard($C, $shard_of_id);
-    }
-    else {
-        ($indexer, $shard) = get_INDEXER_POOL($C, $dbh, $run)->get_indexer($C);
-    }
-
-    $GLOBAL_SHARD_FOR_ERROR_REPORT = $shard;
-
-    return ($indexer, $shard, $random);
+    return $indexer;
 }
 
 
@@ -486,14 +456,44 @@ sub handle_timeout_delay {
     my ($C, $dbh, $run, $pid, $shard, $host, $index_state, $ct, $id, $was_indexed) = @_;
 
     if ($index_state == IX_INDEX_TIMEOUT) {
-        my $Wait_For_secs = get_INDEXER_POOL($C, $dbh, $run)->set_shard_waiting($C, $dbh, $run, $shard);
+        my $Wait_For_secs = get_INDEXER_Mgr($C, $dbh, $run)->set_shard_waiting($C);
         Log_timeout($C, $run, $pid, $shard, $host, $Wait_For_secs, $ct, $id);
     }
     else {
-        my $was_waiting = get_INDEXER_POOL($C, $dbh, $run)->Reset_shard_waiting($C, $shard);
+        my $was_waiting = get_INDEXER_Mgr($C, $dbh, $run)->Reset_shard_waiting($C);
         Log_timeout($C, $run, $pid, $shard, $host, 0, $ct, 'noop')
             if ($was_waiting);
     }
+}
+
+# ---------------------------------------------------------------------
+
+=item handle_error_insertion
+
+An ID that has never been indexed (not in j_indexed) and repeatedly
+fails will be randomly assigned a (probably) different dedicated shard
+with each attempt. Restoring this ID to the queue repeatedly will add
+it to the queue with these several different shard numbers and cause
+the system to index it to more than one shard. If never indexed, set
+its shard=0 in the error list. If previously indexed use the dedicated
+shard.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub handle_error_insertion {
+    my ($C, $dbh, $run, $dedicated_shard, $id, $pid, $host, $reason) = @_;
+    
+    my $use_shard = 0;
+
+    my $shard = Db::Select_item_id_shard($C, $dbh, $run, $id);
+    if ($shard) {
+        ASSERT(($shard == $dedicated_shard), 
+               qq{shard number mismatch: indexed_shard=$shard dedicated_shard=$dedicated_shard id=$id});
+        $use_shard = $dedicated_shard;
+    }
+
+    Db::insert_item_id_error($C, $dbh, $run, $use_shard, $id, $pid, $host, $reason);
 }
 
 
@@ -510,7 +510,7 @@ Timesouts
 
 # ---------------------------------------------------------------------
 sub handle_i_result {
-    my ($C, $dbh, $run, $shard, $id, $pid, $host, $index_state, $data_status, $metadata_status) = @_;
+    my ($C, $dbh, $run, $dedicated_shard, $id, $pid, $host, $index_state, $data_status, $metadata_status) = @_;
 
     # Optimistic
     my $item_is_Solr_handled = 1;
@@ -542,27 +542,27 @@ sub handle_i_result {
     # that when timeouts are reprocessed the request can be re-tried
     # and with the correct shard (now recorded in j_indexed).
     if ($index_state == IX_INDEX_TIMEOUT) {
-        Db::insert_item_id_timeout($C, $dbh, $run, $id, $shard, $pid, $host);
+        Db::insert_item_id_timeout($C, $dbh, $run, $id, $dedicated_shard, $pid, $host);
     }
 
     if (! $item_is_Solr_handled) {
-        Db::insert_item_id_error($C, $dbh, $run, $shard, $id, $pid, $host, $reason);
-
-        my ($max_errors_seen, $condition, $num, $max) = max_errors_reached($C, $dbh, $run, $shard);
+        handle_error_insertion($C, $dbh, $run, $dedicated_shard, $id, $pid, $host, $reason);
+    
+        my ($max_errors_seen, $condition, $num, $max) = max_errors_reached($C, $dbh, $run, $dedicated_shard);
         if ($max_errors_seen && (! $MAX_ERRORS_SEEN)) {
             $MAX_ERRORS_SEEN = $SLIP_Utils::States::RC_MAX_ERRORS;
 
-            Log_error_stop($C, $run, $shard, $pid, $host, "MAX ERRORS condition=$condition num=$num)");
+            Log_error_stop($C, $run, $dedicated_shard, $pid, $host, "MAX ERRORS condition=$condition num=$num)");
 
-            my $subj = qq{[SLIP] MAX ERRORS: run=$run shard=$shard disabled};
+            my $subj = qq{[SLIP] MAX ERRORS: run=$run shard=$dedicated_shard disabled};
             my $msg =
-                qq{ERROR point reached for run=$run shard=$shard pid=$pid host=$host\n} .
+                qq{ERROR point reached for run=$run shard=$dedicated_shard pid=$pid host=$host\n} .
                     qq{condition=$condition num=$num  max=$max};
             # One email, not one for every unprocessed slice item
             SLIP_Utils::Common::Send_email($C, 'report', $subj, $msg);
 
-            Db::update_shard_enabled($C, $dbh, $run, $shard, 0);
-            Db::set_shard_build_error($C, $dbh, $run, $shard);
+            Db::update_shard_enabled($C, $dbh, $run, $dedicated_shard, 0);
+            Db::set_shard_build_error($C, $dbh, $run, $dedicated_shard);
         }
         
         if (! $metadata_ok) {
@@ -570,7 +570,7 @@ sub handle_i_result {
             if ($C->has_object('Result')) {
                 my $rs = $C->get_object('Result');
                 my $dump = $rs->get_failed_HTTP_dump();
-                Log_metadata_error($C, $run, $shard, $pid, $host, $dump);
+                Log_metadata_error($C, $run, $dedicated_shard, $pid, $host, $dump);
             }
         }
     }
@@ -590,7 +590,7 @@ Description
 
 # ---------------------------------------------------------------------
 sub Log_item {
-    my ($C, $run, $shard, $id, $pid, $host, $stats_ref, $ct, $index_state, $data_status, $metadata_status, $random, $reindexed, $deleted) = @_;
+    my ($C, $run, $shard, $id, $pid, $host, $stats_ref, $ct, $index_state, $data_status, $metadata_status, $reindexed, $deleted) = @_;
 
     my $buf;
 
@@ -623,9 +623,9 @@ sub Log_item {
         $ri = ' - DELETE';
     }
 
-    $shard = $random ? qq{rand_$shard} : qq{REQD_$shard};
+    $shard = $reindexed ? qq{REQD_$shard} : qq{rand_$shard};
     my $s = qq{ITEM[$ct$ri$error]: } . Utils::Time::iso_Time() . qq{ r=$run s=$shard id=$id pid=$pid h=$host} . $buf;
-    SLIP_Utils::Log::this_string($C, $s, 'indexer_logfile', '___RUN___', $run);
+#    SLIP_Utils::Log::this_string($C, $s, 'indexer_logfile', '___RUN___', $run);
 }
 
 # ---------------------------------------------------------------------

@@ -68,7 +68,7 @@ Description
 # ---------------------------------------------------------------------
 sub initialize_j_rights_temp {
     my($C, $dbh) = @_;
-    
+
     my ($statement, $sth);
 
     $statement = qq{DROP TABLE IF EXISTS j_rights_temp};
@@ -93,7 +93,7 @@ sub Drop_j_rights_Rename_j_rights_temp {
     my ($C, $dbh) = @_;
 
     my ($statement, $sth);
-    
+
     $statement = qq{DROP TABLE j_rights};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
@@ -296,7 +296,7 @@ sub Replace_j_rights_id {
     else {
         # If nid's update_time is the is same as update_time recorded
         # in J_RIGHTS_TABLE_NAME then we're seeing an update we
-        # already recorded due to range query [last_run_time-2d TO *]. 
+        # already recorded due to range query [last_run_time-2d TO *].
         # Use '<=' even though it should be impossible for the nid
         # timestamp we are seeing now to be older than what we
         # recorded when we saw it for the first time.
@@ -509,7 +509,7 @@ Description
 
 # ---------------------------------------------------------------------
 sub Select_id_slice_from_queue {
-    my ($C, $dbh, $run, $pid, $host, $slice_size) = @_;
+    my ($C, $dbh, $run, $shard, $pid, $host, $slice_size) = @_;
 
     my $sth;
     my $statement;
@@ -522,9 +522,9 @@ sub Select_id_slice_from_queue {
 
     # mark a slice of available ids as being processed by a producer
     # process
-    $statement = qq{UPDATE j_queue SET pid=?, host=?, proc_status=? WHERE run=? AND proc_status=? LIMIT $slice_size};
-    DEBUG('lsdb', qq{DEBUG: $statement : $pid, $host, $SLIP_Utils::States::Q_PROCESSING, $run, $proc_status});
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $pid, $host, $SLIP_Utils::States::Q_PROCESSING, $run, $proc_status);
+    $statement = qq{UPDATE j_queue SET pid=?, host=?, proc_status=? WHERE run=? AND (shard=0 OR shard=?) AND proc_status=? LIMIT $slice_size};
+    DEBUG('lsdb', qq{DEBUG: $statement : $pid, $host, $SLIP_Utils::States::Q_PROCESSING, $run, 0, $shard, $proc_status});
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $pid, $host, $SLIP_Utils::States::Q_PROCESSING, $run, $shard, $proc_status);
 
     # get the ids in the slice just marked for this process
     $statement = qq{SELECT id FROM j_queue WHERE run=? AND proc_status=? AND pid=? AND host=?; };
@@ -599,7 +599,7 @@ used for static testing.
 
 # ---------------------------------------------------------------------
 sub insert_queue_items {
-    my ($C, $dbh, $run, $ref_to_ary_of_ids) = @_;
+    my ($C, $dbh, $run, $ref_to_ary_of_hashref) = @_;
 
     my $sth;
     my $statement;
@@ -609,10 +609,13 @@ sub insert_queue_items {
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
-    foreach my $id (@$ref_to_ary_of_ids) {
-        $statement = qq{REPLACE INTO j_queue SET run=?, id=?, pid=0, host='', proc_status=?};
+    foreach my $hashref (@$ref_to_ary_of_hashref) {
+        my $id = $hashref->{id};
+        my $shard = $hashref->{shard};
+
+        $statement = qq{REPLACE INTO j_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=?};
         DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $SLIP_Utils::States::Q_AVAILABLE});
-        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $SLIP_Utils::States::Q_AVAILABLE);
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $SLIP_Utils::States::Q_AVAILABLE);
         $num_inserted++;
     }
 
@@ -634,18 +637,24 @@ Description
 
 # ---------------------------------------------------------------------
 sub __get_update_time_WHERE_clause {
-    my ($C, $dbh, $run) = @_;
-    
+    my ($C, $dbh, $run, $id) = @_;
+
     my $timestamp = Db::Select_j_rights_timestamp($C, $dbh, $run);
     my $WHERE_clause;
     if ($timestamp eq $Db::vSOLR_ZERO_TIMESTAMP) {
-        $WHERE_clause = qq{ WHERE update_time >= $timestamp};
+        $WHERE_clause = qq{ WHERE update_time >= ?};
     }
     else {
-        $WHERE_clause = qq{ WHERE update_time > $timestamp};
+        $WHERE_clause = qq{ WHERE update_time > ?};
     }
 
-    return $WHERE_clause;
+    if (defined $id) {
+        $WHERE_clause .= qq{ AND id=?};
+        return ($WHERE_clause, $timestamp, $id);
+    }
+    else {
+        return ($WHERE_clause, $timestamp);
+    }
 }
 
 # ---------------------------------------------------------------------
@@ -687,7 +696,7 @@ sub insert_latest_into_queue {
     my ($sth, $statement);
 
     # Lock
-    $statement = qq{LOCK TABLES j_rights WRITE, j_queue WRITE, j_rights_timestamp WRITE};
+    $statement = qq{LOCK TABLES j_rights WRITE, j_queue WRITE, j_rights_timestamp WRITE, j_indexed WRITE};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
@@ -695,14 +704,29 @@ sub insert_latest_into_queue {
     # j_rights into j_queue. NOTE: non-overlap (>) Talk to Tim and see
     # count_insert_latest_into_queue()
     my ($WHERE_clause, @params) = __get_update_time_WHERE_clause($C, $dbh, $run);
-    my $SELECT_clause =
-      qq{SELECT $run AS run, nid AS id, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM j_rights} 
-        . $WHERE_clause;
 
-    $statement = qq{INSERT INTO j_queue ($SELECT_clause)};
+    my $SELECT_INSERT_clause =
+      qq{SELECT $run AS run, 0 AS shard, nid AS id, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM j_rights}
+        . $WHERE_clause;
+    $statement = qq{INSERT INTO j_queue ($SELECT_INSERT_clause)};
     my $num_inserted = 0;
     $sth = DbUtils::prep_n_execute($dbh, $statement, @params, \$num_inserted);
     DEBUG('lsdb', qq{DEBUG: $statement ::: inserted=$num_inserted});
+
+    # Update shards of ids in j_queue
+    $statement = qq{SELECT id FROM j_queue WHERE run=?};
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    my $ref_to_ary_of_arr_ref = $sth->fetchall_arrayref([]);
+    foreach my $ref (@$ref_to_ary_of_arr_ref) {
+        my $id = $ref->[0];
+        $statement = qq{SELECT shard FROM j_indexed WHERE run=? AND id=?};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
+        my $shard = $sth->fetchrow_array || 0;
+
+        $statement = qq{UPDATE j_queue SET shard=? WHERE run=? AND id=?};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $shard, $run, $id);
+    }
 
     # Get the maximum update_time in j_rights to use as the new timestamp.
     $statement = qq{SELECT MAX(update_time) FROM j_rights};
@@ -807,16 +831,17 @@ sub insert_restore_errors_to_queue {
     $sth = DbUtils::prep_n_execute($dbh, $statement);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
-    $statement = qq{SELECT id FROM j_errors WHERE run=?};
+    $statement = qq{SELECT id, shard FROM j_errors WHERE run=?};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
     DEBUG('lsdb', qq{DEBUG: $statement : $run});
 
     my $ref_to_ary_of_hashref = $sth->fetchall_arrayref({});
     foreach my $ref (@$ref_to_ary_of_hashref) {
         my $id = $ref->{'id'};
+        my $shard = $ref->{'shard'};
         my $num = 0;
-        $statement = qq{INSERT INTO j_queue SET run=?, id=?, pid=0, host='', proc_status=?};
-        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $SLIP_Utils::States::Q_AVAILABLE, \$num);
+        $statement = qq{INSERT INTO j_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=?};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $SLIP_Utils::States::Q_AVAILABLE, \$num);
         DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $SLIP_Utils::States::Q_AVAILABLE});
         $num_inserted += $num;
     }
@@ -854,7 +879,7 @@ sub insert_restore_timeouts_to_queue {
     DEBUG('lsdb', qq{DEBUG: $statement});
 
     my $SELECT_clause =
-        qq{SELECT $run AS run, id AS id, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM j_timeouts WHERE run=?};
+        qq{SELECT $run AS run, id AS id, shard AS shard, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM j_timeouts WHERE run=?};
 
     $statement = qq{INSERT INTO j_queue ($SELECT_clause)};
     my $num_inserted = 0;
@@ -1062,7 +1087,7 @@ sub Select_error_ids {
         @params = ( $shard );
         $AND_shard_clause = qq{AND shard=?};
     }
-    
+
     my $sth;
     my $statement = qq{SELECT id, pid, host, error_time FROM j_errors WHERE run=? AND reason=? $AND_shard_clause};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $reason, @params});
@@ -1139,7 +1164,7 @@ sub Delete_errors {
     DEBUG('lsdb', qq{DEBUG: $statement : $run});
     my $ct = 0;
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$ct);
-    
+
     return ($ct == '0E0') ? 0 : $ct;;
 }
 
@@ -1327,7 +1352,7 @@ sub Delete_indexed {
     my $num_affected = 0;
     do {
         my $begin = time();
-        
+
         $statement = qq{LOCK TABLES j_indexed WRITE};
         DEBUG('lsdb', qq{DEBUG: $statement});
         $sth = DbUtils::prep_n_execute($dbh, $statement);
@@ -1342,7 +1367,7 @@ sub Delete_indexed {
 
         my $elapsed = time() - $begin;
         sleep $elapsed/2;
-        
+
     } until ($num_affected <= 0);
 }
 
@@ -1423,10 +1448,10 @@ sub Select_item_id_shard {
     my ($C, $dbh, $run, $id) = @_;
 
     my $statement = qq{SELECT shard FROM j_indexed WHERE run=? AND id=?};
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $id});
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
 
     my $shard = $sth->fetchrow_array() || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, $id ::: shard=$shard});
 
     return $shard;
 }
@@ -1444,10 +1469,10 @@ sub Select_indexed_count {
     my ($C, $dbh, $run, $shard) = @_;
 
     my $statement = qq{SELECT count(*) FROM j_indexed WHERE run=? AND shard=?};
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
 
     my $count = $sth->fetchrow_array() || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard ::: count=$count});
 
     return $count;
 }
@@ -1523,7 +1548,7 @@ Description
 # ---------------------------------------------------------------------
 sub Renumber_indexed {
     my ($C, $dbh, $from_run, $to_run) = @_;
-    
+
     my $statement = qq{UPDATE j_indexed SET run=? WHERE run=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $to_run, $from_run);
     DEBUG('lsdb', qq{DEBUG: $statement : $to_run, $from_run});
@@ -1664,7 +1689,7 @@ sub Select_shard_stats {
 
 # ---------------------------------------------------------------------
 
-=item Renumber_shard_stats 
+=item Renumber_shard_stats
 
 Description
 
@@ -2005,7 +2030,7 @@ Description
 sub Reset_shard_control {
     my ($C, $dbh, $run, $shard) = @_;
 
-    my $statement = qq{UPDATE j_shard_control SET build=0, optimiz=0, checkd=0 WHERE run=? AND shard=?};
+    my $statement = qq{UPDATE j_shard_control SET enabled=0, suspended=0, allocated=0, build=0, optimiz=0, checkd=0 WHERE run=? AND shard=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 }
@@ -2029,9 +2054,69 @@ sub init_shard_control {
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 
-    $statement = qq{INSERT INTO j_shard_control SET run=?, shard=?, enabled=0, suspended=0, build=0, optimiz=0, checkd=0, build_time='$Db::MYSQL_ZERO_TIMESTAMP', optimize_time='$Db::MYSQL_ZERO_TIMESTAMP', checkd_time='$Db::MYSQL_ZERO_TIMESTAMP', release_state=0};
+    $statement = qq{INSERT INTO j_shard_control SET run=?, shard=?, enabled=0, suspended=0, num_producers=0, allocated=0, build=0, optimiz=0, checkd=0, build_time='$Db::MYSQL_ZERO_TIMESTAMP', optimize_time='$Db::MYSQL_ZERO_TIMESTAMP', checkd_time='$Db::MYSQL_ZERO_TIMESTAMP', release_state=0};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
+}
+
+# ---------------------------------------------------------------------
+
+=item Select_shard_num_producers
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Select_shard_num_producers {
+    my ($C, $dbh, $run, $shard) = @_;
+
+    my $statement = qq{SELECT num_producers FROM j_shard_control WHERE run=? AND shard=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
+
+    my $num_producers_configured = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard ::: configured=$num_producers_configured});
+
+    return $num_producers_configured;
+}
+
+# ---------------------------------------------------------------------
+
+=item Select_shard_num_allocated
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Select_shard_num_allocated {
+    my ($C, $dbh, $run, $shard) = @_;
+
+    my $statement = qq{SELECT allocated FROM j_shard_control WHERE run=? AND shard=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
+
+    my $num_allocated = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement : $run $shard ::: $num_allocated});
+
+    return $num_allocated;
+}
+
+
+# ---------------------------------------------------------------------
+
+=item update_shard_num_producers
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub update_shard_num_producers {
+    my ($C, $dbh, $run, $shard, $num_producers) = @_;
+
+    my $statement = qq{UPDATE j_shard_control SET num_producers=? WHERE run=? AND shard=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $num_producers, $run, $shard);
+    DEBUG('lsdb', qq{DEBUG: $statement : $num_producers, $run, $shard});
 }
 
 # ---------------------------------------------------------------------
@@ -2046,11 +2131,21 @@ Description
 sub Select_run_num_shards_available {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{SELECT count(*) FROM j_shard_control WHERE run=? AND enabled=1 AND suspended=0};
+    my ($statement, $sth);
 
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
+    $statement = qq{LOCK TABLES j_shard_control WRITE};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
+
+    $statement = qq{SELECT count(*) FROM j_shard_control WHERE run=? AND enabled=1 AND suspended=0};
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
+
     my $num_enabled = $sth->fetchrow_array || 0;
     DEBUG('lsdb', qq{DEBUG: $statement ::: num_enabled=$num_enabled});
+
+    $statement = qq{UNLOCK TABLES};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     return $num_enabled;
 }
@@ -2076,7 +2171,7 @@ sub Select_shard_enabled {
     my $suspended = $ref_to_ary_of_hashref->[0]->{'suspended'};
 
     my $state = $enabled && (! $suspended);
-    DEBUG('lsdb', qq{DEBUG: $statement ::: enabled=$state});
+    DEBUG('lsdb', qq{DEBUG: $statement: $run, $shard ::: enabled=$state});
 
     return $state;
 }
@@ -2094,9 +2189,22 @@ Description
 sub update_shard_enabled {
     my ($C, $dbh, $run, $shard, $enabled) = @_;
 
-    my $statement = qq{UPDATE j_shard_control SET enabled=? WHERE run=? AND shard=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $enabled, $run, $shard);
-    DEBUG('lsdb', qq{DEBUG: $statement : $enabled, $run, $shard});
+    # If disabling a shard, set its producer allocation to 0 in case the
+    # terminating producers fail to deallocate themselves. Enabling a
+    # shard is idempotent so assume the count of allocated producers
+    # is correct, i.e. do no alter that value.
+    my ($statement, $sth);
+
+    if (! $enabled) {
+        $statement = qq{UPDATE j_shard_control SET enabled=?, allocated=? WHERE run=? AND shard=?};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $enabled, 0, $run, $shard);
+        DEBUG('lsdb', qq{DEBUG: $statement : $enabled, 0, $run, $shard});
+    }
+    else {
+        $statement = qq{UPDATE j_shard_control SET enabled=? WHERE run=? AND shard=?};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $enabled, $run, $shard);
+        DEBUG('lsdb', qq{DEBUG: $statement : $enabled, $run, $shard});
+    }
 }
 
 
@@ -2153,6 +2261,157 @@ sub shard_is_suspended {
     DEBUG('lsdb', qq{DEBUG: $statement ::: suspended=$suspended});
 
     return $suspended;
+}
+
+# ---------------------------------------------------------------------
+
+=item shard_is_overallocated
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub shard_is_overallocated {
+    my ($C, $dbh, $run, $shard) = @_;
+
+    my ($statement, $sth);
+
+    my $overallocated = 0;
+
+    $statement = qq{LOCK TABLES j_shard_control WRITE};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
+
+    if (Select_shard_enabled($C, $dbh, $run, $shard)) {
+        $statement = qq{SELECT allocated FROM j_shard_control WHERE run=? AND shard=?};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
+
+        my $allocated = $sth->fetchrow_array || 0;
+        DEBUG('me,lsdb', qq{DEBUG (overalloc): $statement run=$run shard=$shard ::: allocated=$allocated});
+
+        my $num_producers_configured = Select_shard_num_producers($C, $dbh, $run, $shard);
+
+        if ($allocated > $num_producers_configured) {
+            $overallocated = 1;
+        }
+    }
+
+    $statement = qq{UNLOCK TABLES};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
+
+    return $overallocated;
+}
+
+# ---------------------------------------------------------------------
+
+=item Select_allocate_unallocated_shard
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Select_allocate_unallocated_shard {
+    my ($C, $dbh, $run, $shard_list_ref) = @_;
+
+    my ($statement, $sth);
+
+    my $allocated_shard = 0;
+
+    $statement = qq{LOCK TABLES j_shard_control WRITE, j_queue WRITE};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
+
+    # Get a list of shards to which queued IDs are dedicated and any
+    # undedicated IDs (shard=0).
+    $statement = qq{SELECT DISTINCT shard FROM j_queue WHERE run=? AND proc_status=?};
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $SLIP_Utils::States::Q_AVAILABLE);
+    my $ref_to_arr_of_arr_ref = $sth->fetchall_arrayref([]);
+    my $queued_shard_arr_ref = [];
+    if (scalar(@$ref_to_arr_of_arr_ref)) {
+        $queued_shard_arr_ref = [ map {$_->[0]} @$ref_to_arr_of_arr_ref ];
+    }
+    DEBUG('lsdb',
+          sub {
+              my $s = join(' ', @$queued_shard_arr_ref);
+              return qq{DEBUG (unalloc): $statement : $run, $SLIP_Utils::States::Q_AVAILABLE ::: $s}
+          });
+
+    my $exists_undedicated_ids = grep(/^0$/, @$queued_shard_arr_ref);
+
+    foreach my $shard (@$shard_list_ref) {
+        if (
+            $exists_undedicated_ids
+            ||
+            (grep(/^$shard$/, @$queued_shard_arr_ref))
+           ) {
+            if (Select_shard_enabled($C, $dbh, $run, $shard)) {
+                $statement = qq{SELECT allocated FROM j_shard_control WHERE run=? AND shard=?};
+                $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
+
+                my $allocated = $sth->fetchrow_array || 0;
+                DEBUG('me,lsdb', qq{DEBUG (unalloc): $statement run=$run shard=$shard ::: allocated=$allocated});
+
+                my $num_producers_configured = Select_shard_num_producers($C, $dbh, $run, $shard);
+
+                if ($allocated < $num_producers_configured) {
+                    $allocated_shard = $shard;
+                    $allocated++;
+                    $statement = qq{UPDATE j_shard_control SET allocated=? WHERE run=? AND shard=?};
+                    $sth = DbUtils::prep_n_execute($dbh, $statement, $allocated, $run, $shard);
+                    DEBUG('me,lsdb', qq{DEBUG (unalloc): $statement configured=$num_producers_configured allocated=$allocated run=$run shard=$shard});
+                    last;
+                }
+            }
+        }
+    }
+
+    $statement = qq{UNLOCK TABLES};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
+
+    return $allocated_shard;
+}
+
+
+# ---------------------------------------------------------------------
+
+=item update_decrement_shard_allocation
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub update_decrement_shard_allocation {
+    my ($C, $dbh, $run, $shard) = @_;
+
+    my ($statement, $sth);
+
+    $statement = qq{LOCK TABLES j_shard_control WRITE};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
+
+    $statement = qq{SELECT allocated FROM j_shard_control WHERE run=? AND shard=?};
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
+
+    my $allocated = $sth->fetchrow_array || 0;
+    DEBUG('me,lsdb', qq{DEBUG (dealloc): $statement run=$run shard=$shard ::: allocated=$allocated});
+
+    if ($allocated > 0) {
+        $allocated--;
+        $statement = qq{UPDATE j_shard_control SET allocated=? WHERE run=? AND shard=?};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $allocated, $run, $shard);
+        DEBUG('me,lsdb', qq{DEBUG (dealloc): $statement allocated=$allocated run=$run shard=$shard});
+    }
+
+    $statement = qq{UNLOCK TABLES};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
+
+    return $allocated;
 }
 
 # ---------------------------------------------------------------------
@@ -2422,9 +2681,9 @@ sub Select_num_producers {
 
     my $statement = qq{SELECT num_producers FROM j_host_control WHERE run=? AND host=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $host);
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $host});
 
     my $num_producers_configured = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, $host ::: configured=$num_producers_configured});
 
     return $num_producers_configured;
 }

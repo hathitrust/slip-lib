@@ -410,8 +410,6 @@ sub max_producers_running
     
     # don't count myself
     my $num_running = $num_producers_running - 1;    
-    DEBUG('me', qq{DEBUG: num_running=$num_running num_configd=$num_producers_configured});
-    
     
     return ($num_running >= $num_producers_configured, $num_producers_configured, $num_producers_running);
 }
