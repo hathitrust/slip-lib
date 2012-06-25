@@ -1636,7 +1636,7 @@ sub update_shard_stats {
         $s_idx_time = $$row_hashref{'s_idx_time'} + $idx_time;
         $s_tot_time = $$row_hashref{'s_tot_time'} + $tot_time;
 
-        $statement = qq{UPDATE j_shard_stats SET s_reindexed_ct=?, s_deleted_ct=? s_num_docs=?, s_doc_size=?, s_doc_time=?, s_idx_time=?, s_tot_time=? WHERE run=? AND shard=?};
+        $statement = qq{UPDATE j_shard_stats SET s_reindexed_ct=?, s_deleted_ct=?, s_num_docs=?, s_doc_size=?, s_doc_time=?, s_idx_time=?, s_tot_time=? WHERE run=? AND shard=?};
         DEBUG('lsdb', qq{DEBUG: $statement : $s_reindexed_ct, $s_deleted_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time, $run, $shard});
         $sth = DbUtils::prep_n_execute($dbh, $statement, $s_reindexed_ct, $s_deleted_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time, $run, $shard);
     }
