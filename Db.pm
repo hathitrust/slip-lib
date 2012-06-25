@@ -1411,29 +1411,13 @@ To handle Deletes
 sub Delete_item_id_indexed {
     my ($C, $dbh, $run, $shard, $id) = @_;
 
-    my $statement = qq{DELETE FROM j_indexed WHERE run=? AND id=? AND shard=?};
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $shard});
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard);
-}
-
-# ---------------------------------------------------------------------
-
-=item Reset_indexed_ct
-
-For a given run to check how may were re-indexed, i.e. indexed_ct > 1.
-
-=cut
-
-# ---------------------------------------------------------------------
-sub Reset_indexed_ct {
-    my ($C, $dbh, $run) = @_;
-
     my ($statement, $sth);
 
-    $statement = qq{UPDATE j_indexed SET indexed_ct=1 WHERE run=?};
-    DEBUG('lsdb', qq{DEBUG: $statement : $run});
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
+    $statement = qq{DELETE FROM j_indexed WHERE run=? AND id=? AND shard=?};
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $shard});
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard);
 }
+
 
 # ---------------------------------------------------------------------
 
@@ -1610,7 +1594,7 @@ counts is we didn't make this check.
 
 # ---------------------------------------------------------------------
 sub update_shard_stats {
-    my ($C, $dbh, $run, $shard, $doc_size, $doc_time, $idx_time, $tot_time) = @_;
+    my ($C, $dbh, $run, $shard, $reindexed, $deleted, $doc_size, $doc_time, $idx_time, $tot_time) = @_;
 
     my $sth;
     my $statement;
@@ -1619,36 +1603,42 @@ sub update_shard_stats {
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
-    $statement = qq{SELECT s_num_docs, s_doc_size, s_doc_time, s_idx_time, s_tot_time FROM j_shard_stats WHERE run=? AND shard=?};
+    $statement = qq{SELECT reindexed_ct, deleted_ct, s_num_docs, s_doc_size, s_doc_time, s_idx_time, s_tot_time FROM j_shard_stats WHERE run=? AND shard=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
 
-    my ($s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
+    my ($s_reindexed_ct, $s_deleted_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
 
     my $row_hashref = $sth->fetchrow_hashref();
     if (! $row_hashref) {
         # initialize
+        $s_reindexed_ct = $reindexed ? 1 : 0;
+        $s_deleted_ct = $deleted ? 1 : 0;
+
         $s_num_docs = 1;
         $s_doc_size = $doc_size || 0;
         $s_doc_time = $doc_time || 0;
         $s_idx_time = $idx_time || 0;
         $s_tot_time = $tot_time || 0;
 
-        $statement = qq{INSERT INTO j_shard_stats SET run=?, shard=?, s_num_docs=?, s_doc_size=?, s_doc_time=?, s_idx_time=?, s_tot_time=?};
-        DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time});
-        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
+        $statement = qq{INSERT INTO j_shard_stats SET run=?, shard=?, s_reindexed_ct=?, s_deleted_ct=?, s_num_docs=?, s_doc_size=?, s_doc_time=?, s_idx_time=?, s_tot_time=?};
+        DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $s_reindexed_ct, $s_deleted_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time});
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $s_reindexed_ct, $s_deleted_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
     }
     else {
         # accumulate
+        $s_reindexed_ct = $$row_hashref{'s_reindexed_ct'} + ($reindexed ? 1 : 0);
+        $s_deleted_ct   = $$row_hashref{'s_deleted_ct'} + ($deleted ? 1 : 0);
+
         $s_num_docs = $$row_hashref{'s_num_docs'} + 1;
         $s_doc_size = $$row_hashref{'s_doc_size'} + $doc_size;
         $s_doc_time = $$row_hashref{'s_doc_time'} + $doc_time;
         $s_idx_time = $$row_hashref{'s_idx_time'} + $idx_time;
         $s_tot_time = $$row_hashref{'s_tot_time'} + $tot_time;
 
-        $statement = qq{UPDATE j_shard_stats SET s_num_docs=?, s_doc_size=?, s_doc_time=?, s_idx_time=?, s_tot_time=? WHERE run=? AND shard=?};
-        DEBUG('lsdb', qq{DEBUG: $statement : $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time, $run, $shard});
-        $sth = DbUtils::prep_n_execute($dbh, $statement, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time, $run, $shard);
+        $statement = qq{UPDATE j_shard_stats SET s_reindexed_ct=?, s_deleted_ct=? s_num_docs=?, s_doc_size=?, s_doc_time=?, s_idx_time=?, s_tot_time=? WHERE run=? AND shard=?};
+        DEBUG('lsdb', qq{DEBUG: $statement : $s_reindexed_ct, $s_deleted_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time, $run, $shard});
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $s_reindexed_ct, $s_deleted_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time, $run, $shard);
     }
 
     $statement = qq{UNLOCK TABLES};
@@ -1671,19 +1661,23 @@ Description
 sub Select_shard_stats {
     my ($C, $dbh, $run, $shard) = @_;
 
-    my $statement = qq{SELECT s_num_docs, s_doc_size, s_doc_time, s_idx_time, s_tot_time FROM j_shard_stats WHERE run=? AND shard=?};
+    my $statement = qq{SELECT s_reindexed_ct, s_deleted_ct, s_num_docs, s_doc_size, s_doc_time, s_idx_time, s_tot_time FROM j_shard_stats WHERE run=? AND shard=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 
     my $row_hashref = $sth->fetchrow_hashref();
 
+    my $s_reindexed_ct = $$row_hashref{'s_reindexed_ct'} || 0;
+    my $s_deleted_ct   = $$row_hashref{'s_deleted_ct'} || 0;
+
+    my $s_num_docs = $$row_hashref{'s_num_docs'} || 0;
     my $s_num_docs = $$row_hashref{'s_num_docs'} || 0;
     my $s_doc_size = $$row_hashref{'s_doc_size'} || 0;
     my $s_doc_time = $$row_hashref{'s_doc_time'} || 0;
     my $s_idx_time = $$row_hashref{'s_idx_time'} || 0;
     my $s_tot_time = $$row_hashref{'s_tot_time'} || 0;
 
-    return ($s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
+    return ($s_reindexed_ct, $s_deleted_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
 }
 
 

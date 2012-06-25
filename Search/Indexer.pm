@@ -373,7 +373,7 @@ sub __update_doc
 
     my $index_state;
 
-    use constant MAX_RETRIES => 1;
+    use constant MAX_RETRIES => 2;
     my $retries = 0;
 
     while (1) {
@@ -386,14 +386,15 @@ sub __update_doc
         $$stats_ref{'update'}{'elapsed'} = $elapsed;
         ($$stats_ref{'update'}{'qtime'}) = ($response->{_content} =~ m,<int name="QTime">(.*?)</int>,);
 
-        my ($id) = ($$data_ref =~ m,<field name="hid">(.*?)</field>,);
-        my $from = qq{__update_doc e=$elapsed d="$id" retry=$retries};
+        my ($id) = ($$data_ref =~ m,<field name="h?id">(.*?)</field>,);
+        my $from = qq{__update_doc $$ e=$elapsed id="$id" retry=$retries};
         $index_state = $self->__response_handler($C, $response, \$from);
         
         if ($index_state == IX_INDEXED) {
             last;
         }
         elsif ($retries < MAX_RETRIES) {
+            sleep 1;
             $retries++;
         }
         else {

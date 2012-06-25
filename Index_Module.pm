@@ -105,7 +105,7 @@ sub Service_ID {
     # Item is now recorded in either mdp.j_errors or mdp.j_indexed or
     # in mdp.j_indexed AND mdp.j_timeouts.  Unless deleted.
     my $shard_num_docs_processed =
-      update_stats($C, $dbh, $run, $dedicated_shard, $stats_ref, $start, $index_state);
+      update_stats($C, $dbh, $run, $dedicated_shard, $reindexed, $deleted, $stats_ref, $start);
 
     update_checkpoint($C, $dbh, $run, $dedicated_shard, time(), $shard_num_docs_processed);
 
@@ -293,7 +293,7 @@ processed - may be more than one producer per shard
 
 # ---------------------------------------------------------------------
 sub update_stats {
-    my ($C, $dbh, $run, $shard, $stats_ref, $start) = @_;
+    my ($C, $dbh, $run, $shard, $reindexed, $deleted, $stats_ref, $start) = @_;
 
     my $tot_Time = Time::HiRes::time() - $start;
 
@@ -302,7 +302,7 @@ sub update_stats {
     my $idx_Time = $$stats_ref{'update'}{'elapsed'};
 
     my ($shard_num_docs_processed) =
-        Db::update_shard_stats($C, $dbh, $run, $shard, $doc_size, $doc_Time, $idx_Time, $tot_Time);
+        Db::update_shard_stats($C, $dbh, $run, $shard, $reindexed, $deleted, $doc_size, $doc_Time, $idx_Time, $tot_Time);
 
     my $t = sprintf(qq{sec=%.2f}, $tot_Time);
     DEBUG('doc,idx', qq{TOTAL: processed in $t});
