@@ -1603,7 +1603,7 @@ sub update_shard_stats {
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
-    $statement = qq{SELECT reindexed_ct, deleted_ct, s_num_docs, s_doc_size, s_doc_time, s_idx_time, s_tot_time FROM j_shard_stats WHERE run=? AND shard=?};
+    $statement = qq{SELECT s_reindexed_ct, s_deleted_ct, s_num_docs, s_doc_size, s_doc_time, s_idx_time, s_tot_time FROM j_shard_stats WHERE run=? AND shard=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
 
