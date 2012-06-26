@@ -1474,10 +1474,10 @@ sub Select_indexed_tot_count {
     my ($C, $dbh, $run) = @_;
 
     my $statement = qq{SELECT count(*) FROM j_indexed WHERE run=?};
-    DEBUG('lsdb', qq{DEBUG: $statement : $run});
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
 
     my $count = $sth->fetchrow_array() || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement : $run ::: count=$count});
 
     return $count;
 }
