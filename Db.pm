@@ -1671,7 +1671,6 @@ sub Select_shard_stats {
     my $s_deleted_ct   = $$row_hashref{'s_deleted_ct'} || 0;
 
     my $s_num_docs = $$row_hashref{'s_num_docs'} || 0;
-    my $s_num_docs = $$row_hashref{'s_num_docs'} || 0;
     my $s_doc_size = $$row_hashref{'s_doc_size'} || 0;
     my $s_doc_time = $$row_hashref{'s_doc_time'} || 0;
     my $s_idx_time = $$row_hashref{'s_idx_time'} || 0;
