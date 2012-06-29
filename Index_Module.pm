@@ -275,9 +275,9 @@ Description
 
 # ---------------------------------------------------------------------
 sub update_ids_deleted {
-    my ($C, $dbh, $run, $shard, $id) = @_;
+    my ($C, $dbh, $run, $id) = @_;
 
-    Db::Delete_item_id_indexed($C, $dbh, $run, $shard, $id);
+    Db::Delete_item_id_indexed($C, $dbh, $run, $id);
     return 1;
 }
 
