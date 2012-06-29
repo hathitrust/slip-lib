@@ -1482,27 +1482,6 @@ sub Select_indexed_tot_count {
     return $count;
 }
 
-# ---------------------------------------------------------------------
-
-=item Select_reindexed_tot_count
-
-Depends on Reset_indexed_ct being called before a daily run.
-
-=cut
-
-# ---------------------------------------------------------------------
-sub Select_reindexed_tot_count {
-    my ($C, $dbh, $run) = @_;
-
-    my $statement = qq{SELECT count(*) FROM j_indexed WHERE run=? AND indexed_ct > 1};
-    DEBUG('lsdb', qq{DEBUG: $statement : $run});
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
-
-    my $count = $sth->fetchrow_array() || 0;
-
-    return $count;
-}
-
 
 # ---------------------------------------------------------------------
 
