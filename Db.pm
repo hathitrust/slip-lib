@@ -1384,6 +1384,8 @@ sub insert_item_id_indexed {
 
     my ($statement, $sth);
 
+    __LOCK_TABLES($dbh, qw(j_indexed));
+
     $statement = qq{SELECT indexed_ct FROM j_indexed WHERE run=? AND id=? AND shard=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $shard});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard);
@@ -1394,6 +1396,8 @@ sub insert_item_id_indexed {
     $statement = qq{REPLACE INTO j_indexed SET run=?, shard=?, id=?, time=CURRENT_TIMESTAMP, indexed_ct=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $id, $indexed_ct});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $indexed_ct);
+
+    __UNLOCK_TABLES($dbh);
 
     return ($indexed_ct > 1);
 }
@@ -1483,24 +1487,6 @@ sub Select_indexed_tot_count {
     DEBUG('lsdb', qq{DEBUG: $statement : $run ::: count=$count});
 
     return $count;
-}
-
-
-# ---------------------------------------------------------------------
-
-=item Delete_id_from_shard
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub Delete_id_from_shard {
-    my ($C, $dbh, $run, $id, $shard) = @_;
-
-    my $statement = qq{DELETE FROM j_indexed WHERE run=? AND id=? AND shard=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard);
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $shard});
 }
 
 # ---------------------------------------------------------------------
