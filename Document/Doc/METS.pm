@@ -293,7 +293,7 @@ sub parse_fileGrp {
         }
         $file_grp_hashref->{$USE}{has_files} = $has_files;
         $file_grp_hashref->{$USE}{file_count} = $has_files;
-        $file_grp_hashref->{$USE}{non_zero_count} = $$non_zero_filesize_ct;
+        $file_grp_hashref->{$USE}{non_zero_count} = $non_zero_filesize_ct;
     }
 
     return $file_grp_hashref
