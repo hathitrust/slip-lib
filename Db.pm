@@ -1356,13 +1356,9 @@ sub Delete_indexed {
     do {
         my $begin = time();
 
-        __LOCK_TABLES($dbh, qw(j_indexed));
-
         $statement = qq{DELETE FROM j_indexed WHERE run=? LIMIT $DELETE_SLICE_SIZE};
         DEBUG('lsdb', qq{DEBUG: $statement : $run});
         $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$num_affected);
-
-        __UNLOCK_TABLES($dbh);
         
         my $elapsed = time() - $begin;
         sleep $elapsed/2;
@@ -1384,8 +1380,6 @@ sub insert_item_id_indexed {
 
     my ($statement, $sth);
 
-    __LOCK_TABLES($dbh, qw(j_indexed));
-
     $statement = qq{SELECT indexed_ct FROM j_indexed WHERE run=? AND id=? AND shard=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $shard});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard);
@@ -1396,8 +1390,6 @@ sub insert_item_id_indexed {
     $statement = qq{REPLACE INTO j_indexed SET run=?, shard=?, id=?, time=CURRENT_TIMESTAMP, indexed_ct=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $id, $indexed_ct});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $indexed_ct);
-
-    __UNLOCK_TABLES($dbh);
 
     return ($indexed_ct > 1);
 }
@@ -1416,13 +1408,9 @@ sub Delete_item_id_indexed {
 
     my ($statement, $sth);
 
-    __LOCK_TABLES($dbh, qw(j_indexed));
-
     $statement = qq{DELETE FROM j_indexed WHERE run=? AND id=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $id});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
-
-    __UNLOCK_TABLES($dbh);
 }
 
 
@@ -2086,15 +2074,11 @@ sub Select_run_num_shards_available {
 
     my ($statement, $sth);
 
-    __LOCK_TABLES($dbh, qw(j_shard_control));
-
     $statement = qq{SELECT count(*) FROM j_shard_control WHERE run=? AND enabled=1 AND suspended=0};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
 
     my $num_enabled = $sth->fetchrow_array || 0;
     DEBUG('lsdb', qq{DEBUG: $statement ::: num_enabled=$num_enabled});
-
-    __UNLOCK_TABLES($dbh);
 
     return $num_enabled;
 }
@@ -2228,8 +2212,6 @@ sub shard_is_overallocated {
 
     my $overallocated = 0;
 
-    __LOCK_TABLES($dbh, qw(j_shard_control));
-
     if (Select_shard_enabled($C, $dbh, $run, $shard)) {
         $statement = qq{SELECT allocated FROM j_shard_control WHERE run=? AND shard=?};
         $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
@@ -2243,8 +2225,6 @@ sub shard_is_overallocated {
             $overallocated = 1;
         }
     }
-
-    __UNLOCK_TABLES($dbh);
 
     return $overallocated;
 }
@@ -2265,10 +2245,12 @@ sub Select_allocate_unallocated_shard {
 
     my $allocated_shard = 0;
 
-    __LOCK_TABLES($dbh, qw(j_shard_control j_queue));
-
-    # Get a list of shards to which queued IDs are dedicated and any
-    # undedicated IDs (shard=0).
+    # When an ID is queued, if it has been indexed, its shard number
+    # (1,2,...) is recorded. If it has never been indexed, its shard
+    # number is 0.  Get a list of shard numbers for IDs that are
+    # available to be indexed. Those are the candidate shards that a
+    # producer can lock onto.
+    
     $statement = qq{SELECT DISTINCT shard FROM j_queue WHERE run=? AND proc_status=?};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $SLIP_Utils::States::Q_AVAILABLE);
     my $ref_to_arr_of_arr_ref = $sth->fetchall_arrayref([]);
@@ -2283,6 +2265,8 @@ sub Select_allocate_unallocated_shard {
           });
 
     my $exists_undedicated_ids = grep(/^0$/, @$queued_shard_arr_ref);
+
+    __LOCK_TABLES($dbh, qw(j_shard_control));
 
     foreach my $shard (@$shard_list_ref) {
         if (
@@ -2365,15 +2349,9 @@ sub set_shard_optimize_state {
 
     my ($statement, $sth);
 
-    __LOCK_TABLES($dbh, qw(j_shard_control));
-
     # Error state is terminal
     my $current_state = Select_shard_optimize_state($C, $dbh, $run, $shard);
     if ($current_state == $SLIP_Utils::States::Sht_Optimize_Error) {
-        $statement = qq{UNLOCK TABLES};
-        DEBUG('lsdb', qq{DEBUG: $statement});
-        $sth = DbUtils::prep_n_execute($dbh, $statement);
-
         return;
     }
     # POSSIBLY NOTREACHED
@@ -2381,8 +2359,6 @@ sub set_shard_optimize_state {
     $statement = qq{UPDATE j_shard_control SET optimiz=$state WHERE run=? AND shard=?};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
-
-    __UNLOCK_TABLES($dbh);
 }
 
 # ---------------------------------------------------------------------
@@ -2420,12 +2396,9 @@ sub set_shard_check_state {
 
     my ($statement, $sth);
 
-    __LOCK_TABLES($dbh, qw(j_shard_control));
-
     # Error state is terminal
     my $current_state = Select_shard_check_state($C, $dbh, $run, $shard);
     if ($current_state == $SLIP_Utils::States::Sht_Check_Error) {
-        __UNLOCK_TABLES($dbh);
         return;
     }
     # POSSIBLY NOTREACHED
@@ -2433,8 +2406,6 @@ sub set_shard_check_state {
     $statement = qq{UPDATE j_shard_control SET checkd=? WHERE run=? AND shard=?};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $state, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $state, $run, $shard});
-
-    __UNLOCK_TABLES($dbh);
 }
 
 # ---------------------------------------------------------------------
