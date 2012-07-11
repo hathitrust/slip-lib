@@ -2274,23 +2274,21 @@ sub Select_allocate_unallocated_shard {
             ||
             (grep(/^$shard$/, @$queued_shard_arr_ref))
            ) {
-            if (Select_shard_enabled($C, $dbh, $run, $shard)) {
-                $statement = qq{SELECT allocated FROM j_shard_control WHERE run=? AND shard=?};
-                $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
+            $statement = qq{SELECT allocated FROM j_shard_control WHERE run=? AND shard=?};
+            $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
 
-                my $allocated = $sth->fetchrow_array || 0;
-                DEBUG('me,lsdb', qq{DEBUG (unalloc): $statement run=$run shard=$shard ::: allocated=$allocated});
+            my $allocated = $sth->fetchrow_array || 0;
+            DEBUG('me,lsdb', qq{DEBUG (unalloc): $statement run=$run shard=$shard ::: allocated=$allocated});
 
-                my $num_producers_configured = Select_shard_num_producers($C, $dbh, $run, $shard);
+            my $num_producers_configured = Select_shard_num_producers($C, $dbh, $run, $shard);
 
-                if ($allocated < $num_producers_configured) {
-                    $allocated_shard = $shard;
-                    $allocated++;
-                    $statement = qq{UPDATE j_shard_control SET allocated=? WHERE run=? AND shard=?};
-                    $sth = DbUtils::prep_n_execute($dbh, $statement, $allocated, $run, $shard);
-                    DEBUG('me,lsdb', qq{DEBUG (unalloc): $statement configured=$num_producers_configured allocated=$allocated run=$run shard=$shard});
-                    last;
-                }
+            if ($allocated < $num_producers_configured) {
+                $allocated_shard = $shard;
+                $allocated++;
+                $statement = qq{UPDATE j_shard_control SET allocated=? WHERE run=? AND shard=?};
+                $sth = DbUtils::prep_n_execute($dbh, $statement, $allocated, $run, $shard);
+                DEBUG('me,lsdb', qq{DEBUG (unalloc): $statement configured=$num_producers_configured allocated=$allocated run=$run shard=$shard});
+                last;
             }
         }
     }

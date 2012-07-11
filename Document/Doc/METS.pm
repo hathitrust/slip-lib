@@ -273,21 +273,27 @@ sub parse_fileGrp {
         my $xpath = q{/METS:mets/METS:fileSec/METS:fileGrp[@USE='} . $USE. q{']/METS:file};
         my $_file_grp = $root->findnodes($xpath);
         my $has_files = scalar(@$_file_grp);
-
+        my $non_zero_filesize_ct = 0;
+        
         if ($has_files) {
             # Test for all zero-length files.
-            my $total_file_size = 0;
+            my $total_non_zero_file_size = 0;
             foreach my $node ($_file_grp->get_nodelist) {
                 my $fileid = $node->getAttribute('ID');
                 my $filesize = $node->getAttribute('SIZE');
                 my $filename = ($node->childNodes)[1]->getAttribute('xlink:href');
                 $file_grp_hashref->{$USE}{$fileid} = $filename;
 
-                $total_file_size += $filesize;
+                if ($filesize > 0) {
+                    $total_non_zero_file_size += $filesize;
+                    $non_zero_filesize_ct ++
+                }
             }
-            $has_files = 0 if ($total_file_size == 0);
+            $has_files = 0 if ($total_non_zero_file_size == 0);
         }
         $file_grp_hashref->{$USE}{has_files} = $has_files;
+        $file_grp_hashref->{$USE}{file_count} = $has_files;
+        $file_grp_hashref->{$USE}{non_zero_count} = $$non_zero_filesize_ct;
     }
 
     return $file_grp_hashref
