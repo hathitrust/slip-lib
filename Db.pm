@@ -724,7 +724,7 @@ sub insert_latest_into_queue {
     my $SELECT_INSERT_clause =
       qq{SELECT $run AS run, 0 AS shard, nid AS id, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM j_rights}
         . $WHERE_clause;
-    $statement = qq{INSERT INTO j_queue ($SELECT_INSERT_clause)};
+    $statement = qq{REPLACE INTO j_queue ($SELECT_INSERT_clause)};
     my $num_inserted = 0;
     $sth = DbUtils::prep_n_execute($dbh, $statement, @params, \$num_inserted);
     DEBUG('lsdb', qq{DEBUG: $statement ::: inserted=$num_inserted});
@@ -850,7 +850,7 @@ sub insert_restore_errors_to_queue {
         my $id = $ref->{'id'};
         my $shard = $ref->{'shard'};
         my $num = 0;
-        $statement = qq{INSERT INTO j_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=?};
+        $statement = qq{REPLACE INTO j_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=?};
         $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $SLIP_Utils::States::Q_AVAILABLE, \$num);
         DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $SLIP_Utils::States::Q_AVAILABLE});
         $num_inserted += $num;
@@ -886,7 +886,7 @@ sub insert_restore_timeouts_to_queue {
     my $SELECT_clause =
         qq{SELECT $run AS run, id AS id, shard AS shard, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM j_timeouts WHERE run=?};
 
-    $statement = qq{INSERT INTO j_queue ($SELECT_clause)};
+    $statement = qq{REPLACE INTO j_queue ($SELECT_clause)};
     my $num_inserted = 0;
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$num_inserted);
     DEBUG('lsdb', qq{DEBUG: $statement : $run ::: inserted=$num_inserted});
