@@ -27,6 +27,12 @@ use strict;
 use Mail::Mailer;
 use Encode;
 
+BEGIN {
+    use Exporter;
+    our @ISA = qw(Exporter);
+    our @EXPORT = qw( __output __output_non_interactive __confirm __non_interactive_err_output );
+}
+
 # App
 use Debug::DUtils;
 use Context;
@@ -37,15 +43,10 @@ use Utils;
 use Utils::Time;
 
 # Local
-use Db;
 use SLIP_Utils::Processes;
 use SLIP_Utils::States;
 use SLIP_Utils::Log;
-
-
-use Exporter;
-@SLIP_Utils::Common::ISA = qw(Exporter);
-@SLIP_Utils::Common::EXPORT = qw( __output __output_non_interactive __confirm __non_interactive_err_output );
+use Db;
 
 # ---------------------------------------------------------------------
 

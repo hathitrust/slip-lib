@@ -22,11 +22,13 @@ Coding example
 =cut
 
 use strict;
+use warnings;
+
+use Time::HiRes qw( time );
 
 # App
 use Utils;
 use Debug::DUtils;
-use Utils::Time;
 
 use Context;
 use DbUtils;
@@ -581,13 +583,13 @@ sub Delete_queue {
 
     my $num_affected = 0;
     do {
-        my $begin = time();
+        my $begin = time;
 
         my $statement = qq{DELETE FROM j_queue WHERE run=? LIMIT $DELETE_Q_SLICE_SIZE};
         DEBUG('lsdb', qq{DEBUG: $statement : $run});
         my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$num_affected);
 
-        my $elapsed = time() - $begin;
+        my $elapsed = time - $begin;
         sleep $elapsed/2;
 
     } until ($num_affected <= 0);
@@ -648,6 +650,61 @@ sub insert_queue_items {
 
 # ---------------------------------------------------------------------
 
+=item handle_queue_insert
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub handle_queue_insert {
+    my $C = shift;
+    my $dbh = shift;
+    my $run = shift;
+    my $ref_to_arr_of_ids = shift;
+
+    my $total_start = time;
+    
+    my $total_to_be_inserted = scalar @$ref_to_arr_of_ids;
+    my $total_num_inserted = 0;
+    
+    while (1) {
+        my $start = time;
+        
+        # Insert in blocks of 1000
+        my @queue_array = splice(@$ref_to_arr_of_ids, 0, 1000);
+        last
+            if (scalar(@queue_array) <= 0);
+
+        my $ref_to_arr_of_hashref = [];
+        foreach my $id (@queue_array) {
+            my $shard = Db::Select_item_id_shard($C, $dbh, $run, $id);
+            push(@$ref_to_arr_of_hashref, {id => $id, shard => $shard});
+        }
+
+        my $num_inserted = Db::insert_queue_items($C, $dbh, $run, $ref_to_arr_of_hashref);
+        $total_num_inserted += $num_inserted;
+        
+        my $elapsed = time - $start;
+        my $ids_per_sec = $total_num_inserted / (time - $total_start);
+        my @parts = gmtime int(($total_to_be_inserted - $total_num_inserted) * (1 / $ids_per_sec));
+        my $time_remaining = sprintf("%dh %dm %ds", @parts[2,1,0]);
+        
+        my $s0 = sprintf("--> added $num_inserted ids to queue, total=%d elapsed=%.2f rate=%.2f ids/sec remains=%s\n", $total_num_inserted, $elapsed, $ids_per_sec, $time_remaining);
+        __output($s0);
+    }
+
+    my $total_elapsed = time - $total_start;
+    my $s1 = sprintf("added %d total items to queue in %.0f sec.\n", $total_num_inserted, $total_elapsed);
+    __output($s1);
+
+    return $total_num_inserted;
+}
+
+
+
+# ---------------------------------------------------------------------
+
 =item __get_update_time_WHERE_clause
 
 Description
@@ -656,7 +713,7 @@ Description
 
 # ---------------------------------------------------------------------
 sub __get_update_time_WHERE_clause {
-    my ($C, $dbh, $run, $id) = @_;
+    my ($C, $dbh, $run) = @_;
 
     my $timestamp = Db::Select_j_rights_timestamp($C, $dbh, $run);
     my $WHERE_clause;
@@ -667,13 +724,7 @@ sub __get_update_time_WHERE_clause {
         $WHERE_clause = qq{ WHERE update_time > ?};
     }
 
-    if (defined $id) {
-        $WHERE_clause .= qq{ AND id=?};
-        return ($WHERE_clause, $timestamp, $id);
-    }
-    else {
-        return ($WHERE_clause, $timestamp);
-    }
+    return ($WHERE_clause, $timestamp);
 }
 
 # ---------------------------------------------------------------------
@@ -714,43 +765,32 @@ sub insert_latest_into_queue {
 
     my ($sth, $statement);
 
-    __LOCK_TABLES($dbh, qw(j_rights j_queue j_rights_timestamp j_indexed));
+    __LOCK_TABLES($dbh, qw(j_rights j_rights_timestamp));
 
-    # Get the timestamp of the newest items last enqueued from
-    # j_rights into j_queue. NOTE: non-overlap (>) Talk to Tim and see
-    # count_insert_latest_into_queue()
+    # Load IDs from j_rights whose timestamp is > or >= than the
+    # timestamp of the items last enqueued from j_rights and update
+    # the timestamp.  This takes about 10 seconds for 10M IDs.
     my ($WHERE_clause, @params) = __get_update_time_WHERE_clause($C, $dbh, $run);
+    $statement = qq{SELECT nid FROM j_rights } . $WHERE_clause;
+    $sth = DbUtils::prep_n_execute($dbh, $statement, @params);
 
-    my $SELECT_INSERT_clause =
-      qq{SELECT $run AS run, 0 AS shard, nid AS id, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM j_rights}
-        . $WHERE_clause;
-    $statement = qq{REPLACE INTO j_queue ($SELECT_INSERT_clause)};
-    my $num_inserted = 0;
-    $sth = DbUtils::prep_n_execute($dbh, $statement, @params, \$num_inserted);
-    DEBUG('lsdb', qq{DEBUG: $statement ::: inserted=$num_inserted});
-
-    # Update shards of ids in j_queue
-    $statement = qq{SELECT id FROM j_queue WHERE run=?};
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
-    DEBUG('lsdb', qq{DEBUG: $statement});
-    my $ref_to_ary_of_arr_ref = $sth->fetchall_arrayref([]);
-    foreach my $ref (@$ref_to_ary_of_arr_ref) {
-        my $id = $ref->[0];
-        $statement = qq{SELECT shard FROM j_indexed WHERE run=? AND id=?};
-        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
-        my $shard = $sth->fetchrow_array || 0;
-
-        $statement = qq{UPDATE j_queue SET shard=? WHERE run=? AND id=?};
-        $sth = DbUtils::prep_n_execute($dbh, $statement, $shard, $run, $id);
+    my $ref_to_arr_of_arr_ref = $sth->fetchall_arrayref([0]);
+    my $id_arr_ref = [];
+    if (scalar(@$ref_to_arr_of_arr_ref)) {
+        $id_arr_ref = [ map {$_->[0]} @$ref_to_arr_of_arr_ref ];
     }
 
-    # Get the maximum update_time in j_rights to use as the new timestamp.
+    # Use the maximum update_time in j_rights to update the timestamp.
     $statement = qq{SELECT MAX(update_time) FROM j_rights};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
     my $new_timestamp = $sth->fetchrow_array;
     Db::update_j_rights_timestamp($C, $dbh, $run, $new_timestamp);
 
     __UNLOCK_TABLES($dbh);
+
+    # Insert them in blocks into j_queue so queue is not locked for a
+    # very long time during large updates.
+    my $num_inserted = handle_queue_insert($C, $dbh, $run, $id_arr_ref);
 
     return $num_inserted;
 }
@@ -1354,13 +1394,13 @@ sub Delete_indexed {
 
     my $num_affected = 0;
     do {
-        my $begin = time();
+        my $begin = time;
 
         $statement = qq{DELETE FROM j_indexed WHERE run=? LIMIT $DELETE_SLICE_SIZE};
         DEBUG('lsdb', qq{DEBUG: $statement : $run});
         $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$num_affected);
         
-        my $elapsed = time() - $begin;
+        my $elapsed = time - $begin;
         sleep $elapsed/2;
 
     } until ($num_affected <= 0);
