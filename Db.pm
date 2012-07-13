@@ -2294,17 +2294,17 @@ sub Select_allocate_unallocated_shard {
     $statement = qq{SELECT DISTINCT shard FROM j_queue WHERE run=? AND proc_status=?};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $SLIP_Utils::States::Q_AVAILABLE);
     my $ref_to_arr_of_arr_ref = $sth->fetchall_arrayref([]);
-    my $queued_shard_arr_ref = [];
+    my @queued_shards = ();
     if (scalar(@$ref_to_arr_of_arr_ref)) {
-        $queued_shard_arr_ref = [ map {$_->[0]} @$ref_to_arr_of_arr_ref ];
+        @queued_shards = ( map {$_->[0]} @$ref_to_arr_of_arr_ref );
     }
     DEBUG('lsdb',
           sub {
-              my $s = join(' ', @$queued_shard_arr_ref);
+              my $s = join(' ', @queued_shards);
               return qq{DEBUG (unalloc): $statement : $run, $SLIP_Utils::States::Q_AVAILABLE ::: $s}
           });
 
-    my $exists_undedicated_ids = grep(/^0$/, @$queued_shard_arr_ref);
+    my $exists_undedicated_ids = grep(/^0$/, @queued_shards);
 
     __LOCK_TABLES($dbh, qw(j_shard_control));
 
@@ -2312,7 +2312,7 @@ sub Select_allocate_unallocated_shard {
         if (
             $exists_undedicated_ids
             ||
-            (grep(/^$shard$/, @$queued_shard_arr_ref))
+            (grep(/^$shard$/, @queued_shards))
            ) {
             $statement = qq{SELECT allocated FROM j_shard_control WHERE run=? AND shard=?};
             $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
