@@ -48,8 +48,8 @@ my $C_METADATA_FAILURE = IX_METADATA_FAILURE;
 my $C_CRITICAL_FAILURE = IX_CRITICAL_FAILURE;
 my $C_NO_INDEXER_AVAIL = IX_NO_INDEXER_AVAIL;
 
-$Db::MYSQL_ZERO_TIMESTAMP = '0000-00-00 00:00:00';
-$Db::vSOLR_ZERO_TIMESTAMP = '00000000';
+our $MYSQL_ZERO_TIMESTAMP = '0000-00-00 00:00:00';
+our $vSOLR_ZERO_TIMESTAMP = '00000000';
 
 # ---------------------------------------------------------------------
 
@@ -62,7 +62,7 @@ Description
 # ---------------------------------------------------------------------
 sub __UNLOCK_TABLES {
     my $dbh = shift;
-    
+
     my $statement = qq{UNLOCK TABLES};
     DEBUG('lsdb', qq{DEBUG: $statement});
     DbUtils::prep_n_execute($dbh, $statement);
@@ -71,7 +71,7 @@ sub __UNLOCK_TABLES {
 sub __LOCK_TABLES {
     my ($dbh, @tables) = @_;
 
-    my @table_statements = map { $_ . ' WRITE'} @tables; 
+    my @table_statements = map { $_ . ' WRITE'} @tables;
     my $statement = qq{LOCK TABLES } . join(', ', @table_statements);
     DbUtils::prep_n_execute($dbh, $statement);
     DEBUG('lsdb', qq{DEBUG: $statement});
@@ -664,13 +664,13 @@ sub handle_queue_insert {
     my $ref_to_arr_of_ids = shift;
 
     my $total_start = time;
-    
+
     my $total_to_be_inserted = scalar @$ref_to_arr_of_ids;
     my $total_num_inserted = 0;
-    
+
     while (1) {
         my $start = time;
-        
+
         # Insert in blocks of 1000
         my @queue_array = splice(@$ref_to_arr_of_ids, 0, 1000);
         last
@@ -684,12 +684,12 @@ sub handle_queue_insert {
 
         my $num_inserted = Db::insert_queue_items($C, $dbh, $run, $ref_to_arr_of_hashref);
         $total_num_inserted += $num_inserted;
-        
+
         my $elapsed = time - $start;
         my $ids_per_sec = $total_num_inserted / (time - $total_start);
         my @parts = gmtime int(($total_to_be_inserted - $total_num_inserted) * (1 / $ids_per_sec));
         my $time_remaining = sprintf("%dh %dm %ds", @parts[2,1,0]);
-        
+
         my $s0 = sprintf("--> added $num_inserted ids to queue, total=%d elapsed=%.2f rate=%.2f ids/sec remains=%s\n", $total_num_inserted, $elapsed, $ids_per_sec, $time_remaining);
         __output($s0);
     }
@@ -880,7 +880,7 @@ sub insert_restore_errors_to_queue {
     my $num_inserted = 0;
 
     __LOCK_TABLES($dbh, qw(j_errors j_queue));
-    
+
     $statement = qq{SELECT id, shard FROM j_errors WHERE run=?};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
     DEBUG('lsdb', qq{DEBUG: $statement : $run});
@@ -900,7 +900,7 @@ sub insert_restore_errors_to_queue {
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
     DEBUG('lsdb', qq{DEBUG: $statement : $run});
 
-    __UNLOCK_TABLES($dbh);    
+    __UNLOCK_TABLES($dbh);
 
     return $num_inserted;
 }
@@ -1399,7 +1399,7 @@ sub Delete_indexed {
         $statement = qq{DELETE FROM j_indexed WHERE run=? LIMIT $DELETE_SLICE_SIZE};
         DEBUG('lsdb', qq{DEBUG: $statement : $run});
         $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$num_affected);
-        
+
         my $elapsed = time - $begin;
         sleep $elapsed/2;
 
@@ -1803,6 +1803,7 @@ sub Renumber_rate_stats {
 }
 
 
+
 # =====================================================================
 # =====================================================================
 #
@@ -2152,6 +2153,23 @@ sub Select_shard_enabled {
 
 # ---------------------------------------------------------------------
 
+=item update_shard_allocation
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub update_shard_allocation {
+    my ($C, $dbh, $run, $shard, $alloc) = @_;
+
+    my $statement = qq{UPDATE j_shard_control SET allocated=? WHERE run=? AND shard=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $alloc, $run, $shard);
+    DEBUG('lsdb', qq{DEBUG: $statement : $alloc, $run, $shard});
+}
+
+# ---------------------------------------------------------------------
+
 =item update_shard_enabled
 
 Description
@@ -2234,143 +2252,6 @@ sub shard_is_suspended {
     DEBUG('lsdb', qq{DEBUG: $statement ::: suspended=$suspended});
 
     return $suspended;
-}
-
-# ---------------------------------------------------------------------
-
-=item shard_is_overallocated
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub shard_is_overallocated {
-    my ($C, $dbh, $run, $shard) = @_;
-
-    my ($statement, $sth);
-
-    my $overallocated = 0;
-
-    if (Select_shard_enabled($C, $dbh, $run, $shard)) {
-        $statement = qq{SELECT allocated FROM j_shard_control WHERE run=? AND shard=?};
-        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
-
-        my $allocated = $sth->fetchrow_array || 0;
-        DEBUG('me,lsdb', qq{DEBUG (overalloc): $statement run=$run shard=$shard ::: allocated=$allocated});
-
-        my $num_producers_configured = Select_shard_num_producers($C, $dbh, $run, $shard);
-
-        if ($allocated > $num_producers_configured) {
-            $overallocated = 1;
-        }
-    }
-
-    return $overallocated;
-}
-
-# ---------------------------------------------------------------------
-
-=item Select_allocate_unallocated_shard
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub Select_allocate_unallocated_shard {
-    my ($C, $dbh, $run, $shard_list_ref) = @_;
-
-    my ($statement, $sth);
-
-    my $allocated_shard = 0;
-
-    # When an ID is queued, if it has been indexed, its shard number
-    # (1,2,...) is recorded. If it has never been indexed, its shard
-    # number is 0.  Get a list of shard numbers for IDs that are
-    # available to be indexed. Those are the candidate shards that a
-    # producer can lock onto.
-    
-    $statement = qq{SELECT DISTINCT shard FROM j_queue WHERE run=? AND proc_status=?};
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $SLIP_Utils::States::Q_AVAILABLE);
-    my $ref_to_arr_of_arr_ref = $sth->fetchall_arrayref([]);
-    my @queued_shards = ();
-    if (scalar(@$ref_to_arr_of_arr_ref)) {
-        @queued_shards = ( map {$_->[0]} @$ref_to_arr_of_arr_ref );
-    }
-    DEBUG('lsdb',
-          sub {
-              my $s = join(' ', @queued_shards);
-              return qq{DEBUG (unalloc): $statement : $run, $SLIP_Utils::States::Q_AVAILABLE ::: $s}
-          });
-
-    my $exists_undedicated_ids = grep(/^0$/, @queued_shards);
-
-    __LOCK_TABLES($dbh, qw(j_shard_control));
-
-    foreach my $shard (@$shard_list_ref) {
-        if (
-            $exists_undedicated_ids
-            ||
-            (grep(/^$shard$/, @queued_shards))
-           ) {
-            $statement = qq{SELECT allocated FROM j_shard_control WHERE run=? AND shard=?};
-            $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
-
-            my $allocated = $sth->fetchrow_array || 0;
-            DEBUG('me,lsdb', qq{DEBUG (unalloc): $statement run=$run shard=$shard ::: allocated=$allocated});
-
-            my $num_producers_configured = Select_shard_num_producers($C, $dbh, $run, $shard);
-
-            if ($allocated < $num_producers_configured) {
-                $allocated_shard = $shard;
-                $allocated++;
-                $statement = qq{UPDATE j_shard_control SET allocated=? WHERE run=? AND shard=?};
-                $sth = DbUtils::prep_n_execute($dbh, $statement, $allocated, $run, $shard);
-                DEBUG('me,lsdb', qq{DEBUG (unalloc): $statement configured=$num_producers_configured allocated=$allocated run=$run shard=$shard});
-                last;
-            }
-        }
-    }
-
-    __UNLOCK_TABLES($dbh);
-
-    return $allocated_shard;
-}
-
-
-# ---------------------------------------------------------------------
-
-=item update_decrement_shard_allocation
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub update_decrement_shard_allocation {
-    my ($C, $dbh, $run, $shard) = @_;
-
-    my ($statement, $sth);
-
-    __LOCK_TABLES($dbh, qw(j_shard_control));
-
-    $statement = qq{SELECT allocated FROM j_shard_control WHERE run=? AND shard=?};
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
-
-    my $allocated = $sth->fetchrow_array || 0;
-    DEBUG('me,lsdb', qq{DEBUG (dealloc): $statement run=$run shard=$shard ::: allocated=$allocated});
-
-    if ($allocated > 0) {
-        $allocated--;
-        $statement = qq{UPDATE j_shard_control SET allocated=? WHERE run=? AND shard=?};
-        $sth = DbUtils::prep_n_execute($dbh, $statement, $allocated, $run, $shard);
-        DEBUG('me,lsdb', qq{DEBUG (dealloc): $statement allocated=$allocated run=$run shard=$shard});
-    }
-
-    __UNLOCK_TABLES($dbh);
-
-    return $allocated;
 }
 
 # ---------------------------------------------------------------------
@@ -2537,16 +2418,17 @@ sub Renumber_host_control {
     DEBUG('lsdb', qq{DEBUG: $statement : $to_run, $from_run});
 }
 
+
 # ---------------------------------------------------------------------
 
-=item Reset_host_control
+=item Delete_host_control
 
 Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub Reset_host_control {
+sub Delete_host_control {
     my ($C, $dbh, $run) = @_;
 
     my $statement = qq{DELETE FROM j_host_control WHERE run=?};
@@ -2558,7 +2440,7 @@ sub Reset_host_control {
 
 =item Select_host_config
 
-Description
+ONLY used for reporting.
 
 =cut
 
@@ -2566,7 +2448,7 @@ Description
 sub Select_hosts_config {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{SELECT host, num_producers, enabled FROM j_host_control WHERE run=?};
+    my $statement = qq{SELECT host, num_producers, num_running, enabled FROM j_host_control WHERE run=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
     DEBUG('lsdb', qq{DEBUG: $statement : $run});
 
@@ -2600,6 +2482,24 @@ sub Select_host_enabled {
 
 # ---------------------------------------------------------------------
 
+=item update_host_enabled
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub update_host_enabled {
+    my ($C, $dbh, $run, $host, $enabled) = @_;
+
+    my $statement = qq{UPDATE j_host_control SET enabled=? WHERE run=? AND host=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $enabled, $run, $host);
+    DEBUG('lsdb', qq{DEBUG: $statement : $enabled $run $host});
+}
+
+
+# ---------------------------------------------------------------------
+
 =item Select_num_producers
 
 Description
@@ -2619,7 +2519,6 @@ sub Select_num_producers {
     return $num_producers_configured;
 }
 
-
 # ---------------------------------------------------------------------
 
 =item update_host_num_producers
@@ -2631,54 +2530,49 @@ Serves to initialize rows as well.
 # ---------------------------------------------------------------------
 sub update_host_num_producers {
     my ($C, $dbh, $run, $num_producers, $host) = @_;
-
-    my $sth;
-    my $statement;
-
-    # if producers are currently enabled for this host, keep them
-    # enabled even though the number of them allowed to run is being
-    # changed
-    $statement = qq{SELECT enabled FROM j_host_control WHERE run=? AND host=?};
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $host);
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $host});
-
-    my $enabled = $sth->fetchrow_array || 0;
-
-    $statement = qq{REPLACE INTO j_host_control SET num_producers=?, host=?, run=?, enabled=?};
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $num_producers, $host, $run, $enabled);
-    DEBUG('lsdb', qq{DEBUG: $statement : $num_producers, $host, $run, $enabled});
-
-    return $enabled;
+    
+    my $statement = qq{UPDATE j_host_control SET num_producers=? WHERE run=? AND host=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $num_producers, $run, $host);
+    DEBUG('lsdb', qq{DEBUG: $statement : $num_producers, $run, $host});
 }
 
 # ---------------------------------------------------------------------
 
-=item update_host_enabled
+=item update_host_num_running
 
 Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub update_host_enabled {
-    my ($C, $dbh, $run, $host, $enabled) = @_;
+sub update_host_num_running {
+    my ($C, $dbh, $run, $host, $num_running) = @_;
 
-    my $sth;
-    my $statement;
-
-    # if producers are currently configured for a number of producers,
-    # preserve that number
-    $statement = qq{SELECT num_producers FROM j_host_control WHERE run=? AND host=?};
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $host);
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $host});
-
-    my $num_producers = $sth->fetchrow_array || 0;
-
-    $statement = qq{REPLACE INTO j_host_control SET enabled=?, run=?, host=?, num_producers=?};
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $enabled, $run, $host, $num_producers);
-    DEBUG('lsdb', qq{DEBUG: $statement : $enabled, $run, $host, $num_producers});
+    my $statement = qq{UPDATE j_host_control SET num_running=? WHERE run=? AND host=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $num_running, $run, $host);
+    DEBUG('lsdb', qq{DEBUG: $statement : $num_running, $run, $host});
 }
 
+# ---------------------------------------------------------------------
+
+=item Select_host_num_running
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Select_host_num_running {
+    my ($C, $dbh, $run, $host) = @_;
+
+    my $statement = qq{SELECT num_running FROM j_host_control WHERE run=? AND host=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $host);
+
+    my $num_running = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement : $run $host ::: $num_running});
+
+    return $num_running;
+}
 
 # =====================================================================
 # =====================================================================
@@ -2970,7 +2864,283 @@ sub Select_check_enabled {
     return $enabled;
 }
 
+# =====================================================================
+# =====================================================================
+#
+#    Producer monitors:  [j_shard_control, j_host_control] @@
+#
+# =====================================================================
+# =====================================================================
+
+
+# ---------------------------------------------------------------------
+
+=item decrement_allocation
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub decrement_allocation {
+    my ($C, $dbh, $run, $host, $shard) = @_;
+
+    my ($statement, $sth);
+
+    __LOCK_TABLES($dbh, qw(j_host_control j_shard_control));
+
+    my $allocated = Select_shard_num_allocated($C, $dbh, $run, $shard);
+    if ($allocated > 0) {
+        $allocated--;
+        update_shard_allocation($C, $dbh, $run, $shard, $allocated);
+    }
+
+    my $num_running = Select_host_num_running($C, $dbh, $run, $host);
+    if ($num_running > 0) {
+        $num_running--;
+        update_host_num_running($C, $dbh, $run, $host, $num_running);
+    }
+
+    __UNLOCK_TABLES($dbh);
+
+    return ($allocated, $num_running);
+}
+
+# ---------------------------------------------------------------------
+
+=item __shard_is_overallocated
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __shard_is_overallocated {
+    my ($C, $dbh, $run, $shard) = @_;
+
+    my $overallocated = 0;
+
+    my $allocated = Select_shard_num_allocated($C, $dbh, $run, $shard);
+    my $num_producers_configured = Select_shard_num_producers($C, $dbh, $run, $shard);
+
+    if ($allocated > $num_producers_configured) {
+        $overallocated = 1;
+    }
+
+    return $overallocated;
+}
+
+# ---------------------------------------------------------------------
+
+=item __host_is_overallocated
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __host_is_overallocated {
+    my ($C, $dbh, $run, $host) = @_;
+
+    my $overallocated = 0;
+
+    my $num_running = Select_host_num_running($C, $dbh, $run, $host);
+    my $num_configured = Select_num_producers($C, $dbh, $run, $host);
+
+    if ($num_running > $num_configured) {
+        $overallocated = 1;
+    }
+
+    return $overallocated;
+}
+
+# ---------------------------------------------------------------------
+
+=item dedicated_producer_monitor
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub dedicated_producer_monitor {
+    my ($C, $dbh, $run, $host, $dedicated_shard) = @_;
+
+    my $state = 'Mon_continue';
+
+    __LOCK_TABLES($dbh, qw(j_shard_control j_host_control));
+
+    if (__shard_is_overallocated($C, $dbh, $run, $dedicated_shard)) {
+        $state = 'Mon_shard_overallocated';
+    }
+    if (__host_is_overallocated($C, $dbh, $run, $host)) {
+        $state = 'Mon_host_overallocated';
+    }
+    if (! Select_shard_enabled($C, $dbh, $run, $dedicated_shard)) {
+        $state = 'Mon_shard_disabled';
+    }
+    if (! Select_host_enabled($C, $dbh, $run, $host)) {
+        $state = 'Mon_host_disabled';
+    }
+
+    __UNLOCK_TABLES($dbh);
+
+    return ($dedicated_shard, $state);
+}
+
+# ---------------------------------------------------------------------
+
+=item __get_queued_shards_list
+
+When an ID is queued, if it has been indexed, its shard number
+(1,2,...) is recorded. If it has never been indexed, its shard number
+is 0.  Get a list of shard numbers for IDs that are available to be
+indexed. Those are the candidate shards that a producer can lock onto.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __get_queued_shards_list {
+    my ($C, $dbh, $run) = @_;
+
+    my $statement = qq{SELECT DISTINCT shard FROM j_queue WHERE run=? AND proc_status=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $SLIP_Utils::States::Q_AVAILABLE);
+    my $ref_to_arr_of_arr_ref = $sth->fetchall_arrayref([]);
+
+    my $queued_shards_ref = [];
+    if (scalar(@$ref_to_arr_of_arr_ref)) {
+        @$queued_shards_ref = ( map {$_->[0]} @$ref_to_arr_of_arr_ref );
+    }
+    DEBUG('lsdb',
+          sub {
+              my $s = join(' ', @$queued_shards_ref);
+              return qq{DEBUG (unalloc): $statement : $run, $SLIP_Utils::States::Q_AVAILABLE ::: $s}
+          });
+
+    return $queued_shards_ref;
+}
+
+
+# ---------------------------------------------------------------------
+
+=item __allocate_shard_test
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __allocate_shard_test {
+    my ($C, $dbh, $run, $shard_list_ref, $queued_shards_list_ref) = @_;
+
+    my ($statement, $sth);
+
+    my $allocated = 0;
+    my $allocated_shard = 0;
+    my $exists_undedicated_ids = grep(/^0$/, @$queued_shards_list_ref);
+
+    foreach my $shard (@$shard_list_ref) {
+        if ($exists_undedicated_ids || (grep(/^$shard$/, @$queued_shards_list_ref))) {
+            if (Select_shard_enabled($C, $dbh, $run, $shard)) {
+
+                $allocated = Select_shard_num_allocated($C, $dbh, $run, $shard);
+                my $num_producers_configured = Select_shard_num_producers($C, $dbh, $run, $shard);
+
+                if ($allocated < $num_producers_configured) {
+                    $allocated_shard = $shard;
+                    $allocated++;
+                    last;
+                }
+            }
+        }
+    }
+
+    return ($allocated_shard, $allocated);
+}
+
+# ---------------------------------------------------------------------
+
+=item __allocate_host_test
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __allocate_host_test {
+    my ($C, $dbh, $run, $host) = @_;
+
+    my $allocated = 0;
+
+    my $num_running = Select_host_num_running($C, $dbh, $run, $host);
+    my $num_configured = Select_num_producers($C, $dbh, $run, $host);
+
+    if ($num_running < $num_configured) {
+        $num_running++;
+        $allocated = 1;
+    }
+
+    return ($allocated, $num_running);
+}
+
+# ---------------------------------------------------------------------
+
+=item undedicated_producer_monitor
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub undedicated_producer_monitor {
+    my ($C, $dbh, $run, $pid, $host, $shard_list_ref) = @_;
+
+    my ($allocated_shard, $num_to_allocate) = (0, 0);
+    my ($host_has_room, $set_num_running) =  (0, 0);
+
+    my $state = 'Mon_undef';
+
+    __LOCK_TABLES($dbh, qw(j_shard_control j_host_control j_queue));
+
+    if (! Select_host_enabled($C, $dbh, $run, $host)) {
+        $state = 'Mon_host_disabled';
+    }
+    elsif (__host_is_overallocated($C, $dbh, $run, $host)) {
+        $state = 'Mon_host_overallocated';
+    }
+    else {
+        my $queued_shards_list_ref = __get_queued_shards_list($C, $dbh, $run);
+
+        ($allocated_shard, $num_to_allocate) = __allocate_shard_test($C, $dbh, $run, $shard_list_ref, $queued_shards_list_ref);
+        ($host_has_room, $set_num_running) = __allocate_host_test($C, $dbh, $run, $host);
+
+        if ($allocated_shard) {
+            if ($host_has_room) {
+                update_shard_allocation($C, $dbh, $run, $allocated_shard, $num_to_allocate);
+                update_host_num_running($C, $dbh, $run, $host, $set_num_running);
+                $state = 'Mon_shard_and_host_allocated';
+            }
+            else {
+                $state = 'Mon_host_fully_allocated';
+            }
+        }
+        else {
+            if ($host_has_room) {
+                $state = 'Mon_shards_fully_allocated';
+            }
+            else  {
+                $state = 'Mon_resource_fully_allocated';
+            }
+        }
+    }
+
+    __UNLOCK_TABLES($dbh);
+
+    return ($allocated_shard, $state);
+}
+
 1;
+
 __END__
 
 =head1 AUTHOR
@@ -2979,7 +3149,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2008-9 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2008-12 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

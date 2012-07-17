@@ -387,36 +387,6 @@ sub IXconstant2string {
 
 # ---------------------------------------------------------------------
 
-=item max_producers_running
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub max_producers_running
-{
-    my ($C, $dbh, $run, $host) = @_; 
-    
-    my $num_producers_configured = Db::Select_num_producers($C, $dbh, $run, $host) || 0;
-    
-    my $run_pattern = q{-r[ ]*} . $run;
-    my $producer_pattern = qq{index-j.*?($run_pattern).*?};
-    my $effective_uid = `whoami`;
-    
-    my $num_producers_running =
-      SLIP_Utils::Processes::num_producers_running($C,
-                                                   $producer_pattern,
-                                                   $effective_uid);
-    
-    # don't count myself
-    my $num_running = $num_producers_running - 1;    
-    
-    return ($num_running >= $num_producers_configured, $num_producers_configured, $num_producers_running);
-}
-
-# ---------------------------------------------------------------------
-
 =item __non_interactive_err_output
 
 When scripts are children of cron, print to STDERR.
