@@ -2530,7 +2530,7 @@ Serves to initialize rows as well.
 # ---------------------------------------------------------------------
 sub update_host_num_producers {
     my ($C, $dbh, $run, $num_producers, $host) = @_;
-    
+
     my $statement = qq{UPDATE j_host_control SET num_producers=? WHERE run=? AND host=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $num_producers, $run, $host);
     DEBUG('lsdb', qq{DEBUG: $statement : $num_producers, $run, $host});
@@ -2970,17 +2970,17 @@ sub dedicated_producer_monitor {
 
     __LOCK_TABLES($dbh, qw(j_shard_control j_host_control));
 
-    if (__shard_is_overallocated($C, $dbh, $run, $dedicated_shard)) {
-        $state = 'Mon_shard_overallocated';
-    }
-    if (__host_is_overallocated($C, $dbh, $run, $host)) {
-        $state = 'Mon_host_overallocated';
-    }
-    if (! Select_shard_enabled($C, $dbh, $run, $dedicated_shard)) {
-        $state = 'Mon_shard_disabled';
-    }
     if (! Select_host_enabled($C, $dbh, $run, $host)) {
         $state = 'Mon_host_disabled';
+    }
+    elsif (! Select_shard_enabled($C, $dbh, $run, $dedicated_shard)) {
+        $state = 'Mon_shard_disabled';
+    }
+    elsif (__host_is_overallocated($C, $dbh, $run, $host)) {
+        $state = 'Mon_host_overallocated';
+    }
+    elsif (__shard_is_overallocated($C, $dbh, $run, $dedicated_shard)) {
+        $state = 'Mon_shard_overallocated';
     }
 
     __UNLOCK_TABLES($dbh);
@@ -3014,7 +3014,7 @@ sub __get_queued_shards_list {
     DEBUG('lsdb',
           sub {
               my $s = join(' ', @$queued_shards_ref);
-              return qq{DEBUG (unalloc): $statement : $run, $SLIP_Utils::States::Q_AVAILABLE ::: $s}
+              return qq{DEBUG: $statement : $run, $SLIP_Utils::States::Q_AVAILABLE ::: $s}
           });
 
     return $queued_shards_ref;
@@ -3054,6 +3054,7 @@ sub __allocate_shard_test {
             }
         }
     }
+    DEBUG('lsdb', qq{DEBUG: allocate shard test : shard=$shard num_allocated=$allocated});
 
     return ($allocated_shard, $allocated);
 }
@@ -3079,6 +3080,7 @@ sub __allocate_host_test {
         $num_running++;
         $allocated = 1;
     }
+    DEBUG('lsdb', qq{DEBUG: allocate host test : host=$host success=$allocated num_allocated=$num_running});
 
     return ($allocated, $num_running);
 }
