@@ -953,7 +953,7 @@ sub Select_timeouts_count {
     my ($C, $dbh, $run, $shard) = @_;
 
     my @params;
-    my $AND_clause;
+    my $AND_clause = '';
     if ( defined($shard) ) {
         $AND_clause = qq{ AND shard=? };
         @params = ( $shard );
