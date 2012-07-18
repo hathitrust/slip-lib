@@ -3054,7 +3054,7 @@ sub __allocate_shard_test {
             }
         }
     }
-    DEBUG('lsdb', qq{DEBUG: allocate shard test : shard=$shard num_allocated=$allocated});
+    DEBUG('lsdb', qq{DEBUG: allocate shard test : shard=$allocated_shard num_allocated=$allocated});
 
     return ($allocated_shard, $allocated);
 }
