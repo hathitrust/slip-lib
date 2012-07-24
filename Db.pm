@@ -38,15 +38,15 @@ use SLIP_Utils::States;
 use SLIP_Utils::Common;
 
 # Map from constants to integers for MySQL query building
-my $C_NO_ERROR         = IX_NO_ERROR;
-my $C_INDEX_FAILURE    = IX_INDEX_FAILURE;
-my $C_INDEX_TIMEOUT    = IX_INDEX_TIMEOUT;
-my $C_SERVER_GONE      = IX_SERVER_GONE;
-my $C_ALREADY_FAILED   = IX_ALREADY_FAILED;
-my $C_DATA_FAILURE     = IX_DATA_FAILURE;
-my $C_METADATA_FAILURE = IX_METADATA_FAILURE;
-my $C_CRITICAL_FAILURE = IX_CRITICAL_FAILURE;
-my $C_NO_INDEXER_AVAIL = IX_NO_INDEXER_AVAIL;
+our $C_NO_ERROR         = IX_NO_ERROR;
+our $C_INDEX_FAILURE    = IX_INDEX_FAILURE;
+our $C_INDEX_TIMEOUT    = IX_INDEX_TIMEOUT;
+our $C_SERVER_GONE      = IX_SERVER_GONE;
+our $C_ALREADY_FAILED   = IX_ALREADY_FAILED;
+our $C_DATA_FAILURE     = IX_DATA_FAILURE;
+our $C_METADATA_FAILURE = IX_METADATA_FAILURE;
+our $C_CRITICAL_FAILURE = IX_CRITICAL_FAILURE;
+our $C_NO_INDEXER_AVAIL = IX_NO_INDEXER_AVAIL;
 
 our $MYSQL_ZERO_TIMESTAMP = '0000-00-00 00:00:00';
 our $vSOLR_ZERO_TIMESTAMP = '00000000';
@@ -873,7 +873,7 @@ Description
 
 # ---------------------------------------------------------------------
 sub insert_restore_errors_to_queue {
-    my ($C, $dbh, $run) = @_;
+    my ($C, $dbh, $run, $type) = @_;
 
     my $sth;
     my $statement;
@@ -882,8 +882,15 @@ sub insert_restore_errors_to_queue {
     __LOCK_TABLES($dbh, qw(j_errors j_queue));
 
     $statement = qq{SELECT id, shard FROM j_errors WHERE run=?};
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
-    DEBUG('lsdb', qq{DEBUG: $statement : $run});
+    if (defined $type) {
+        $statement .= qq{ AND reason=?};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $type);
+        DEBUG('lsdb', qq{DEBUG: $statement : $run $type});
+    }
+    else {
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
+        DEBUG('lsdb', qq{DEBUG: $statement : $run});
+    }
 
     my $ref_to_ary_of_hashref = $sth->fetchall_arrayref({});
     foreach my $ref (@$ref_to_ary_of_hashref) {
