@@ -424,7 +424,8 @@ sub __delete_document
 
     my $ua = $self->__create_user_agent();
     my $url = $self->__get_Solr_post_update_url($C);
-    my $post_data = qq{<delete><id>$id</id></delete>};
+    my $safe_id = Identifier::get_safe_Solr_id($id);
+    my $post_data = qq{<delete><id>$safe_id</id></delete>};
     my $req = $self->__get_request_object($url, \$post_data);
 
     my $start = Time::HiRes::time();

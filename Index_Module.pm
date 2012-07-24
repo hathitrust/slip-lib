@@ -186,7 +186,8 @@ sub delete_one_id {
     #
     my $del_stats_ref;
     my $delete_field = $C->get_object('MdpConfig')->get('default_Solr_delete_field');
-    my $query = qq{$delete_field:$id};
+    my $safe_id = Identifier::get_safe_Solr_id($id);
+    my $query = qq{$delete_field:$safe_id};
     
     ($index_state, $del_stats_ref) = $indexer->delete_by_query($C, $query);
 
@@ -297,9 +298,9 @@ sub update_stats {
 
     my $tot_Time = Time::HiRes::time() - $start;
 
-    my $doc_size = $$stats_ref{'create'}{'doc_size'};
-    my $doc_Time = $$stats_ref{'create'}{'elapsed'};
-    my $idx_Time = $$stats_ref{'update'}{'elapsed'};
+    my $doc_size = $$stats_ref{'create'}{'doc_size'} || 0;
+    my $doc_Time = $$stats_ref{'create'}{'elapsed'} || 0;
+    my $idx_Time = $$stats_ref{'update'}{'elapsed'} || $$stats_ref{'delete'}{'elapsed'} || 0;
 
     my ($shard_num_docs_processed) =
         Db::update_shard_stats($C, $dbh, $run, $shard, $reindexed, $deleted, $doc_size, $doc_Time, $idx_Time, $tot_Time);
