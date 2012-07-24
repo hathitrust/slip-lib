@@ -904,8 +904,15 @@ sub insert_restore_errors_to_queue {
     }
 
     $statement = qq{DELETE FROM j_errors WHERE run=?};
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
-    DEBUG('lsdb', qq{DEBUG: $statement : $run});
+    if (defined $type) {
+        $statement .= qq{ AND reason=?};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $type);
+        DEBUG('lsdb', qq{DEBUG: $statement : $run $type});
+    }
+    else {
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
+        DEBUG('lsdb', qq{DEBUG: $statement : $run});
+    }
 
     __UNLOCK_TABLES($dbh);
 
