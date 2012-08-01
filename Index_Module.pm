@@ -84,13 +84,13 @@ sub Service_ID {
           (IX_NO_INDEXER_AVAIL, IX_NO_ERROR, IX_NO_ERROR);
     }
 
-    my $item_is_Solr_handled =
+    my $result_was_error =
       handle_i_result($C, $dbh, $run, $dedicated_shard, $id, $pid, $host,
                       $index_state, $data_status, $metadata_status);
 
     my $reindexed = 0;
     my $deleted = 0;
-    if ($item_is_Solr_handled) {
+    if (! $result_was_error) {
         if ($op == INDEX_OP) {
             $reindexed = update_ids_indexed($C, $dbh, $run, $dedicated_shard, $id);
         }
@@ -105,7 +105,7 @@ sub Service_ID {
     # Item is now recorded in either mdp.j_errors or mdp.j_indexed or
     # in mdp.j_indexed AND mdp.j_timeouts.  Unless deleted.
     my $shard_num_docs_processed =
-      update_stats($C, $dbh, $run, $dedicated_shard, $reindexed, $deleted, $stats_ref, $start);
+      update_stats($C, $dbh, $run, $dedicated_shard, $reindexed, $deleted, $result_was_error, $stats_ref, $start);
 
     update_checkpoint($C, $dbh, $run, $dedicated_shard, time(), $shard_num_docs_processed);
 
@@ -294,7 +294,7 @@ processed - may be more than one producer per shard
 
 # ---------------------------------------------------------------------
 sub update_stats {
-    my ($C, $dbh, $run, $shard, $reindexed, $deleted, $stats_ref, $start) = @_;
+    my ($C, $dbh, $run, $shard, $reindexed, $deleted, $errored, $stats_ref, $start) = @_;
 
     my $tot_Time = Time::HiRes::time() - $start;
 
@@ -303,7 +303,7 @@ sub update_stats {
     my $idx_Time = $$stats_ref{'update'}{'elapsed'} || $$stats_ref{'delete'}{'elapsed'} || 0;
 
     my ($shard_num_docs_processed) =
-        Db::update_shard_stats($C, $dbh, $run, $shard, $reindexed, $deleted, $doc_size, $doc_Time, $idx_Time, $tot_Time);
+        Db::update_shard_stats($C, $dbh, $run, $shard, $reindexed, $deleted, $errored, $doc_size, $doc_Time, $idx_Time, $tot_Time);
 
     my $t = sprintf(qq{sec=%.2f}, $tot_Time);
     DEBUG('doc,idx', qq{TOTAL: processed in $t});
@@ -514,7 +514,7 @@ sub handle_i_result {
     my ($C, $dbh, $run, $dedicated_shard, $id, $pid, $host, $index_state, $data_status, $metadata_status) = @_;
 
     # Optimistic
-    my $item_is_Solr_handled = 1;
+    my $result_was_error = 0;
 
     # determine reason code in priority order: 1)indexing, 2)ocr, 3)metadata.
     my $index_ok = (! Search::Constants::indexing_failed($index_state));
@@ -524,15 +524,15 @@ sub handle_i_result {
     my $reason;
     if (! $index_ok) {
         $reason = $index_state;
-        $item_is_Solr_handled = 0;
+        $result_was_error = 1;
     }
     elsif (! $ocr_ok) {
         $reason = $data_status;
-        $item_is_Solr_handled = 0;
+        $result_was_error = 1;
     }
     elsif (! $metadata_ok) {
         $reason = $metadata_status;
-        $item_is_Solr_handled = 0;
+        $result_was_error = 1;
     }
 
     # IX_INDEX_TIMEOUT is NOT an indexing error and thus the id will
@@ -546,7 +546,7 @@ sub handle_i_result {
         Db::insert_item_id_timeout($C, $dbh, $run, $id, $dedicated_shard, $pid, $host);
     }
 
-    if (! $item_is_Solr_handled) {
+    if ($result_was_error) {
         handle_error_insertion($C, $dbh, $run, $dedicated_shard, $id, $pid, $host, $reason);
     
         my ($max_errors_seen, $condition, $num, $max) = max_errors_reached($C, $dbh, $run, $dedicated_shard);
@@ -576,7 +576,7 @@ sub handle_i_result {
         }
     }
 
-    return $item_is_Solr_handled;
+    return $result_was_error;
 }
 
 
