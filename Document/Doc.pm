@@ -167,6 +167,8 @@ sub build_document {
     DEBUG('doc', qq{build_document: elapsed=$elapsed sec ocr=$data_status metadata=$metadata_status});
 
     my %stats;
+    $stats{'create'}{'meta_size'} = length($$metadata_fields_ref);
+    $stats{'create'}{'data_size'} = length($$data_fields_ref);
     $stats{'create'}{'doc_size'} = length($complete_solr_doc);
     $stats{'create'}{'elapsed'}  = $elapsed;
 
