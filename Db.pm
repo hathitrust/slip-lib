@@ -1630,7 +1630,7 @@ sub update_shard_stats {
         $s_idx_time = $idx_time || 0;
         $s_tot_time = $tot_time || 0;
 
-        $statement = qq{INSERT INTO j_shard_stats SET run=?, shard=?, s_reindexed_ct=?, s_deleted_ct=?, $s_errored_ct=?, s_num_docs=?, s_doc_size=?, s_doc_time=?, s_idx_time=?, s_tot_time=?};
+        $statement = qq{INSERT INTO j_shard_stats SET run=?, shard=?, s_reindexed_ct=?, s_deleted_ct=?, s_errored_ct=?, s_num_docs=?, s_doc_size=?, s_doc_time=?, s_idx_time=?, s_tot_time=?};
         DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time});
         $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
     }
