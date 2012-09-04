@@ -213,6 +213,50 @@ sub Select_duplicate_ids_j_indexed_temp {
     return $ref_to_arr_of_hash_ref;
 }
 
+
+# ---------------------------------------------------------------------
+
+=item Select_duplicate_ids_j_indexed
+
+idempotent
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Select_duplicate_ids_j_indexed {
+    my ($C, $dbh, $run) = @_;
+
+    my $statement = qq{SELECT id, count(shard) FROM j_indexed WHERE run=? GROUP BY id HAVING count(shard) > 1};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
+    DEBUG('lsdb', qq{DEBUG: $statement : run=$run});
+
+    my $ref_to_arr_of_hash_ref = $sth->fetchall_arrayref({});
+
+    return $ref_to_arr_of_hash_ref;
+}
+
+# ---------------------------------------------------------------------
+
+=item Select_duplicate_shards_of_id
+
+idempotent
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Select_duplicate_shards_of_id {
+    my ($C, $dbh, $run, $id) = @_;
+
+    my $statement = qq{SELECT id, shard FROM j_indexed WHERE run=? AND id=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
+    DEBUG('lsdb', qq{DEBUG: $statement : run=$run id=$id});
+
+    my $ref_to_arr_of_hashref = $sth->fetchall_arrayref({});
+
+    return $ref_to_arr_of_hashref;
+}
+
+
 # ---------------------------------------------------------------------
 
 =item Select_shards_of_duplicate_id_j_indexed_temp
