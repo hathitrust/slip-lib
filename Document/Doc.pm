@@ -168,7 +168,7 @@ sub build_document {
 
     my %stats;
     $stats{'create'}{'meta_size'} = length($$metadata_fields_ref) if defined($metadata_fields_ref);
-    $stats{'create'}{'data_size'} = length($$data_fields_ref)if defined($data_fields_ref);
+    $stats{'create'}{'data_size'} = length($$data_fields_ref) if defined($data_fields_ref);
     $stats{'create'}{'doc_size'} = length($complete_solr_doc);
     $stats{'create'}{'elapsed'}  = $elapsed;
 

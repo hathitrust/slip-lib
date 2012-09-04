@@ -1201,7 +1201,7 @@ shard.
 sub handle_error_insertion {
     my ($C, $dbh, $run, $dedicated_shard, $id, $pid, $host, $reason) = @_;
     
-    __LOCK_TABLES($dbh, qw(j_indexed j_errors, j_queue));
+    __LOCK_TABLES($dbh, qw(j_indexed j_errors j_queue));
 
     my $use_shard = 0;
 
