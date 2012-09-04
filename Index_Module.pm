@@ -469,37 +469,6 @@ sub handle_timeout_delay {
 
 # ---------------------------------------------------------------------
 
-=item handle_error_insertion
-
-An ID that has never been indexed (not in j_indexed) and repeatedly
-fails will be randomly assigned a (probably) different dedicated shard
-with each attempt. Restoring this ID to the queue repeatedly will add
-it to the queue with these several different shard numbers and cause
-the system to index it to more than one shard. If never indexed, set
-its shard=0 in the error list. If previously indexed use the dedicated
-shard.
-
-=cut
-
-# ---------------------------------------------------------------------
-sub handle_error_insertion {
-    my ($C, $dbh, $run, $dedicated_shard, $id, $pid, $host, $reason) = @_;
-    
-    my $use_shard = 0;
-
-    my $shard = Db::Select_item_id_shard($C, $dbh, $run, $id);
-    if ($shard) {
-        ASSERT(($shard == $dedicated_shard), 
-               qq{shard number mismatch: indexed_shard=$shard dedicated_shard=$dedicated_shard id=$id});
-        $use_shard = $dedicated_shard;
-    }
-
-    Db::insert_item_id_error($C, $dbh, $run, $use_shard, $id, $pid, $host, $reason);
-}
-
-
-# ---------------------------------------------------------------------
-
 =item handle_i_result
 
 All errors (indexing, ocr, metadata) are put in the error list and not
@@ -547,7 +516,7 @@ sub handle_i_result {
     }
 
     if ($result_was_error) {
-        handle_error_insertion($C, $dbh, $run, $dedicated_shard, $id, $pid, $host, $reason);
+        Db::handle_error_insertion($C, $dbh, $run, $dedicated_shard, $id, $pid, $host, $reason);
     
         my ($max_errors_seen, $condition, $num, $max) = max_errors_reached($C, $dbh, $run, $dedicated_shard);
         if ($max_errors_seen && (! $MAX_ERRORS_SEEN)) {

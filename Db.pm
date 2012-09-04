@@ -676,13 +676,17 @@ sub handle_queue_insert {
         last
             if (scalar(@queue_array) <= 0);
 
+        __LOCK_TABLES($dbh, qw(j_indexed));
+
         my $ref_to_arr_of_hashref = [];
         foreach my $id (@queue_array) {
-            my $shard = Db::Select_item_id_shard($C, $dbh, $run, $id);
+            my $shard = Select_item_id_shard($C, $dbh, $run, $id);
             push(@$ref_to_arr_of_hashref, {id => $id, shard => $shard});
         }
 
-        my $num_inserted = Db::insert_queue_items($C, $dbh, $run, $ref_to_arr_of_hashref);
+        __UNLOCK_TABLES($dbh);
+
+        my $num_inserted = insert_queue_items($C, $dbh, $run, $ref_to_arr_of_hashref);
         $total_num_inserted += $num_inserted;
 
         my $elapsed = time - $start;
@@ -715,7 +719,7 @@ Description
 sub __get_update_time_WHERE_clause {
     my ($C, $dbh, $run) = @_;
 
-    my $timestamp = Db::Select_j_rights_timestamp($C, $dbh, $run);
+    my $timestamp = Select_j_rights_timestamp($C, $dbh, $run);
     my $WHERE_clause;
     if ($timestamp eq $Db::vSOLR_ZERO_TIMESTAMP) {
         $WHERE_clause = qq{ WHERE update_time >= ?};
@@ -784,7 +788,7 @@ sub insert_latest_into_queue {
     $statement = qq{SELECT MAX(update_time) FROM j_rights};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
     my $new_timestamp = $sth->fetchrow_array;
-    Db::update_j_rights_timestamp($C, $dbh, $run, $new_timestamp);
+    update_j_rights_timestamp($C, $dbh, $run, $new_timestamp);
 
     __UNLOCK_TABLES($dbh);
 
@@ -1179,6 +1183,39 @@ sub Select_id_from_j_errors {
     return $reason;
 }
 
+# ---------------------------------------------------------------------
+
+=item handle_error_insertion
+
+An ID that has never been indexed (not in j_indexed) and repeatedly
+fails will be randomly assigned a (probably) different dedicated shard
+with each attempt. Restoring this ID to the queue repeatedly will add
+it to the queue with these several different shard numbers and cause
+the system to index it to more than one shard. If never indexed, set
+its shard=0 in the error list. If previously indexed use the dedicated
+shard.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub handle_error_insertion {
+    my ($C, $dbh, $run, $dedicated_shard, $id, $pid, $host, $reason) = @_;
+    
+    __LOCK_TABLES($dbh, qw(j_indexed j_errors, j_queue));
+
+    my $use_shard = 0;
+
+    my $shard = Select_item_id_shard($C, $dbh, $run, $id);
+    if ($shard) {
+        ASSERT(($shard == $dedicated_shard), 
+               qq{shard number mismatch: indexed_shard=$shard dedicated_shard=$dedicated_shard id=$id});
+        $use_shard = $dedicated_shard;
+    }
+
+    insert_item_id_error($C, $dbh, $run, $use_shard, $id, $pid, $host, $reason);
+
+    __UNLOCK_TABLES($dbh);
+}
 
 # ---------------------------------------------------------------------
 
