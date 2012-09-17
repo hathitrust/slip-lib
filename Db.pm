@@ -2546,9 +2546,9 @@ Description
 sub update_host_enabled {
     my ($C, $dbh, $run, $host, $enabled) = @_;
 
-    my $statement = qq{UPDATE j_host_control SET enabled=? WHERE run=? AND host=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $enabled, $run, $host);
-    DEBUG('lsdb', qq{DEBUG: $statement : $enabled $run $host});
+    my $statement = qq{INSERT INTO j_host_control(`run, `host`, `enabled`) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE enabled=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $host, $enabled, $enabled);
+    DEBUG('lsdb', qq{DEBUG: $statement : $run $host $enabled  $enabled});
 }
 
 
@@ -2585,9 +2585,9 @@ Serves to initialize rows as well.
 sub update_host_num_producers {
     my ($C, $dbh, $run, $num_producers, $host) = @_;
 
-    my $statement = qq{UPDATE j_host_control SET num_producers=? WHERE run=? AND host=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $num_producers, $run, $host);
-    DEBUG('lsdb', qq{DEBUG: $statement : $num_producers, $run, $host});
+    my $statement = qq{INSERT INTO j_host_control(`run`, `host`, `num_producers`) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE num_producers=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $host, $num_producers, $num_producers);
+    DEBUG('lsdb', qq{DEBUG: $statement : $num_producers, $run, $host, $num_producers $num_producers});
 }
 
 # ---------------------------------------------------------------------
@@ -2602,8 +2602,8 @@ Description
 sub update_host_num_running {
     my ($C, $dbh, $run, $host, $num_running) = @_;
 
-    my $statement = qq{UPDATE j_host_control SET num_running=? WHERE run=? AND host=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $num_running, $run, $host);
+    my $statement = qq{INSERT INTO j_host_control(`run, `host`, `num_running`) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE num_running=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $host, $num_running, $num_running);
     DEBUG('lsdb', qq{DEBUG: $statement : $num_running, $run, $host});
 }
 
