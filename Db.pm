@@ -2546,7 +2546,7 @@ Description
 sub update_host_enabled {
     my ($C, $dbh, $run, $host, $enabled) = @_;
 
-    my $statement = qq{INSERT INTO j_host_control(`run, `host`, `enabled`) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE enabled=?};
+    my $statement = qq{INSERT INTO j_host_control(`run`, `host`, `enabled`) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE enabled=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $host, $enabled, $enabled);
     DEBUG('lsdb', qq{DEBUG: $statement : $run $host $enabled  $enabled});
 }
