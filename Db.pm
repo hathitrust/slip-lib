@@ -2602,7 +2602,7 @@ Description
 sub update_host_num_running {
     my ($C, $dbh, $run, $host, $num_running) = @_;
 
-    my $statement = qq{INSERT INTO j_host_control(`run, `host`, `num_running`) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE num_running=?};
+    my $statement = qq{INSERT INTO j_host_control(`run`, `host`, `num_running`) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE num_running=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $host, $num_running, $num_running);
     DEBUG('lsdb', qq{DEBUG: $statement : $num_running, $run, $host});
 }
