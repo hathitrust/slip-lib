@@ -234,7 +234,7 @@ sub __HELPER_get_Solr_fulltext_filter_query_arg {
     # should be filtered by an institution value that never matches.
     my $holdings_qualified_string = '';
     if (scalar @holdings_qualified_attr_list) {
-        my $inst = $C->get_object('Auth')->get_institution($C);
+        my $inst = $C->get_object('Auth')->get_institution_code($C);
         $inst = '___NO_INST___' if (! $inst);
         $holdings_qualified_string = 
           '(' . join('+OR+', map { '(' . "ht_heldby:$inst+AND+rights:" . $_ . ')'} @holdings_qualified_attr_list) . ')';
