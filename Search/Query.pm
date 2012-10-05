@@ -477,12 +477,15 @@ sub log_query {
     my $config = $C->get_object('MdpConfig');
     my $Solr_url = $searcher->get_engine_uri() . '?' . $self->get_Solr_query_string($C);
     $Solr_url =~ s, ,+,g;
-
+    # add cgi params for better tracking
+    my $tempcgi = $C->get_object('CGI');
+    my $appURL=$tempcgi->url(-query=>1);
+    
     my $session_id = $C->get_object('Session')->get_session_id();
 
     my $log_string = qq{$ipaddr $session_id $$ }
         . Utils::Time::iso_Time('time')
-            . qq{ qtime=$Qtime numfound=$num_found url=$Solr_url };
+            . qq{ qtime=$Qtime numfound=$num_found url=$Solr_url cgi=$appURL };
 
     Utils::Logger::__Log_string($C, $log_string,
                                      'query_logfile', '___QUERY___', $query_dir_part);
