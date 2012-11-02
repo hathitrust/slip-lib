@@ -276,7 +276,7 @@ sub __get_request_object
 
     my $req = HTTP::Request->new(POST => $url);
 
-    $req->header('Content-type' => 'Content-type:text/xml; charset=utf-8');
+    $req->header('Content-type' => 'text/xml; charset=utf-8');
     # Prevent "wide character in syswrite" error in LWP.
     $$content_ref = Encode::encode_utf8($$content_ref);
     
