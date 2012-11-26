@@ -6,30 +6,32 @@ Document::vSolrMetadataAPI::Schema_LS_9
 
 =head1 DESCRIPTION
 
-Adding "mainauthor" stored field 
-This class creates an VuFind Solr type 9 schema document for indexing
-using the VuFind API and the VuFind Solr schema for facets and includes holdings data 
-and additional marc fields
+Adding "mainauthor" stored field.  This class creates an VuFind Solr
+type 9 schema document for indexing using the VuFind API and the
+VuFind Solr schema for facets and includes holdings data and
+additional marc fields
 
 Several fields that relate to rights are removed because they make sense for a bib record but not for item records:
 	"availability", 
 	"ht_availability",
 	"ht_availability_intl",
 
+Availability is useless.  It's to distinguish HT items and unscanned
+items that are in Mirlyn.  All HT items have the same avail value
+here.  See emails of 3/21/2012 from Bill Deuber The other two values
+are based on the most liberal rights of any item on the bib and so are
+totally inappropriate for item records.
 
-Availability is useless.  It's to distinguish HT items and unscanned items that are in Mirlyn.  All HT items have the same avail value here.
-See emails of 3/21/2012 from Bill Deuber The other two values are based on the most liberal rights of any item on the bib and so are totally inappropriate for item records.
-
-htsource is not taken from the VuFind bib data  instead we map the namespace from the item id to the htsource
-display name
-
+htsource is not taken from the VuFind bib data instead we map the
+namespace from the item id to the htsource display name.
 
 Maps VuFind id to "record_no"
 
 Maps the publishDate field to the stored date field for display
 
 Processes the Vufind FullText field (MARC21 MARCXML for record) to
-create the "allfields" field which concatentates all MARC fields over 99
+create the "allfields" field which concatentates all MARC fields over
+99
 
 =head1 SYNOPSIS
 
@@ -48,6 +50,7 @@ use strict;
 use Utils;
 use Search::Constants;
 use SharedQueue;
+use Namespaces;
 
 # SLIP
 use Db;
@@ -211,7 +214,7 @@ sub post_process_metadata {
     my $self = shift;
     my ($C, $item_id, $metadata_hashref, $state) = @_;
 
-    # get MARC XML and concatenate text contents of all fields > 99
+    # Get MARC XML and concatenate text contents of all fields > 99
     # i.e. no control 0xx fields!
 
     $metadata_hashref->{'allfields'} = getAllFields($metadata_hashref->{'fullrecord'});
@@ -228,21 +231,23 @@ sub post_process_metadata {
     my @titles = @{$metadata_hashref->{'title'}};
     return unless (scalar(@titles) > 0);
 
-    # save title as Vtitle before Mbooks specific processing reserved for "title" field
+    # Save title as Vtitle before Mbooks specific processing reserved
+    # for "title" field
     $metadata_hashref->{'Vtitle'} = $metadata_hashref->{'title'};
 
-    #  save author to Vauthor for vufind processed field
+    # Save author to Vauthor for vufind processed field
     if (defined($metadata_hashref->{'author'})) {
         $metadata_hashref->{'Vauthor'} = $metadata_hashref->{'author'}
     }
-
 
     my @hathiTrust_str = grep(/^$item_id\|.*/, @{$metadata_hashref->{'ht_id_display'}});
     # 0      1            2          3
     # htid | ingestDate | enumcron | rightsCodeForThisItem
     my @ht_id_display = split(/\|/, $hathiTrust_str[0]);
-    #store enumcron as separate Solr field and concatenate at a later stage prior to display.  See emails on October 18th, 2011 re: 245$c and wierd punctuation when there is an enumcron.
-
+    
+    # Store enumcron as separate Solr field and concatenate at a later
+    # stage prior to display.  See emails on October 18th, 2011 re:
+    # 245$c and wierd punctuation when there is an enumcron.
     my $volume_enumcron = $ht_id_display[2];
     if ($volume_enumcron) {
         $metadata_hashref->{'volume_enumcron'} = [$volume_enumcron];
@@ -254,29 +259,24 @@ sub post_process_metadata {
         $metadata_hashref->{'date'}[0] = $metadata_hashref->{'publishDate'}[0];
     }
 
-    #derive htsource per item from mapping of item id namespace to label
-    # if namespace= mdp= htsource = "University of Michigan"
-    my $yaml_config= $C->get_object('YamlConfig');
-    my $ns2label = $yaml_config->get_ns2label();
-    
-    my $namespace;
+    # Derive htsource per item by mapping namespace to institution
+    # name, i.e.  if namespace=mdp htsource="University of Michigan"
     my $htsource_display_name;
-    if ($item_id=~/([^\.]+)\./)
-    {
-        $namespace=$1;
-        $htsource_display_name = $ns2label->{$namespace};
-        if (defined( $htsource_display_name))
-        {
-            $metadata_hashref->{'htsource'}=[$htsource_display_name];
+    my ($namespace) = ($item_id =~ /([^\.]+)\./);
+    if ($namespace) {
+        $htsource_display_name = Namespaces::get_institution_by_namespace($C, $namespace);
+        if (defined($htsource_display_name)) {
+            $metadata_hashref->{htsource} = [$htsource_display_name];
         }
     }
 }
 
 # ---------------------------------------------------------------------
+
 =item getAllFields
 
-input is the VuFind "FullText" field which is the MARC21 MARCXML for the record,
-output is concatenation of all the MARC fields above 99
+Input is the VuFind "FullText" field which is the MARC21 MARCXML for
+the record, output is concatenation of all the MARC fields above 99.
 Note that an earlier process escaped the xml so we reverse the process
 
 =cut
@@ -284,14 +284,15 @@ Note that an earlier process escaped the xml so we reverse the process
 # ---------------------------------------------------------------------
 sub getAllFields{
     my $xmlref = shift;
-    my $xml=$xmlref->[0];
+    my $xml = $xmlref->[0];
+
     # clean up escaped xml until we find out where its escaped
     $xml =~s/\&lt\;/\</g;
     $xml =~s/\&gt\;/\>/g;
 
     my $g_PARSER = XML::LibXML->new();
     my $doc = $g_PARSER->parse_string($xml);
-    my @nodelist= $doc->getElementsByTagName('datafield');
+    my @nodelist = $doc->getElementsByTagName('datafield');
     my $bigstring;
     my $content;
 
@@ -314,7 +315,8 @@ sub getAllFields{
     }
 
     my $aryref = [];
-    $aryref->[0]= $bigstring;
+    $aryref->[0] = $bigstring;
+
     return $aryref;
 }
 
