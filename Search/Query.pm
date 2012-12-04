@@ -174,9 +174,6 @@ sub get_Solr_no_fulltext_filter_query {
 Construct a full filter query (fq) informed by the
 authentication and holdings environment.
 
-Construct, given the users institution (inst):
-   e.g. fq=(rights:1+OR+rights:7)+OR+(ht_holding_inst:inst+AND+attr:3)+OR+(ht_holding_inst:inst+AND+attr:4)
-
 =cut
 
 # ---------------------------------------------------------------------
@@ -186,6 +183,7 @@ sub get_Solr_fulltext_filter_query {
 
     my $full_fulltext_FQ_string = 'fq=' . $self->__HELPER_get_Solr_fulltext_filter_query_arg($C);
 
+    DEBUG('query', qq{<font color="blue">FQ: </font>$full_fulltext_FQ_string});
     return $full_fulltext_FQ_string;
 }
 
@@ -194,11 +192,20 @@ sub get_Solr_fulltext_filter_query {
 
 =item __HELPER_get_Solr_fulltext_filter_query_arg
 
-Construct a the argument to a filter query (fq) informed by the
-authentication and holdings environment.
+Construct the clause to a filter query (fq) informed by the
+authentication, institution and holdings environment. Construction
+varies:
 
-Construct, given the users institution (inst):
-   e.g. ((rights:1+OR+rights:7)+OR+(ht_heldby:inst+AND+attr:3)+OR+(ht_heldby:inst+AND+attr:4))
+There are two cases that turn on attr:3 (OP)
+
+1) The SSD user query only requires holdings because OP implies IC so
+their query is e.g. 
+
+fq=((rights:1+OR+rights:7+OR+...)+OR+(ht_heldby:inst+AND+attr:3)+OR+(ht_heldby:inst+AND+attr:4))
+
+2) HT affiliates or in-library users require holdings AND brittle so their query is e.g.
+
+fq=((rights:1+OR+rights:7+OR+...)+OR+(ht_heldby_brlm:inst+AND+attr:3)+OR+(ht_heldby:inst+AND+attr:4))
 
 =cut
 
@@ -208,15 +215,18 @@ sub __HELPER_get_Solr_fulltext_filter_query_arg {
     my $C = shift;
     
     # These are the attrs, for this users authorization type
-    # (e.g. SSD), geo location and institution that equate to the
-    # 'allow' status, i.e. fulltext.  This code takes into account
-    # whether the attr requires institution to hold the volumes and
-    # qualifies accordingly.
+    # (e.g. SSD, HT affiliate, in-library), geo location and
+    # institution that equate to the 'allow' status, i.e. fulltext.
+    # This code takes into account whether the attr requires
+    # institution to hold the volumes, whether the holding have to be
+    # brittle, and qualifies accordingly.
     my $fulltext_attr_list_ref = Access::Rights::get_fulltext_attr_list($C);
     
     my @holdings_qualified_attr_list = ();
     my @unqualified_attr_list = @$fulltext_attr_list_ref;
     
+    # Remove any attributes that must be qualified by holdings of the
+    # user's institution
     foreach my $fulltext_attr (@$fulltext_attr_list_ref) {
         if (grep(/^$fulltext_attr$/, @RightsGlobals::g_access_requires_holdings_attribute_values)) {
             push(@holdings_qualified_attr_list, $fulltext_attr);
@@ -230,21 +240,32 @@ sub __HELPER_get_Solr_fulltext_filter_query_arg {
           '(' . join('+OR+', map { 'rights:' . $_ } @unqualified_attr_list) . ')';
     }
     
-    # Qualify by holdings.  If there is no institution, these attrs
-    # should be filtered by an institution value that never matches.
+    # Now qualify by holdings.  If there is no institution, there
+    # cannot be a clause qualified by institution holdings at all.
     my $holdings_qualified_string = '';
-    if (scalar @holdings_qualified_attr_list) {
-        my $inst = $C->get_object('Auth')->get_institution_code($C, 'mapped');
-        $inst = '___NO_INST___' if (! $inst);
-        $holdings_qualified_string = 
-          '(' . join('+OR+', map { '(' . "ht_heldby:$inst+AND+rights:" . $_ . ')'} @holdings_qualified_attr_list) . ')';
+
+    my $inst = $C->get_object('Auth')->get_institution_code($C, 'mapped');
+    if ($inst) {
+        my @qualified_OR_clauses = ();
+        my $access_type = Access::Rights::get_access_type($C);
+
+        foreach my $attr (@holdings_qualified_attr_list) {
+            if (($access_type ne $RightsGlobals::SSD_USER)
+                &&
+                ($attr eq $RightsGlobals::g_access_requires_brittle_holdings_attribute_value)) {
+                push(@qualified_OR_clauses, qq{(ht_heldby_brlm:$inst+AND+rights:$attr)});
+            }
+            else {
+                push(@qualified_OR_clauses, qq{(ht_heldby:$inst+AND+rights:$attr)});
+            }
+        }
+        $holdings_qualified_string = (scalar @qualified_OR_clauses) ? '(' . join('+OR+', @qualified_OR_clauses) . ')' : '';
     }
-    
+
     my $fulltext_FQ_string = '(' . $unqualified_string . ($holdings_qualified_string ? '+OR+' . $holdings_qualified_string : '') . ')';
     
     return $fulltext_FQ_string;
 }
-
 
 
 # ---------------------------------------------------------------------
