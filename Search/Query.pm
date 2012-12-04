@@ -244,6 +244,8 @@ sub __HELPER_get_Solr_fulltext_filter_query_arg {
     # cannot be a clause qualified by institution holdings at all.
     my $holdings_qualified_string = '';
 
+    # @OPB temporary until Dec 15
+    my $inst_brlm = 'uom';
     my $inst = $C->get_object('Auth')->get_institution_code($C, 'mapped');
     if ($inst) {
         my @qualified_OR_clauses = ();
@@ -253,7 +255,7 @@ sub __HELPER_get_Solr_fulltext_filter_query_arg {
             if (($access_type ne $RightsGlobals::SSD_USER)
                 &&
                 ($attr eq $RightsGlobals::g_access_requires_brittle_holdings_attribute_value)) {
-                push(@qualified_OR_clauses, qq{(ht_heldby_brlm:$inst+AND+rights:$attr)});
+                push(@qualified_OR_clauses, qq{(ht_heldby_brlm:$inst_brlm+AND+rights:$attr)});
             }
             else {
                 push(@qualified_OR_clauses, qq{(ht_heldby:$inst+AND+rights:$attr)});
