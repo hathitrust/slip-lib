@@ -37,7 +37,7 @@ use DbUtils;
 # =====================================================================
 # =====================================================================
 #
-#    Control tables:   [j_driver_control] @@
+#    Control tables:   [slip_driver_control] @@
 #
 # =====================================================================
 # =====================================================================
@@ -54,7 +54,7 @@ Description
 sub Renumber_driver {
     my ($C, $dbh, $from_run, $to_run) = @_;
 
-    my $statement = qq{UPDATE j_driver_control SET run=$to_run WHERE run=$from_run};
+    my $statement = qq{UPDATE slip_driver_control SET run=$to_run WHERE run=$from_run};
     DEBUG('lsdb', qq{DEBUG: $statement});
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
@@ -75,7 +75,7 @@ sub delete_driver {
 
     my ($statement, $sth);
 
-    $statement = qq{DELETE FROM j_driver_control WHERE run=$run};
+    $statement = qq{DELETE FROM slip_driver_control WHERE run=$run};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
@@ -94,7 +94,7 @@ sub init_driver {
 
     my ($statement, $sth);
 
-    $statement = qq{REPLACE INTO j_driver_control SET run=$run, enabled=0, stage='$stage'};
+    $statement = qq{REPLACE INTO slip_driver_control SET run=$run, enabled=0, stage='$stage'};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
@@ -111,7 +111,7 @@ Description
 sub Select_driver_enabled {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{SELECT enabled FROM j_driver_control WHERE run=$run};
+    my $statement = qq{SELECT enabled FROM slip_driver_control WHERE run=$run};
     DEBUG('lsdb', qq{DEBUG: $statement});
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
     my $enabled = $sth->fetchrow_array || 0;
@@ -135,7 +135,7 @@ sub set_driver_enabled {
     my $sth;
     my $statement;
 
-    $statement = qq{UPDATE j_driver_control SET enabled=$enabled WHERE run=$run};
+    $statement = qq{UPDATE slip_driver_control SET enabled=$enabled WHERE run=$run};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
@@ -153,7 +153,7 @@ Description
 sub set_driver_stage {
     my ($C, $dbh, $run, $stage) = @_;
 
-    my $statement = qq{UPDATE j_driver_control SET stage='$stage' WHERE run=$run};
+    my $statement = qq{UPDATE slip_driver_control SET stage='$stage' WHERE run=$run};
     DEBUG('lsdb', qq{DEBUG: $statement});
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
@@ -171,7 +171,7 @@ Description
 sub Select_driver_stage {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{SELECT stage FROM j_driver_control WHERE run=$run};
+    my $statement = qq{SELECT stage FROM slip_driver_control WHERE run=$run};
     DEBUG('lsdb', qq{DEBUG: $statement});
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
 

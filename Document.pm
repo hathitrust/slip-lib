@@ -227,7 +227,7 @@ sub get_rights_f_id {
     my $dbh = $C->get_object('Database')->get_DBH($C);
     my $attr = Db::Select_j_rights_id_attr($C, $dbh, $id);
 
-    DEBUG('doc', qq{METADATA: $id MISSING from j_rights}) if (! $attr);
+    DEBUG('doc', qq{METADATA: $id MISSING from slip_rights}) if (! $attr);
 
     return $attr;
 }

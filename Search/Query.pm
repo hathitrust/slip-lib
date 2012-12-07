@@ -249,7 +249,7 @@ sub __HELPER_get_Solr_fulltext_filter_query_arg {
     my $inst = $C->get_object('Auth')->get_institution_code($C, 'mapped');
     if ($inst) {
         my @qualified_OR_clauses = ();
-        my $access_type = Access::Rights::get_access_type($C);
+        my $access_type = Access::Rights::get_access_type_determination($C);
 
         foreach my $attr (@holdings_qualified_attr_list) {
             if (($access_type ne $RightsGlobals::SSD_USER)

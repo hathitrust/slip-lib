@@ -38,7 +38,7 @@ my $C = new Context;
 my $config = SLIP_Utils::Common::gen_run_config($app, $RUN);
 $C->set_object('MdpConfig', $config);
 
-my $db = new Database($config);
+my $db = new Database('ht_maintenance');
 $C->set_object('Database', $db);
 my $id_arr_ref = ['mdp.39015015823563'];
 

@@ -8,7 +8,7 @@ Search::Constants
 =head1 DESCRIPTION
 
 This package defines values retruned by the indexing code and checked
-by application code and stored in j_errors table in the mdp database.
+by application code and stored in slip_errors table in the ht database.
 
 It also includes a map of class B IP addresses and corresponding site
 names that key item_ids in index queues for multisite application

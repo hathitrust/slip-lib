@@ -9,7 +9,7 @@ States
 
 This package defines:
 
-1) values that represent the possible states an item in j_queue table
+1) values that represent the possible states an item in slip_queue table
 can be in.
 
 2) error return codes

@@ -102,8 +102,8 @@ sub Service_ID {
     Log_item($C, $run, $dedicated_shard, $id, $pid, $host, $stats_ref, $item_ct,
              $index_state, $data_status, $metadata_status, $reindexed, $deleted);
 
-    # Item is now recorded in either mdp.j_errors or mdp.j_indexed or
-    # in mdp.j_indexed AND mdp.j_timeouts.  Unless deleted.
+    # Item is now recorded in either slip_errors or slip_indexed or
+    # in slip_indexed AND slip_timeouts.  Unless deleted.
     my $shard_num_docs_processed =
       update_stats($C, $dbh, $run, $dedicated_shard, $reindexed, $deleted, $result_was_error, $stats_ref, $start);
 
@@ -472,7 +472,7 @@ sub handle_timeout_delay {
 =item handle_i_result
 
 All errors (indexing, ocr, metadata) are put in the error list and not
-counted as indexed in j_indexed.
+counted as indexed in slip_indexed.
 
 Timesouts
 
@@ -505,12 +505,12 @@ sub handle_i_result {
     }
 
     # IX_INDEX_TIMEOUT is NOT an indexing error and thus the id will
-    # be recorded in the j_indexed table (downstream).
+    # be recorded in the slip_indexed table (downstream).
     # IX_INDEX_TIMEOUT is (probably) an HTTP timeout and the server
     # will complete the request. Still, to be sure the server
     # completed the request, record the id in the timeout table so
     # that when timeouts are reprocessed the request can be re-tried
-    # and with the correct shard (now recorded in j_indexed).
+    # and with the correct shard (now recorded in slip_indexed).
     if ($index_state == IX_INDEX_TIMEOUT) {
         Db::insert_item_id_timeout($C, $dbh, $run, $id, $dedicated_shard, $pid, $host);
     }

@@ -38,7 +38,7 @@ use constant C_INSERT_SIZE => 100000;
 # =====================================================================
 # =====================================================================
 #
-#    Table:   [j_rights] @@
+#    Table:   [slip_rights] @@
 #
 # =====================================================================
 # =====================================================================
@@ -55,7 +55,7 @@ use constant C_INSERT_SIZE => 100000;
 sub Select_j_rights_id {
     my ($C, $dbh, $nid) = @_;
 
-    my $statement = qq{SELECT count(*) FROM j_rights WHERE nid=?};
+    my $statement = qq{SELECT count(*) FROM slip_rights WHERE nid=?};
     DEBUG('lsdb', qq{DEBUG: $statement});
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $nid);
 
@@ -76,7 +76,7 @@ Description
 sub Select_j_rights_NIN_j_indexed {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{SELECT nid FROM j_rights WHERE nid NOT IN (SELECT id FROM j_indexed_temp)};
+    my $statement = qq{SELECT nid FROM slip_rights WHERE nid NOT IN (SELECT id FROM slip_indexed_temp)};
     DEBUG('lsdb', qq{DEBUG: $statement});
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
 
@@ -97,7 +97,7 @@ Description
 sub Select_j_indexed_NIN_j_rights {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{SELECT id FROM j_indexed_temp WHERE id NOT IN (SELECT nid FROM j_rights)};
+    my $statement = qq{SELECT id FROM slip_indexed_temp WHERE id NOT IN (SELECT nid FROM slip_rights)};
     DEBUG('lsdb', qq{DEBUG: $statement});
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
 
@@ -109,7 +109,7 @@ sub Select_j_indexed_NIN_j_rights {
 # =====================================================================
 # =====================================================================
 #
-#    Table:   [j_indexed] @@
+#    Table:   [slip_indexed] @@
 #
 # =====================================================================
 # =====================================================================
@@ -129,11 +129,11 @@ sub init_j_indexed_temp {
 
     my ($statement, $sth);
     
-    $statement = qq{DROP TABLE IF EXISTS j_indexed_temp};
+    $statement = qq{DROP TABLE IF EXISTS slip_indexed_temp};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
-    $statement = qq{CREATE TABLE `j_indexed_temp` (`shard` smallint(2) NOT NULL default '0', `id` varchar(32) NOT NULL default '', KEY `id` (`id`)) };
+    $statement = qq{CREATE TABLE `slip_indexed_temp` (`shard` smallint(2) NOT NULL default '0', `id` varchar(32) NOT NULL default '', KEY `id` (`id`)) };
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
@@ -160,7 +160,7 @@ sub insert_item_id_j_indexed_temp {
     }
     my $values = join(', ', @values);
     
-    my $statement = qq{INSERT INTO j_indexed_temp (`shard`, `id`) VALUES $values};
+    my $statement = qq{INSERT INTO slip_indexed_temp (`shard`, `id`) VALUES $values};
 
     my $begin = time();
     my $sth = DbUtils::prep_n_execute($dbh, $statement, @params);
@@ -183,7 +183,7 @@ idempotent
 sub Select_error_item_id {
     my ($C, $dbh, $run, $id) = @_;
 
-    my $statement = qq{SELECT id FROM j_errors WHERE run=? AND id=?};
+    my $statement = qq{SELECT id FROM slip_errors WHERE run=? AND id=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
@@ -204,7 +204,7 @@ idempotent
 sub Select_duplicate_ids_j_indexed_temp {
     my ($C, $dbh) = @_;
 
-    my $statement = qq{SELECT id, count(shard) FROM j_indexed_temp GROUP BY id HAVING count(shard) > 1};
+    my $statement = qq{SELECT id, count(shard) FROM slip_indexed_temp GROUP BY id HAVING count(shard) > 1};
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
@@ -226,7 +226,7 @@ idempotent
 sub Select_duplicate_ids_j_indexed {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{SELECT id, count(shard) FROM j_indexed WHERE run=? GROUP BY id HAVING count(shard) > 1};
+    my $statement = qq{SELECT id, count(shard) FROM slip_indexed WHERE run=? GROUP BY id HAVING count(shard) > 1};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
     DEBUG('lsdb', qq{DEBUG: $statement : run=$run});
 
@@ -247,7 +247,7 @@ idempotent
 sub Select_duplicate_shards_of_id {
     my ($C, $dbh, $run, $id) = @_;
 
-    my $statement = qq{SELECT id, shard FROM j_indexed WHERE run=? AND id=?};
+    my $statement = qq{SELECT id, shard FROM slip_indexed WHERE run=? AND id=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
     DEBUG('lsdb', qq{DEBUG: $statement : run=$run id=$id});
 
@@ -269,7 +269,7 @@ Description
 sub Select_shards_of_duplicate_id_j_indexed_temp {
     my ($C, $dbh, $id) = @_;
 
-    my $statement = qq{SELECT shard FROM j_indexed_temp WHERE id=?};
+    my $statement = qq{SELECT shard FROM slip_indexed_temp WHERE id=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $id);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
@@ -290,7 +290,7 @@ Description
 sub Delete_duplicate_id_j_indexed_temp {
     my ($C, $dbh, $id, $shard) = @_;
 
-    my $statement = qq{DELETE FROM j_indexed_temp WHERE id=? AND shard=?};
+    my $statement = qq{DELETE FROM slip_indexed_temp WHERE id=? AND shard=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $id, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
@@ -313,20 +313,20 @@ sub insert_j_indexed_temp_j_indexed {
     my $offset = C_INSERT_SIZE;
     my $num_inserted = 0;
 
-    $statement = qq{ALTER TABLE j_indexed DISABLE KEYS};
+    $statement = qq{ALTER TABLE slip_indexed DISABLE KEYS};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
     DEBUG('lsdb', qq{DEBUG: $statement});
     
     do {
         my $begin = time();
         
-        $statement = qq{LOCK TABLES j_indexed_temp WRITE, j_indexed WRITE};
+        $statement = qq{LOCK TABLES slip_indexed_temp WRITE, slip_indexed WRITE};
         $sth = DbUtils::prep_n_execute($dbh, $statement);
         DEBUG('lsdb', qq{DEBUG: $statement});
 
-        my $SELECT_clause = qq{SELECT $run, `shard`, `id`, '$MYSQL_ZERO_TIMESTAMP', 1 FROM j_indexed_temp LIMIT $start, $offset};
+        my $SELECT_clause = qq{SELECT $run, `shard`, `id`, '$MYSQL_ZERO_TIMESTAMP', 1 FROM slip_indexed_temp LIMIT $start, $offset};
         
-        $statement = qq{INSERT INTO j_indexed (`run`, `shard`, `id`, `time`, `indexed_ct`) ($SELECT_clause)};
+        $statement = qq{INSERT INTO slip_indexed (`run`, `shard`, `id`, `time`, `indexed_ct`) ($SELECT_clause)};
         $sth = DbUtils::prep_n_execute($dbh, $statement, \$num_inserted);
         DEBUG('lsdb', qq{DEBUG: $statement});
 
@@ -342,7 +342,7 @@ sub insert_j_indexed_temp_j_indexed {
         
     } until ($num_inserted <= 0);
     
-    $statement = qq{ALTER TABLE j_indexed ENABLE KEYS};
+    $statement = qq{ALTER TABLE slip_indexed ENABLE KEYS};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
