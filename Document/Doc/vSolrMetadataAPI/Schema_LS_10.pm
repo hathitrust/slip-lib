@@ -237,9 +237,6 @@ sub __add_heldby_field {
     if (scalar @$holding_inst_arr_ref) {
         $primary_metadata_hashref->{ht_heldby} = $holding_inst_arr_ref;
     }
-    else {
-        $status = IX_METADATA_FAILURE;
-    }
 
     return $status;
 }
