@@ -252,26 +252,6 @@ sub __extract_ocr_to_path {
     return $ocr_file_dir;
 }
 
-
-# ---------------------------------------------------------------------
-
-=item PUBLIC: clean_ocr
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub clean_ocr {
-    my $self = shift;
-    my $ocr_text_ref = shift;
-
-    my $ck = Time::HiRes::time();
-    SLIP_Utils::Common::clean_xml($ocr_text_ref);
-    my $cke = Time::HiRes::time() - $ck;
-    DEBUG('doc', qq{OCR: cleaned in sec=$cke});
-}
-
 # ---------------------------------------------------------------------
 
 =item PRIVATE: __ocr_existence_test

@@ -54,6 +54,7 @@ sub get_data_fields {
 
     # METS object must be valid to proceed
     if (! $self->METS_is_valid($C)) {
+        $self->D_check_event(IX_DATA_FAILURE, qq{No METS found for $item_id});
         return (undef, IX_DATA_FAILURE, 0);
     }
 
@@ -74,6 +75,7 @@ sub get_data_fields {
                 my $files_arr_ref = $self->get_filelist($C);
                 my $rc = __concat_files($temp_dir, $files_arr_ref, $concat_filename);
                 if ($rc > 0) {
+                    $self->D_check_event(IX_DATA_FAILURE, qq{file concatenation failure});
                     return (undef, IX_DATA_FAILURE, 0);
                 }
                 # POSSIBLY NOTREACHED
@@ -84,6 +86,7 @@ sub get_data_fields {
                     Utils::Logger::__Log_simple($s);
                     DEBUG('doc', $s);
 
+                    $self->D_check_event(IX_DATA_FAILURE, qq{read concatenated file failure});
                     return (undef, IX_DATA_FAILURE, 0);
                 }
                 # POSSIBLY NOTREACHED
@@ -106,12 +109,14 @@ sub get_data_fields {
             Utils::Logger::__Log_simple($s);
             DEBUG('doc', $s);
 
+            $self->D_check_event(IX_DATA_FAILURE, $s . q{no temp dir});
             return (undef, IX_DATA_FAILURE, 0);
         }
     }
     else {
         # Object has no OCR
         $ocr_text_ref = $self->build_dummy_ocr_data($C, $concat_filename);
+        $self->D_check_event(IX_UNKNOWN_ERROR, qq{warn: Object has no OCR});
     }
 
     Document::maybe_preserve_doc($ocr_text_ref, $concat_filename);

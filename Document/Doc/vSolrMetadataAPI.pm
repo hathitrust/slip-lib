@@ -212,7 +212,10 @@ sub get_metadata_f_item_id {
 
         # Test for title.
         if (! defined($metadata_struct_hashref->{'title'})) {
-            DEBUG('doc', qq{METADATA: ERROR missing title for item_id=$item_id});
+            my $event = qq{METADATA: ERROR missing title for item_id=$item_id};
+            DEBUG('doc', $event);
+            $self->D_add_event($event);
+
             $status = IX_METADATA_FAILURE;
         }
     }
@@ -317,9 +320,17 @@ sub __get_metadata_from_vufind_f_item_id {
             DEBUG('vufind', qq{VuFind: response="$$ref_to_vSolr_response"});
         }
         else {
-            DEBUG('vufind', qq{VuFind: response="EMPTY" code=} . $rs->get_response_code());
+            my $event = qq{VuFind: response="EMPTY" code=} . $rs->get_response_code() . qq{ num_found=} . $rs->get_num_found();
+            DEBUG('vufind', $event);
+            $self->D_add_event($event);
         }
     }
+    else {
+        my $event = qq{VuFind: sysid is 0 for $item_id};
+        DEBUG('vufind', $event);
+        $self->D_add_event($event);
+    }
+    
 
     return ($ref_to_vSolr_response, $status);
 }

@@ -284,21 +284,25 @@ sub get_auxiliary_field_data {
     # Solr doc <coll_id> field(s)
     if ($status == IX_NO_ERROR) {
         $status = $self->__add_large_coll_id_field($C, $dbh, $item_id, $primary_metadata_hashref);
+        $self->D_check_event($status, qq{error adding large collid field});
     }
 
     # Solr doc <rights> field
     if ($status == IX_NO_ERROR) {
         $status = $self->__add_rights_field($C, $item_id, $primary_metadata_hashref);
+        $self->D_check_event($status, qq{error adding rights field});
     }
     
     # Solr doc <ht_heldby>
     if ($status == IX_NO_ERROR) {
         $status = $self->__add_heldby_field($C, $item_id, $primary_metadata_hashref);
+        $self->D_check_event($status, qq{error adding ht_heldby field});
     }
 
     # Solr doc <ht_heldby_brlm> (brittle, lost, missing) field(s)
     if ($status == IX_NO_ERROR) {
         $status = $self->__add_heldby_brlm_field($C, $item_id, $primary_metadata_hashref);
+        $self->D_check_event($status, qq{error adding ht_heldby_brlm field});
     }
 
     return ($primary_metadata_hashref, $status);
@@ -389,7 +393,7 @@ Note that an earlier process escaped the xml so we reverse the process
 =cut
 
 # ---------------------------------------------------------------------
-sub getAllFields{
+sub getAllFields {
     my $xmlref = shift;
     my $xml = $xmlref->[0];
 

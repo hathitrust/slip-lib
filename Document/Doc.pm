@@ -82,6 +82,7 @@ sub create_document {
 }
 
 
+
 sub D_get_metadata_obj {
     my $self = shift;
     return $self->{D_metadata};
@@ -95,6 +96,35 @@ sub D_get_data_obj {
 sub D_get_doc_id {
     my $self = shift;
     return $self->{D_doc_id};
+}
+
+sub D_add_event {
+    my $self = shift;
+    my $event = shift;
+
+    $self->{D_events} .= qq{$event\n};
+    return $self->{D_events};
+}
+
+sub D_get_events {
+    my $self = shift;
+
+    my $s = '';
+
+    my ($m_e, $d_e) = ($self->{D_metadata}->{D_events}, $self->{D_data}->{D_events});
+
+    $s .= qq{\nMETADATA: $m_e} if ($m_e);
+    $s .= qq{\nDATA: $d_e} if ($d_e);
+
+    return $s;
+}
+
+sub D_check_event {
+    my $self = shift;
+    my ($status, $event) = @_;
+
+    return if ($status == IX_NO_ERROR);
+    $self->D_add_event($event);
 }
 
 # ---------------------------------------------------------------------
@@ -132,6 +162,8 @@ sub build_document {
     };    
     if ($@) {
         $metadata_status = IX_METADATA_FAILURE;
+        $self->D_check_event($metadata_status, qq{metadata exception: $@});
+
     }
         
     my $ck = Time::HiRes::time() - $start;
@@ -148,6 +180,7 @@ sub build_document {
     };
     if ($@) {
         $data_status = IX_DATA_FAILURE;
+        $self->D_check_event($data_status, qq{data exception: $@});
     }
     DEBUG('doc', qq{DATA: read data in sec=$data_elapsed});
 
