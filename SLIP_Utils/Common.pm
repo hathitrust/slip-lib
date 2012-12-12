@@ -233,7 +233,7 @@ sub merge_run_config {
     my $config = shift;
    
     my $run_number = get_run_number($config);
-    my $run_config = gen_run_config($app, $run_number);
+    my $run_config = gen_run_config($app, $run_number, 1);
     $config->merge($run_config);
 
     return $config;
@@ -286,10 +286,17 @@ plus
 sub gen_run_config {
     my $app = shift;
     my $run = shift;
+    my $use_empty_uber_config = shift;
     
     ASSERT(defined($app) && defined($run), qq{app or run_number missing.});
 
-    my $uber_configfile = Utils::get_uber_config_path($app);
+    my $uber_configfile;
+    if ($use_empty_uber_config) {
+        $uber_configfile = Utils::get_uber_config_path($app, 1)
+    }
+    else {
+        $uber_configfile = Utils::get_uber_config_path($app);
+    }
     ASSERT(-e $uber_configfile, qq{get_uber_config_path <- gen_run_config: $uber_configfile does not exist});
 
     my $common_configfile = get_common_config_path($app, 'common.conf');
