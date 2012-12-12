@@ -231,9 +231,10 @@ Description
 sub merge_run_config {
     my $app = shift;
     my $config = shift;
+    my $parent_app_name = shift;
    
     my $run_number = get_run_number($config);
-    my $run_config = gen_run_config($app, $run_number, 1);
+    my $run_config = gen_run_config($app, $run_number, $parent_app_name);
     $config->merge($run_config);
 
     return $config;
@@ -286,13 +287,13 @@ plus
 sub gen_run_config {
     my $app = shift;
     my $run = shift;
-    my $use_empty_uber_config = shift;
+    my $parent_app_name = shift;
     
     ASSERT(defined($app) && defined($run), qq{app or run_number missing.});
 
     my $uber_configfile;
-    if ($use_empty_uber_config) {
-        $uber_configfile = Utils::get_uber_config_path($app, 1)
+    if ($parent_app_name) {
+        $uber_configfile = Utils::get_uber_config_path($app, $parent_app_name)
     }
     else {
         $uber_configfile = Utils::get_uber_config_path($app);
