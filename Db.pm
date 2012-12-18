@@ -1436,7 +1436,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-my $DELETE_SLICE_SIZE = 10000;
+my $DELETE_SLICE_SIZE = 1000;
 
 sub Delete_indexed {
     my ($C, $dbh, $run) = @_;
@@ -1452,7 +1452,7 @@ sub Delete_indexed {
         $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$num_affected);
 
         my $elapsed = time - $begin;
-        sleep $elapsed/2;
+        sleep $elapsed;
 
     } until ($num_affected <= 0);
 }
@@ -1577,14 +1577,23 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
+my $RENUMBER_Q_SLICE_SIZE = 1000;
 sub Renumber_indexed {
     my ($C, $dbh, $from_run, $to_run) = @_;
 
-    my $statement = qq{UPDATE slip_indexed SET run=? WHERE run=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $to_run, $from_run);
-    DEBUG('lsdb', qq{DEBUG: $statement : $to_run, $from_run});
-}
+    my $num_affected = 0;
+    do {
+        my $begin = time;
 
+        my $statement = qq{UPDATE slip_indexed SET run=? WHERE run=? LIMIT $RENUMBER_Q_SLICE_SIZE};
+        my $sth = DbUtils::prep_n_execute($dbh, $statement, $to_run, $from_run, \$num_affected);
+        DEBUG('lsdb', qq{DEBUG: $statement : $to_run, $from_run});
+        
+        my $elapsed = time - $begin;
+        sleep $elapsed;
+
+    } until ($num_affected <= 0);
+}
 
 # ---------------------------------------------------------------------
 
