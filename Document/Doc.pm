@@ -52,7 +52,7 @@ sub create_document {
     my $document_id = shift;
     
     my $config = $C->get_object('MdpConfig');
-    my $document_metadata_class = $config->get('document_subclass');
+    my $document_metadata_class = $config->get('document_metadata_class');
 
     my %of_attrs;
     my $of = new ObjFactory;
@@ -65,7 +65,7 @@ sub create_document {
                 );
     my $metadata_obj = $of->create_instance($C, \%of_attrs);
 
-    my $document_data_class = $config->get('document_dataclass');
+    my $document_data_class = $config->get('document_data_class');
     %of_attrs = (
                  'class_name' => $document_data_class,
                  'parameters' => {
