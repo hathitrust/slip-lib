@@ -1,0 +1,52 @@
+SLIP Plugins (/htapps/babel/slip-lib/Document/Plugins.txt)
+==========================================================
+
+The plugin mechanism uses Class::MOP (perl 5 Meta Object Protocol) to
+introspect the methods created by plugin(s) configured on the Data
+or vSolrMetadataAPI classes.
+
+For example, consider Document::Doc::Data::Ocr::Volume
+
+Create plugin files
+
+/htapps/babel/slip-lib/Document/Doc/Data/Ocr/Volume/Plugin_ratios.pm
+/htapps/babel/slip-lib/Document/Doc/Data/Ocr/Volume/Plugin_otherstuff.pm
+/htapps/babel/slip-lib/Document/Doc/Data/Ocr/Volume/Plugin_evenmorestuff.pm
+
+Then in a run configuration file, add a comma-separated list of just
+the Plugins to be consumed by the instances of the class(es) of
+interest.
+
+For example, in a run-N.conf file add a line to consume two of the
+three available plugins:
+
+plugins_for_Document::Doc::Data::Ocr::Volume = Plugin_ratios,Plugin_otherstuff
+
+
+Rules
+-----
+
+Plugin files must NOT have a "package" statement. 
+
+The convention for subroutines defined in Plugin_*.pm REQUIRES that
+they begin with the string "PLG_", for example
+
+PLG_addstuff {
+  my $self = shift;
+  ...
+}
+
+and beware of collisions between subroutine names in different plugin
+files. The subroutines are always called as methods.
+
+Plugin filenames are not restricted but it will be useful to use the
+Plugin_*.pm convention.
+
+In this example, the subroutines defined in Plugin_ratios.pm will be
+invoked as methods on the Document::Doc::Data::Ocr::Volume object.
+
+The order in which Plugin methods are called is not defined.
+
+All communication with plugins is through object member data.
+
+

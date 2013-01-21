@@ -128,34 +128,6 @@ sub get_state_variable {
 
 # ---------------------------------------------------------------------
 
-=item PUBLIC PURE VIRTUAL: get_metadata_fields
-
-For fields like title, author, date etc. to use Lucene for
-search/facet
-
-=cut
-
-# ---------------------------------------------------------------------
-sub get_metadata_fields {
-    ASSERT(0, qq{Pure virtual method get_metadata_fields() not implemented in subclass of Document});
-}
-
-# ---------------------------------------------------------------------
-
-=item PUBLIC PURE VIRTUAL: get_data_fields
-
-For fields like ocr, etc. that do not come directly from a metadata
-source like the catalog.
-
-=cut
-
-# ---------------------------------------------------------------------
-sub get_data_fields {
-    ASSERT(0, qq{Pure virtual method get_data_fields() not implemented in subclass of Document});
-}
-
-# ---------------------------------------------------------------------
-
 =item PUBLIC PURE VIRTUAL: get_document_status
 
 Description:
@@ -189,26 +161,30 @@ sub get_document_stats {
 
 # ---------------------------------------------------------------------
 
-=item handle_debug_save_doc
+=item debug_save_doc
 
 Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub handle_debug_save_doc {
-    my $item_id = shift;
-    my $complete_solr_doc_ref = shift;
-    my $state = shift;
+sub debug_save_doc {
+    my $self = shift;
+    my ($C, $state) = @_;
 
-    if (DEBUG('docfulldebug,doconly')) {
+    if (DEBUG('doconly')) {
+        my $item_id = $self->D_get_doc_id();
         my $pairtree_item_id = Identifier::get_pairtree_id_wo_namespace($item_id);
+
         my $logdir = Utils::get_tmp_logdir();
         my $temporary_dir = $ENV{'SOLR_DOC_DIR'} ? $ENV{'SOLR_DOC_DIR'} : $logdir;
         my $complete_solr_doc_filename = "$temporary_dir/" . $pairtree_item_id . "-$$-$state" . '.solr.xml';
+
+        my $complete_solr_doc_ref = $self->get_document_content($C);
         Utils::write_data_to_file($complete_solr_doc_ref, $complete_solr_doc_filename);
         chmod(0666, $complete_solr_doc_filename) if (-o $complete_solr_doc_filename);
-        DEBUG('docfulldebug,doconly', qq{build_document: save solr doc: "$complete_solr_doc_filename"});
+
+        DEBUG('doconly', qq{build_document: save solr doc: "$complete_solr_doc_filename"});
     }
 }
 
@@ -232,29 +208,6 @@ sub get_rights_f_id {
     return $attr;
 }
 
-
-# ---------------------------------------------------------------------
-
-=item PUBLIC: maybe_preserve_doc
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub maybe_preserve_doc {
-    my $text_ref = shift;
-    my $filename = shift;
-
-    if (DEBUG('docfulldebug')) {
-        my $clean_filename = $filename . '-clean';
-        my $logdir = Utils::get_tmp_logdir();
-        $clean_filename =~ s,^/ram/,$logdir/,;
-        Utils::write_data_to_file($text_ref, $clean_filename);
-        chmod(0666, $clean_filename) if (-o $clean_filename);
-        DEBUG('docfulldebug', qq{DOC: CLEANED file=$clean_filename});
-    }
-}
 
 # ---------------------------------------------------------------------
 

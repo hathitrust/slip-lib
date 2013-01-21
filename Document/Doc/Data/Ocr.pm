@@ -34,30 +34,12 @@ use Utils::Logger;
 use SLIP_Utils::Common;
 use Document::Doc::METS;
 
-
-# ---------------------------------------------------------------------
-
-=item PUBLIC API: new
-
-Initialize Document.
-
-=cut
-
-# ---------------------------------------------------------------------
-sub new {
-    my $class = shift;
-    my $param_hashref = shift;
-
-    my $C = $$param_hashref{'C'};
-    my $item_id = $$param_hashref{'id'};
-
-    my $self = {};
-    bless $self, $class;
+sub initialize_data_type {
+    my $self = shift;
+    my ($C, $item_id) = @_;
 
     my $mo = new Document::Doc::METS($C, $item_id, ['ocr']);
     $self->{d__METS_obj} = $mo;
-
-    return $self;
 }
 
 sub METS_is_valid {
@@ -120,8 +102,7 @@ sub finish_document {
 
     if (defined($temp_dir)) {
         my $err = [];
-        File::Path::remove_tree($temp_dir, {error => \$err})
-            unless (DEBUG('docfulldebug'));
+        File::Path::remove_tree($temp_dir, {error => \$err});
         
         if (scalar(@$err)) {
             for my $diagnostic (@$err) {
@@ -135,6 +116,25 @@ sub finish_document {
             }
         }
     }
+}
+
+# ---------------------------------------------------------------------
+
+=item PUBLIC: clean_ocr
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub clean_ocr {
+    my $self = shift;
+    my $ocr_text_ref = shift;
+
+    my $ck = Time::HiRes::time();
+    SLIP_Utils::Common::clean_xml($ocr_text_ref);
+    my $cke = Time::HiRes::time() - $ck;
+    DEBUG('doc', qq{OCR: cleaned in sec=$cke});
 }
 
 # ---------------------------------------------------------------------

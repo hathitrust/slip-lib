@@ -32,10 +32,28 @@ use Identifier;
 
 use Document;
 use Search::Constants;
+use Document::Doc::Plugger;
+
+sub new {
+    my $class = shift;
+    my $param_hashref = shift;
+
+    my $C = $$param_hashref{'C'};
+    my $item_id = $$param_hashref{'id'};
+
+    my $self = {};
+    bless $self, $class;
+
+    $self->initialize_data_type($C, $item_id);
+
+    $self->initialize_plugins($C);
+
+    return $self;
+}
 
 # ---------------------------------------------------------------------
 
-=item PUBLIC: get_data_fields
+=item PUBLIC: build_data_fields
 
 For fields like ocr, etc. that do not come directly from a metadata
 source like the catalog.
@@ -43,7 +61,7 @@ source like the catalog.
 =cut
 
 # ---------------------------------------------------------------------
-sub get_data_fields {
+sub build_data_fields {
     my $self = shift;
     my ($C, $item_id, $state) = @_;
 
@@ -72,7 +90,9 @@ sub get_data_fields {
         . $seq_field
           . ($pgnum_field ? $pgnum_field : '');
     
-    return (\$data_fields, $status, $elapsed);
+    $self->data_fields(\$data_fields);
+    
+    return ($status, $elapsed);
 }
 
 
@@ -144,8 +164,6 @@ sub __get_ocr_data {
         # Object has no OCR
         $ocr_text_ref = $self->build_dummy_ocr_data($C);
     }
-
-    Document::maybe_preserve_doc($ocr_text_ref, qq{/ram/$filename} . qq{_$state});
 
     my $elapsed = Time::HiRes::time() - $start;
     DEBUG('doc', qq{OCR: total elapsed sec=$elapsed});

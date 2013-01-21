@@ -27,6 +27,7 @@ use strict;
 
 # App
 use base qw(Document);
+use Class::MOP;
 
 use Context;
 use Utils;
@@ -36,12 +37,12 @@ use Search::Constants;
 
 use Db;
 
-
 # ---------------------------------------------------------------------
 
 =item PUBLIC API: create_document
 
-Initialize Document object.
+Initialize Document object by composition of subclasses of
+Document::Doc::Data and Document::Doc::vSolrMetadataAPI
 
 =cut
 
@@ -64,7 +65,7 @@ sub create_document {
                                  },
                 );
     my $metadata_obj = $of->create_instance($C, \%of_attrs);
-
+    
     my $document_data_class = $config->get('document_data_class');
     %of_attrs = (
                  'class_name' => $document_data_class,
@@ -79,6 +80,7 @@ sub create_document {
     $self->{D_data} = $data_obj;
 
     $self->{D_doc_id} = $document_id;
+    $self->{D_doc_context} = $C;
 }
 
 
@@ -96,6 +98,11 @@ sub D_get_data_obj {
 sub D_get_doc_id {
     my $self = shift;
     return $self->{D_doc_id};
+}
+
+sub D_get_doc_context {
+    my $self = shift;
+    return $self->{D_doc_context};
 }
 
 sub D_add_event {
@@ -127,6 +134,146 @@ sub D_check_event {
     $self->D_add_event($event);
 }
 
+
+
+# ---------------------------------------------------------------------
+
+=item __call_plugins
+
+Use Class::MOP (perl 5 Meta Object Protocol) to introspect the methods
+on this object created by its plugin(s), in order by plugin name, then
+by sequence convention and execute them.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __call_plugins {
+    my $self = shift;
+    
+    my $status = IX_NO_ERROR;
+
+    my $plugin_method_names = $self->__get_plugin_method_names;
+    if ($plugin_method_names) {
+        foreach my $method (@$plugin_method_names) {
+            $status = $self->$method;
+            return $status unless($status == IX_NO_ERROR);
+        }
+    }
+    return IX_NO_ERROR;
+}
+
+# ---------------------------------------------------------------------
+
+=item __get_plugin_method_names
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __get_plugin_method_names {
+    my $self = shift;
+    return $self->{_plugin_method_names};
+}
+
+# ---------------------------------------------------------------------
+
+=item __construct_data_fields
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __construct_data_fields {
+    my $self = shift;
+    my ($C, $state) = @_;
+    
+    my $start = Time::HiRes::time();
+    my $item_id = $self->D_get_doc_id();
+
+    my $data_status = IX_NO_ERROR;
+    my $data_object = $self->D_get_data_obj();
+    
+    # Data (like OCR, JATS)
+    my ($d_status, $data_elapsed);
+    eval {
+        ($d_status, $data_elapsed) = $data_object->build_data_fields($C, $item_id, $state);
+        $data_status = IX_DATA_FAILURE unless($d_status == IX_NO_ERROR);
+    };
+    if ($@) {
+        $data_status = IX_DATA_FAILURE;
+    }
+    $self->D_check_event($data_status, qq{data exception: $@});
+
+    if ($data_status == IX_NO_ERROR) {
+        $data_status = $data_object->__call_plugins();
+    }
+
+    $self->data_status($data_status);
+    DEBUG('doc', qq{DATA: read data in sec=} . Time::HiRes::time() - $start);
+}
+
+# ---------------------------------------------------------------------
+
+=item __construct_metadata_fields
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __construct_metadata_fields {
+    my $self = shift;
+    my ($C, $state) = @_;
+
+    my $start = Time::HiRes::time();
+    my $dbh = $C->get_object('Database')->get_DBH($C);
+    my $item_id = $self->D_get_doc_id();
+
+    my $metadata_status = IX_NO_ERROR;
+    my $metadata_object = $self->D_get_metadata_obj();
+    
+    # Metadata fields
+    my ($m_status);
+    eval {
+        ($m_status) = $metadata_object->build_metadata_fields($C, $dbh, $item_id, $state);
+        $metadata_status = IX_METADATA_FAILURE unless($m_status == IX_NO_ERROR);
+    };    
+    if ($@) {
+        $metadata_status = IX_METADATA_FAILURE;
+    }   
+    $self->D_check_event($metadata_status, qq{metadata exception: $@});
+
+    $self->metadata_status($metadata_status);
+    DEBUG('doc', qq{METADATA: read metadata in sec=} . Time::HiRes::time() - $start);
+}
+
+# ---------------------------------------------------------------------
+
+=item __save_stats
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __save_stats {
+    my $self = shift;
+    my $elapsed = shift;
+    
+    my $metadata_fields_ref = $self->get_metadata_fields;
+    my $data_fields_ref = $self->get_data_fields;
+
+    my $stats;
+    $stats->{create}{meta_size} = length($$metadata_fields_ref) if defined($metadata_fields_ref);
+    $stats->{create}{data_size} = length($$data_fields_ref) if defined($data_fields_ref);
+    $stats->{create}{doc_size} = $stats->{create}{meta_size} + $stats->{create}{data_size};
+
+    $stats->{create}{elapsed}  = $elapsed;
+    $self->{solr_doc}{stats} = $stats;
+}
+
 # ---------------------------------------------------------------------
 
 =item PUBLIC API: build_document
@@ -140,77 +287,22 @@ sub build_document {
     my $self = shift;
     my ($C, $state) = @_;
     
-    my $complete_solr_doc = '';
-    
     DEBUG('doc', qq{build_document: start});
     my $start = Time::HiRes::time();
-    
-    my $dbh = $C->get_object('Database')->get_DBH($C);
-    my $item_id = $self->D_get_doc_id();
 
-    my $data_status = IX_NO_ERROR;
-    my $metadata_status = IX_NO_ERROR;
-    
     # Metadata fields
-    my ($metadata_fields_ref, $m_status);
-    eval {
-        ($metadata_fields_ref, $m_status) 
-          = $self->D_get_metadata_obj()->get_metadata_fields($C, $dbh, $item_id, $state);
-        if ($m_status != IX_NO_ERROR) {
-            $metadata_status = IX_METADATA_FAILURE;
-        } 
-    };    
-    if ($@) {
-        $metadata_status = IX_METADATA_FAILURE;
-        $self->D_check_event($metadata_status, qq{metadata exception: $@});
-
-    }
-        
-    my $ck = Time::HiRes::time() - $start;
-    DEBUG('doc', qq{METADATA: read metadata in sec=$ck});
-
-    # Data (like OCR)
-    my ($data_fields_ref, $d_status, $data_elapsed);
-    eval {
-        ($data_fields_ref, $d_status, $data_elapsed) = 
-          $self->D_get_data_obj()->get_data_fields($C, $item_id, $state);
-        if ($d_status != IX_NO_ERROR) {
-            $data_status = IX_DATA_FAILURE;
-        }
-    };
-    if ($@) {
-        $data_status = IX_DATA_FAILURE;
-        $self->D_check_event($data_status, qq{data exception: $@});
-    }
-    DEBUG('doc', qq{DATA: read data in sec=$data_elapsed});
-
-    if (($data_status == IX_NO_ERROR) && ($metadata_status == IX_NO_ERROR)) {
-        #
-        # Here be the doc!
-        #
-        $complete_solr_doc = $$metadata_fields_ref . $$data_fields_ref;
-        
-        # Maybe save it to disk to have a look-see
-        Document::handle_debug_save_doc($item_id, \$complete_solr_doc, $state);
-
-        wrap_string_in_tag_by_ref(\$complete_solr_doc, 'doc');
-    }
+    $self->__construct_metadata_fields($C, $state);
+ 
+    # Data (like OCR, JATS)
+    $self->__construct_data_fields($C, $state); 
     
     my $elapsed = (Time::HiRes::time() - $start);
-    DEBUG('doc', qq{build_document: elapsed=$elapsed sec ocr=$data_status metadata=$metadata_status});
+    DEBUG('doc', 
+          sprintf("build_document: elapsed=%02d sec metadata=%s data=%s", 
+                  $elapsed, $self->metadata_status, $self->data_status));
 
-    my %stats;
-    $stats{'create'}{'meta_size'} = length($$metadata_fields_ref) if defined($metadata_fields_ref);
-    $stats{'create'}{'data_size'} = length($$data_fields_ref) if defined($data_fields_ref);
-    $stats{'create'}{'doc_size'} = length($complete_solr_doc);
-    $stats{'create'}{'elapsed'}  = $elapsed;
-
-    $self->{'complete_solr_doc'}{'doc_ref'} = \$complete_solr_doc;
-    $self->{'complete_solr_doc'}{'data_status'} = $data_status;
-    $self->{'complete_solr_doc'}{'metadata_status'} = $metadata_status;
-    $self->{'complete_solr_doc'}{'stats'} = \%stats;
+    $self->__save_stats($elapsed);
 }
-
 
 # ---------------------------------------------------------------------
 
@@ -232,6 +324,55 @@ sub finish_document {
 
 # ---------------------------------------------------------------------
 
+=item PUBLIC: get_data_fields, get_metadata_fields
+
+Accessors
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_data_fields {
+    my $self = shift;
+    return $self->D_get_data_obj()->data_fields;
+}
+
+sub get_metadata_fields {
+    my $self = shift;
+    return $self->D_get_metadata_obj()->metadata_fields;
+}
+
+
+# ---------------------------------------------------------------------
+
+=item PUBLIC: data_status, metadata_status
+
+Mutators
+
+=cut
+
+# ---------------------------------------------------------------------
+sub data_status {
+    my $self = shift;
+    my $ref = shift;
+    if (defined $ref) {
+        die if (defined $self->{solr_doc}{data_status});
+        $self->{solr_doc}{data_status} = $ref;
+    }
+    return $self->{solr_doc}{data_status};
+}
+
+sub metadata_status {
+    my $self = shift;
+    my $ref = shift;
+    if (defined $ref) {
+        die if (defined $self->{solr_doc}{metadata_status});
+        $self->{solr_doc}{metadata_status} = $ref;
+    }
+    return $self->{solr_doc}{metadata_status};
+}
+
+# ---------------------------------------------------------------------
+
 =item PUBLIC: get_document_content
 
 Description: Implements pure virtual method
@@ -243,7 +384,12 @@ sub get_document_content {
     my $self = shift;
     my $C = shift;
 
-    return $self->{'complete_solr_doc'}{'doc_ref'};
+    my $data_fields_ref = $self->get_data_fields();
+    my $metadata_fields_ref = $self->get_metadata_fields();
+
+    my $solr_doc = '<doc>' . $$metadata_fields_ref . $$data_fields_ref . '</doc>';
+
+    return \$solr_doc;
 }
 
 # ---------------------------------------------------------------------
@@ -265,44 +411,6 @@ sub get_state_variable {
 
 # ---------------------------------------------------------------------
 
-=item PUBLIC: get_metadata_fields
-
-For fields like title, author, date etc. to use Lucene for
-search/facet
-
-=cut
-
-# ---------------------------------------------------------------------
-sub get_metadata_fields {
-    my $self = shift;
-    my $C = shift;
-    my $state = shift;
-
-    my $dbh = $C->get_object('Database')->get_DBH($C);
-    my $item_id = $self->D_get_doc_id();
-
-    return $self->D_get_metadata_obj()->get_metadata_fields($C, $dbh, $item_id, $state);
-}
-
-# ---------------------------------------------------------------------
-
-=item PUBLIC: get_data_fields
-
-For fields like ocr, etc. that do not come directly from a metadata
-source like the catalog.
-
-=cut
-
-# ---------------------------------------------------------------------
-sub get_data_fields {
-    my $self = shift;
-    my ($C, $item_id, $state) = @_;
-    
-    return $self->D_get_data_obj()->get_data_fields($C, $item_id, $state);
-}
-
-# ---------------------------------------------------------------------
-
 =item PUBLIC: get_document_status
 
 Description: 
@@ -315,8 +423,8 @@ sub get_document_status {
     my $C = shift;
 
     return (
-            $self->{'complete_solr_doc'}{'data_status'},
-            $self->{'complete_solr_doc'}{'metadata_status'},
+            $self->data_status,
+            $self->metadata_status,
            );
 }
 
@@ -333,7 +441,7 @@ sub get_document_stats {
     my $self = shift;
     my $C = shift;
 
-    return $self->{'complete_solr_doc'}{'stats'};
+    return $self->{solr_doc}{stats};
 }
 
 1;
@@ -346,7 +454,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2008-11 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2008-13 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

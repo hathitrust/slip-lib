@@ -121,6 +121,7 @@ sub generate_next {
 
     if (defined($state)) {
         $doc->build_document($C, $state);
+        $doc->debug_save_doc($C, $state);
     }
     else {
         $doc->finish_document($C);

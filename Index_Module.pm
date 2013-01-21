@@ -565,10 +565,10 @@ sub Log_item {
     my $buf;
 
     # DOC d_t = sec, d_kb = Kb, d_kbs = Kb/sec
-    my $d_t = $$stats_ref{'create'}{'elapsed'};
-    my $d_k = $$stats_ref{'create'}{'doc_size'}/1024;
-    my $md_k = $$stats_ref{'create'}{'meta_size'}/1024;
-    my $da_k = $$stats_ref{'create'}{'data_size'}/1024;
+    my $d_t   = $stats_ref->{create}{elapsed};
+    my $d_k   = $stats_ref->{create}{doc_size}/1024;
+    my $md_k  = $stats_ref->{create}{meta_size}/1024;
+    my $da_k  = $stats_ref->{create}{data_size}/1024;
     my $d_kbs = ($d_t > 0) ? $d_k/$d_t : 0;
 
     $buf .= sprintf(qq{ d_k=%.1f d_t=%.2f d_kbs=%.2f da_k=%.2f md_k=%.2f}, $d_k, $d_t, $d_kbs, $da_k, $md_k);

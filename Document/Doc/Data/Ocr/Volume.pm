@@ -35,18 +35,35 @@ use Identifier;
 
 use Document;
 use Search::Constants;
+use Document::Doc::Plugger;
 
+sub new {
+    my $class = shift;
+    my $param_hashref = shift;
+
+    my $C = $$param_hashref{'C'};
+    my $item_id = $$param_hashref{'id'};
+
+    my $self = {};
+    bless $self, $class;
+
+    $self->initialize_data_type($C, $item_id);
+
+    $self->initialize_plugins($C);
+
+    return $self;
+}
 
 # ---------------------------------------------------------------------
 
-=item PUBLIC: get_data_fields
+=item PUBLIC: build_data_fields
 
 Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub get_data_fields {
+sub build_data_fields {
     my $self = shift;
     my ($C, $item_id, $state) = @_;
 
@@ -68,7 +85,7 @@ sub get_data_fields {
 
     if ($has_files) {
         my ($temp_dir, $has_ocr) = $self->handle_ocr_extraction($C, $item_id);
-        
+
         if ($temp_dir) {
             if ($has_ocr) {
                 # ----- Create concatenated file -----
@@ -119,10 +136,7 @@ sub get_data_fields {
         $self->D_check_event(IX_UNKNOWN_ERROR, qq{warn: Object has no OCR});
     }
 
-    Document::maybe_preserve_doc($ocr_text_ref, $concat_filename);
-
-    unlink($concat_filename)
-      unless (DEBUG('docfulldebug'));
+    unlink($concat_filename);
 
     # OCR field
     wrap_string_in_tag_by_ref($ocr_text_ref, 'field', [['name', 'ocr']]);
@@ -130,7 +144,9 @@ sub get_data_fields {
     my $elapsed = Time::HiRes::time() - $start;
     DEBUG('doc', qq{OCR: total elapsed sec=$elapsed});
 
-    return ($ocr_text_ref, IX_NO_ERROR, $elapsed);
+    $self->data_fields($ocr_text_ref);
+
+    return (IX_NO_ERROR, $elapsed);
 }
 
 

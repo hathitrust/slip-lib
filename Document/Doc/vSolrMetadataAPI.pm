@@ -70,14 +70,32 @@ sub finish_document {
 
 # ---------------------------------------------------------------------
 
-=item PUBLIC API: get_metadata_fields
+=item PUBLIC: metadata_fields
+
+Mutator
+
+=cut
+
+# ---------------------------------------------------------------------
+sub metadata_fields {
+    my $self = shift;
+    my $ref = shift;
+    if (defined $ref) {
+        $self->{_metadata_fields_ref} = $ref;
+    }
+    return $self->{_metadata_fields_ref};
+}
+
+# ---------------------------------------------------------------------
+
+=item PUBLIC API: build_metadata_fields
 
 Implements pure virtual method. Main method.
 
 =cut
 
 # ---------------------------------------------------------------------
-sub get_metadata_fields {
+sub build_metadata_fields {
     my $self = shift;
     my ($C, $dbh, $item_id, $state) = @_;
 
@@ -131,7 +149,9 @@ sub get_metadata_fields {
     $self->{M_metadata_cache}{_hashref} = $metadata_hashref;
     $self->{M_metadata_cache}{_status} = $status;
 
-    return (\$metadata_fields, $status);
+    $self->metadata_fields(\$metadata_fields);
+
+    return ($status);
 }
 
 
