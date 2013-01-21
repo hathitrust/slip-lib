@@ -139,14 +139,17 @@ sub __get_ocr_data {
                 # POSSIBLY NOTREACHED
 
                 if ($$ocr_text_ref eq '') {
+                    $self->ocr_num_chars(0);
                     $ocr_text_ref = $self->build_dummy_ocr_data($C);
                 }
                 else {
                     $self->clean_ocr($ocr_text_ref);
+                    $self->ocr_num_chars(length($$ocr_text_ref));
                     Document::apply_algorithms($C, $ocr_text_ref, 'garbage_ocr_class');
                 }
             }
             else {
+                $self->ocr_num_chars(0);
                 $ocr_text_ref = $self->build_dummy_ocr_data($C);
             }
         }
@@ -162,6 +165,7 @@ sub __get_ocr_data {
     }
     else {
         # Object has no OCR
+        $self->ocr_num_chars(0);
         $ocr_text_ref = $self->build_dummy_ocr_data($C);
     }
 

@@ -109,14 +109,17 @@ sub build_data_fields {
                 # POSSIBLY NOTREACHED
 
                 if ($$ocr_text_ref eq '') {
+                    $self->ocr_num_chars(0);
                     $ocr_text_ref = $self->build_dummy_ocr_data($C);
                 }
                 else {
                     $self->clean_ocr($ocr_text_ref);
+                    $self->ocr_num_chars(length($$ocr_text_ref));
                     Document::apply_algorithms($C, $ocr_text_ref, 'garbage_ocr_class');
                 }
             }
             else {
+                $self->ocr_num_chars(0);
                 $ocr_text_ref = $self->build_dummy_ocr_data($C);
             }
         }
@@ -132,6 +135,7 @@ sub build_data_fields {
     }
     else {
         # Object has no OCR
+        $self->ocr_num_chars(0);
         $ocr_text_ref = $self->build_dummy_ocr_data($C, $concat_filename);
         $self->D_check_event(IX_UNKNOWN_ERROR, qq{warn: Object has no OCR});
     }

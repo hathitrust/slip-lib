@@ -139,6 +139,24 @@ sub clean_ocr {
 
 # ---------------------------------------------------------------------
 
+=item ocr_num_chars
+
+Mutator
+
+=cut
+
+# ---------------------------------------------------------------------
+sub ocr_num_chars {
+    my $self = shift;
+    my $num_chars = shift;
+    if (defined $num_chars) {
+        $self->{_ocrnumchars} = $num_chars;
+    }
+    return $self->{_ocrnumchars};
+}
+
+# ---------------------------------------------------------------------
+
 =item PUBLIC: build_dummy_ocr_data
 
 Description

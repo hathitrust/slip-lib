@@ -43,8 +43,6 @@ sub PLG_add_data_ratio_fields {
     my $self = shift;
     
     my $C = $self->D_get_doc_context;
-    my $data_fields_ref = $self->data_fields;
-
     my $fields;
     
     my $numPages = $self->get_num_files($C);
@@ -54,7 +52,7 @@ sub PLG_add_data_ratio_fields {
                                    ['type', 'tint'],
                                    ['stored', 'true'],
                                   ]);
-    my $numChars = length($$data_fields_ref);
+    my $numChars = $self->ocr_num_chars;
     $fields .= wrap_string_in_tag($numChars, 'field', 
                                   [
                                    ['name', 'numChars'],
@@ -80,6 +78,8 @@ sub PLG_add_data_ratio_fields {
                                    ['type', 'tint'],
                                    ['stored', 'true'],
                                   ]);
+
+    my $data_fields_ref = $self->data_fields;
     my $data_fields = $fields . $$data_fields_ref;
     $self->data_fields(\$data_fields);
 
