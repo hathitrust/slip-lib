@@ -211,7 +211,7 @@ sub __construct_data_fields {
     }
 
     $self->data_status($data_status);
-    DEBUG('doc', qq{DATA: read data in sec=} . Time::HiRes::time() - $start);
+    DEBUG('doc', qq{DATA: read data in sec=} . (Time::HiRes::time() - $start));
 }
 
 # ---------------------------------------------------------------------
@@ -246,7 +246,7 @@ sub __construct_metadata_fields {
     $self->D_check_event($metadata_status, qq{metadata exception: $@});
 
     $self->metadata_status($metadata_status);
-    DEBUG('doc', qq{METADATA: read metadata in sec=} . Time::HiRes::time() - $start);
+    DEBUG('doc', qq{METADATA: read metadata in sec=} . (Time::HiRes::time() - $start));
 }
 
 # ---------------------------------------------------------------------
@@ -298,7 +298,7 @@ sub build_document {
     
     my $elapsed = (Time::HiRes::time() - $start);
     DEBUG('doc', 
-          sprintf("build_document: elapsed=%02d sec metadata=%s data=%s", 
+          sprintf("build_document: elapsed=%.3f sec metadata=%s data=%s", 
                   $elapsed, $self->metadata_status, $self->data_status));
 
     $self->__save_stats($elapsed);
