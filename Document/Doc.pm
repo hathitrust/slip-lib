@@ -355,7 +355,6 @@ sub data_status {
     my $self = shift;
     my $ref = shift;
     if (defined $ref) {
-        die if (defined $self->{solr_doc}{data_status});
         $self->{solr_doc}{data_status} = $ref;
     }
     return $self->{solr_doc}{data_status};
@@ -365,7 +364,6 @@ sub metadata_status {
     my $self = shift;
     my $ref = shift;
     if (defined $ref) {
-        die if (defined $self->{solr_doc}{metadata_status});
         $self->{solr_doc}{metadata_status} = $ref;
     }
     return $self->{solr_doc}{metadata_status};

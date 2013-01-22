@@ -176,45 +176,25 @@ sub get_solr_host_list {
 
 # ---------------------------------------------------------------------
 
-=item get_common_config_path
+=item get_config_path
 
 Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub get_common_config_path {
+sub get_config_path {
     my $app = shift;
     my $conf_file = shift;
     
     my $path;
     if (DEBUG('local')) {
-        $path = $ENV{SDRROOT} . "/slip-lib/Config/$conf_file"
+        $path = $ENV{SDRROOT} . "/slip-lib/Config/$conf_file";
     }
     else {
-        $path = $ENV{SDRROOT} . "/$app/vendor/slip-lib/lib/Config/$conf_file"
+        $path = $ENV{SDRROOT} . "/$app/vendor/slip-lib/lib/Config/$conf_file";
     }
-    ASSERT(-e $path, qq{get_common_config_path: $path does not exist});
-
-    return $path;
-
-}
-
-# ---------------------------------------------------------------------
-
-=item get_app_config_path
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub get_app_config_path {
-    my $app = shift;
-    my $conf_file = shift;
-    
-    my $path = $ENV{SDRROOT} . "/$app/lib/Config/$conf_file";
-    ASSERT(-e $path, qq{get_app_config_path: $path does not exist});
+    ASSERT(-e $path, qq{get_config_path: path to $conf_file for $app does not exist});
            
     return $path;
 }
@@ -231,10 +211,10 @@ Description
 sub merge_run_config {
     my $app = shift;
     my $config = shift;
-    my $parent_app_name = shift;
-   
-    my $run_number = get_run_number($config);
-    my $run_config = gen_run_config($app, $run_number, $parent_app_name);
+    my $run = shift;
+    
+    my $run_number = (defined $run) ? $run : get_run_number($config);
+    my $run_config = gen_run_config($app, $run_number);
     $config->merge($run_config);
 
     return $config;
@@ -263,23 +243,52 @@ sub get_run_number {
     return $run_number;
 }
 
+
+# ---------------------------------------------------------------------
+
+=item gen_SLIP_config
+
+A SLIP run configuration consists of:
+
+1) uber.conf from mdp-lib or the slip submodule vendor/common-lib/lib
+(if debug=local)
+
+2) common.conf from slip-lib or the slip submodule vendor/slip-lib/lib
+(if debug=local)
+
+3) run-<run_number>.conf from slip-lib or the slip submodule
+vendor/slip-lib/lib (if debug=local)
+
+=cut
+
+# ---------------------------------------------------------------------
+sub gen_SLIP_config {
+    my $run = shift;
+    
+    ASSERT(defined($run), qq{run_number missing in gen_SLIP_config});
+
+    my $uber_configfile = Utils::get_uber_config_path('slip');
+    my $uber_config = new MdpConfig($uber_configfile);
+
+    my $config = merge_run_config('slip', $uber_config, $run);
+    
+    return $config;
+}
+
+
 # ---------------------------------------------------------------------
 
 =item gen_run_config
 
 A run configuration consists of:
 
-1) uber.conf from mdp-lib or the app submodule vendor/common-lib/lib
+1) common.conf from slip-lib or the app submodule vendor/slip-lib/lib
 (if debug=local)
 
 plus
 
-2) common.conf from slip-lib or the app submodule vendor/slip-lib/lib
-(if debug=local)
-
-plus
-
-3) run-<run_number>.conf from the app lib/Config (always)
+2) run-<run_number>.conf from slip-lib or app submodule
+vendor/slip-lib/lib (if debug=local)
 
 =cut
 
@@ -287,23 +296,13 @@ plus
 sub gen_run_config {
     my $app = shift;
     my $run = shift;
-    my $parent_app_name = shift;
-    
+     
     ASSERT(defined($app) && defined($run), qq{app or run_number missing.});
+ 
+    my $common_configfile = get_config_path($app, qq{common.conf});
+    my $run_configfile = get_config_path($app, qq{run-$run.conf});
 
-    my $uber_configfile;
-    if ($parent_app_name) {
-        $uber_configfile = Utils::get_uber_config_path($app, $parent_app_name)
-    }
-    else {
-        $uber_configfile = Utils::get_uber_config_path($app);
-    }
-    ASSERT(-e $uber_configfile, qq{get_uber_config_path <- gen_run_config: $uber_configfile does not exist});
-
-    my $common_configfile = get_common_config_path($app, 'common.conf');
-    my $app_configfile = get_app_config_path($app, qq{run-$run.conf});
-
-    my $config = new MdpConfig($uber_configfile, $common_configfile, $app_configfile);
+    my $config = new MdpConfig($common_configfile, $run_configfile);
     
     return $config;
 }
