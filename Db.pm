@@ -3204,6 +3204,169 @@ sub undedicated_producer_monitor {
     return ($allocated_shard, $state);
 }
 
+# =====================================================================
+# =====================================================================
+#
+#        Holdings tables [slip_holdings_version][holdings_deltas] @@
+#
+# =====================================================================
+# =====================================================================
+
+# ---------------------------------------------------------------------
+
+=item get_holdings_slice_size 
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_holdings_slice_size {
+    my ($C, $dbh, $last_loaded_version, $max_version) = @_;    
+
+    my $statement = qq{SELECT count(*) FROM holdings_deltas WHERE (version > ? AND version <= ?)};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $last_loaded_version, $max_version);
+    my $size = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement ::: size=$size});
+
+    return $size;
+}
+
+# ---------------------------------------------------------------------
+
+=item set_holdings_version
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub set_holdings_version {
+    my ($C, $dbh, $run, $version) = @_;
+
+    my $statement = qq{UPDATE slip_holdings_version SET last_loaded_version=?, load_time=NOW() WHERE run=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $version, $run);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+}
+
+# ---------------------------------------------------------------------
+
+=item delete_holdings_record
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub delete_holdings_record {
+    my ($C, $dbh, $run) = @_;
+
+    my $statement = qq{DELETE FROM slip_holdings_version WHERE run=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+}
+
+# ---------------------------------------------------------------------
+
+=item init_holdings_version
+
+Somewhat counter-intuitive: initialize version to MAX(version) in
+holdings_deltas because initializing a run that reads from the
+queue will read IDs enqueued from slip_rights which contains ALL IDs
+to be indexed.  There cannot be IDs in holdings_deltas that are not in
+slip_rights. Any IDs added to holdings_deltas during a run will have
+MAX(version)+1 and so will be updated into queue when enqueuer is run
+next.
+
+Runs that read from a file do not participate in shared queue or
+holding deltas.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub init_holdings_version {
+    my ($C, $dbh, $run) = @_;
+
+    my $max_version = get_holdings_max_version($C, $dbh, $run);    
+    
+    delete_holdings_record($C, $dbh, $run);
+    
+    my $statement = qq{INSERT INTO slip_holdings_version SET run=?, last_loaded_version=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $max_version, $run);
+    DEBUG('lsdb', qq{DEBUG: $statement});
+}
+
+# ---------------------------------------------------------------------
+
+=item get_holdings_max_version
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_holdings_max_version {
+    my ($C, $dbh) = @_;    
+
+    __LOCK_TABLES($dbh, qw(holdings_deltas));
+
+    my $statement = qq{SELECT MAX(version) FROM holdings_deltas};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $max = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement ::: max=$max});
+
+    __UNLOCK_TABLES($dbh);
+
+    return $max;
+}
+
+# ---------------------------------------------------------------------
+
+=item get_last_loaded_holdings_version
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_last_loaded_holdings_version {
+    my ($C, $dbh, $run) = @_;    
+
+    my $statement = qq{SELECT last_loaded_version FROM slip_holdings_version WHERE run=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
+    my $version = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement ::: $version});
+
+    return $version;
+}
+
+# ---------------------------------------------------------------------
+
+=item read_holdings_deltas_item_ids
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub read_holdings_deltas_item_ids {
+    my ($C, $dbh, $last_loaded_version, $max_version, $slice_size, $offset) = @_;
+
+    my $id_arr_ref = [];
+
+    my $statement = qq{SELECT volume_id FROM holdings_deltas WHERE (version > ? AND version <= ?) LIMIT $offset, $slice_size};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $last_loaded_version, $max_version);
+
+    my $ref_to_arr_of_arr_ref = $sth->fetchall_arrayref([0]);
+    if (scalar(@$ref_to_arr_of_arr_ref)) {
+        $id_arr_ref = [ map {$_->[0]} @$ref_to_arr_of_arr_ref ];
+    }
+
+    return $id_arr_ref;
+}
+
+
 1;
 
 __END__
@@ -3214,7 +3377,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2008-12 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2008-12, 2013 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
