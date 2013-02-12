@@ -259,7 +259,7 @@ sub Select_latest_rights_row {
     my ($C, $dbh, $namespace, $id) = @_;
 
     my $statement =
-        qq{SELECT CONCAT(namespace, '.', id) AS nid, attr, reason, source, user, time FROM rights_current WHERE namespace=? AND id=?};
+        qq{SELECT CONCAT(namespace, '.', id) AS nid, attr, reason, source, user, time FROM ht.rights_current WHERE namespace=? AND id=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $namespace, $id});
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $namespace, $id);
     my $row_hashref = $sth->fetchrow_hashref();

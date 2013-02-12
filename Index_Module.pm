@@ -131,7 +131,7 @@ sub get_required_op {
     my $stripped_id = Identifier::get_id_wo_namespace($id);
     my $namespace = Identifier::the_namespace($id);
 
-    my $statement = qq{SELECT attr FROM rights_current WHERE  namespace=? AND id=?};
+    my $statement = qq{SELECT attr FROM ht.rights_current WHERE  namespace=? AND id=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $namespace, $stripped_id);
 
     my $row_hashref = $sth->fetchrow_hashref();
