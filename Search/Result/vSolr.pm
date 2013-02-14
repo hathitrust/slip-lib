@@ -66,6 +66,66 @@ sub __get_parser {
 
 # ---------------------------------------------------------------------
 
+=item parse_vsolr_response
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub parse_vsolr_response {
+    my $parser = shift;
+    my $Solr_response_ref = shift;
+    my $xpath_doc = shift;
+    
+    my $start = Time::HiRes::time();
+    DEBUG('vsolrlibxml', qq{DEBUG: start } . Utils::Time::iso_Time());
+
+    my $doc = $parser->parse_string($$Solr_response_ref);
+
+    my $result_ids = [];
+    my $complete_result = [];
+    my $doc_node_count = 0;
+    foreach my $doc_node ($doc->findnodes($xpath_doc)) {
+        my $doc_start = Time::HiRes::time();
+
+        $doc_node_count++;
+
+        my $sysid;
+        foreach my $sysid_node ($doc_node->findnodes(q{str[@name='id']})) {
+            $sysid = $sysid_node->textContent();
+            last;
+        }
+
+        foreach my $arr_node ($doc_node->findnodes(q{arr[@name='ht_id_display']})) {
+            foreach my $str_node ($arr_node->findnodes('str')) {
+                my $id_string = $str_node->textContent();
+                my ($nid, $timestamp) = ($id_string =~ m,^(.*?)\|(.*?)\|,);
+
+                my ($namespace, $id) = ($nid =~ m,^(.*?)\.(.*),);
+                my $hash_ref = {
+                                'sysid' => $sysid,
+                                'id' => $id,
+                                'namespace' => $namespace,
+                                'ht_id_display_timestamp' => $timestamp,
+                                'node_content' => $id_string,
+                               };
+                push(@$complete_result, $hash_ref);
+                push(@$result_ids, $id);
+            }
+        }
+        my $doc_elapsed = Time::HiRes::time() - $doc_start;
+        DEBUG('vsolrlibxml', qq{DEBUG: doc_elapsed=$doc_elapsed});
+    }
+    
+    my $elapsed = Time::HiRes::time() - $start;
+    DEBUG('vsolrlibxml', qq{DEBUG: elapsed=$elapsed});
+
+    return ($doc_node_count, $result_ids, $complete_result);
+}
+
+# ---------------------------------------------------------------------
+
 =item AFTER_ingest_Solr_search_response
 
 Example Solr result is:
@@ -112,55 +172,16 @@ sub AFTER_ingest_Solr_search_response
     my $self = shift;
     my $Solr_response_ref = shift;
 
-    my $start = Time::HiRes::time();
-    DEBUG('vsolrlibxml', qq{DEBUG: start } . Utils::Time::iso_Time());
-
     my $parser = $self->__get_parser();
-    my $doc = $parser->parse_string($$Solr_response_ref);
     my $xpath_doc = q{/response/result/doc};
 
-    my @result_ids;
-    my @complete_result;
-    my $doc_node_count = 0;
-    foreach my $doc_node ($doc->findnodes($xpath_doc)) {
-        my $doc_start = Time::HiRes::time();
+    my ($doc_node_count, $result_ids_arr_ref, $complete_result_arr_ref) = 
+      parse_vsolr_response($parser, $Solr_response_ref, $xpath_doc);
 
-        $doc_node_count++;
-
-        my $sysid;
-        foreach my $sysid_node ($doc_node->findnodes(q{str[@name='id']})) {
-            $sysid = $sysid_node->textContent();
-            last;
-        }
-
-        foreach my $arr_node ($doc_node->findnodes(q{arr[@name='ht_id_display']})) {
-            foreach my $str_node ($arr_node->findnodes('str')) {
-                my $id_string = $str_node->textContent();
-                my ($nid, $timestamp) = ($id_string =~ m,^(.*?)\|(.*?)\|,);
-
-                my ($namespace, $id) = ($nid =~ m,^(.*?)\.(.*),);
-                my $hash_ref = {
-                                'sysid' => $sysid,
-                                'id' => $id,
-                                'namespace' => $namespace,
-                                'ht_id_display_timestamp' => $timestamp,
-                                'node_content' => $id_string,
-                               };
-                push(@complete_result, $hash_ref);
-                push(@result_ids, $id);
-            }
-        }
-        my $doc_elapsed = Time::HiRes::time() - $doc_start;
-        DEBUG('vsolrlibxml', qq{DEBUG: doc_elapsed=$doc_elapsed});
-    }
-    
-    my $elapsed = Time::HiRes::time() - $start;
-    DEBUG('vsolrlibxml', qq{DEBUG: elapsed=$elapsed});
-
-    $self->{'doc_node_count'} = $doc_node_count;
-    $self->{'rows_returned'} = scalar(@result_ids);
-    $self->set_complete_result(\@complete_result);
-    $self->__set_result_ids(\@result_ids);
+    $self->{doc_node_count} = $doc_node_count;
+    $self->{rows_returned} = scalar(@$result_ids_arr_ref);
+    $self->set_complete_result($complete_result_arr_ref);
+    $self->__set_result_ids($result_ids_arr_ref);
 }
 
 

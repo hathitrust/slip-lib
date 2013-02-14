@@ -48,6 +48,38 @@ sub __get_root_logdir
     return $ENV{SDRROOT}; 
 }
 
+# ---------------------------------------------------------------------
+
+=item full_log_filepath
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub full_log_filepath {
+    my $C = shift;
+    my $logfile_key = shift;
+    my $dir_pattern = shift;
+    my $dir_subst = shift;
+
+    my $config = $C->get_object('MdpConfig');
+
+    my $logdir = __get_root_logdir() . $config->get('logdir');
+    $logdir =~ s,$dir_pattern,$dir_subst,;
+
+    my $logfile = $config->get($logfile_key);
+    my $date = Utils::Time::iso_Time('date');
+
+    $logfile =~ s,___DATE___,-$date,;
+
+    my $logfile_path = $logdir . '/' . $logfile;
+
+    return ($logfile_path, $logdir);
+}
+
+
+
 
 # ---------------------------------------------------------------------
 
@@ -58,8 +90,7 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub this_string
-{
+sub this_string {
     my $C = shift;
     my $s = shift;
     my $logfile_key = shift;
@@ -69,19 +100,9 @@ sub this_string
 
     return if (! $LOG_FUNCTION_ENABLED);
 
-    my $config = $C->get_object('MdpConfig');
-
-    my $logdir = __get_root_logdir() . $config->get('logdir');
-    $logdir =~ s,$dir_pattern,$dir_subst,;
+    my ($logfile_path, $logdir) = full_log_filepath($C, $logfile_key, $dir_pattern, $dir_subst);
 
     Utils::mkdir_path($logdir);
-
-    my $logfile = $config->get($logfile_key);
-    my $date = Utils::Time::iso_Time('date');
-
-    $logfile =~ s,___DATE___,-$date,;
-
-    my $logfile_path = $logdir . '/' . $logfile;
 
     # --- BEGIN CRITICAL SECTION ---
     my $sem;

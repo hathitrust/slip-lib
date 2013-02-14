@@ -30,7 +30,7 @@ use Encode;
 BEGIN {
     use Exporter;
     our @ISA = qw(Exporter);
-    our @EXPORT = qw( __output __output_non_interactive __confirm __non_interactive_err_output );
+    our @EXPORT = qw( __output __output_non_interactive __confirm __confirm_continue __non_interactive_err_output );
 }
 
 # App
@@ -458,6 +458,26 @@ sub __confirm {
     __output "$s";
     my $pass_1 = <STDIN>;
     exit if ($pass_1 !~ m,y,i);
+}
+
+# ---------------------------------------------------------------------
+
+=item __confirm_continue
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __confirm_continue {
+    my $s = shift;
+    
+    return if (! $ENV{'TERM'});
+    
+    __output "$s";
+    my $pass_1 = <STDIN>;
+    return 0 if ($pass_1 !~ m,y,i);
+    return 1;
 }
 
 # ---------------------------------------------------------------------

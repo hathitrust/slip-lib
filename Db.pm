@@ -91,7 +91,7 @@ sub __LOCK_TABLES {
 
 =item initialize_j_rights_temp
 
-Description
+No keys.  They are added after the table is fully populated.
 
 =cut
 
@@ -105,10 +105,11 @@ sub initialize_j_rights_temp {
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
-    $statement = qq{CREATE TABLE `slip_rights_temp` (`nid` varchar(32) NOT NULL default '', `attr` tinyint(4) NOT NULL default '0', `reason` tinyint(4) NOT NULL default '0', `source` tinyint(4) NOT NULL default '0', `user` varchar(32) NOT NULL default '', `time` timestamp NOT NULL default CURRENT_TIMESTAMP, `sysid` varchar(32) NOT NULL default '', `update_time` int NOT NULL default '00000000', PRIMARY KEY (`nid`), KEY `update_time` (`update_time`), KEY `attr` (`attr`))};
+    $statement = qq{CREATE TABLE `slip_rights_temp` (`nid` varchar(32) NOT NULL DEFAULT '', `attr` tinyint(4) NOT NULL DEFAULT '0', `reason` tinyint(4) NOT NULL DEFAULT '0', `source` tinyint(4) NOT NULL DEFAULT '0', `user` varchar(32) NOT NULL DEFAULT '', `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, `sysid` varchar(32) NOT NULL DEFAULT '', `update_time` int(11) NOT NULL DEFAULT '0', PRIMARY KEY (`nid`), KEY `update_time` (`update_time`), KEY `attr` (`attr`))};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
+
 
 # ---------------------------------------------------------------------
 
@@ -170,7 +171,7 @@ A pointer into slip_rights
 sub Select_vSolr_timestamp {
     my($C, $dbh) = @_;
 
-    my $statement = qq{SELECT time FROM slip_vsolr_timestamp};
+    my $statement = qq{SELECT time FROM ht_maintenance.slip_vsolr_timestamp};
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
     my $timestamp = $sth->fetchrow_array || $Db::vSOLR_ZERO_TIMESTAMP;
     DEBUG('lsdb', qq{DEBUG: $statement ::: $timestamp});
@@ -270,17 +271,51 @@ sub Select_latest_rights_row {
 
 # ---------------------------------------------------------------------
 
-=item Replace_j_rights_id
+=item Insert_j_rights_temp_id
 
-We set the query timestamp back in time so there is overlap. The table
+The table
 starts out empty during a full rebuild. nid in slip_rights table is
 PRIMARY KEY so an nid can't appear more than once.
 
 =cut
 
 # ---------------------------------------------------------------------
+sub Replace_j_rights_temp_id {
+    my ($C, $dbh, $hashref) = @_;
+
+    # From ht_repository.rights_current
+    my $attr = $hashref->{'attr'};
+    my $reason = $hashref->{'reason'};
+    my $source = $hashref->{'source'};
+    my $user = $hashref->{'user'};
+    my $time = $hashref->{'time'};
+
+    # From vSolr query result
+    my $nid = $hashref->{'nid'};
+    # For reasons unknown, we sometimes have trailing spaces
+    Utils::trim_spaces(\$nid);
+
+    my $sysid = $hashref->{'sysid'};
+    my $updateTime_in_vSolr = $hashref->{'timestamp_of_nid'};
+
+    # CASE: nid is not in slip_rights_temp ==> NEW. Insert
+    my $statement = qq{REPLACE INTO slip_rights_temp SET nid=?, attr=?, reason=?, source=?, user=?, time=?, sysid=?, update_time=?};
+    DbUtils::prep_n_execute($dbh, $statement, $nid, $attr, $reason, $source, $user, $time, $sysid, $updateTime_in_vSolr);
+    DEBUG('lsdb', qq{DEBUG: $statement : $nid, $attr, $reason, $source, $user, $time, $sysid, $updateTime_in_vSolr});
+}
+
+
+# ---------------------------------------------------------------------
+
+=item Replace_j_rights_id
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
 sub Replace_j_rights_id {
-    my ($C, $dbh, $hashref, $Check_only, $Rebuild) = @_;
+    my ($C, $dbh, $hashref, $Check_only) = @_;
 
     # From mdp.rights, currently
     my $attr = $hashref->{'attr'};
@@ -300,10 +335,8 @@ sub Replace_j_rights_id {
     my $case;
     my ($statement, $sth);
 
-    my $SLIP_RIGHTS_TABLE_NAME = ($Rebuild ? 'slip_rights_temp' : 'slip_rights');
-
-    # See what we already have in $SLIP_RIGHTS_TABLE_NAME
-    $statement = qq{SELECT nid, update_time, sysid FROM $SLIP_RIGHTS_TABLE_NAME WHERE nid=?};
+    # See what we already have in slip_rights
+    $statement = qq{SELECT nid, update_time, sysid FROM slip_rights WHERE nid=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $nid});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $nid);
 
@@ -319,7 +352,7 @@ sub Replace_j_rights_id {
     $hashref->{'sysid_in_slip_rights'} = $sysid_in_slip_rights;
 
     if (! $nid_exists_in_slip_rights) {
-        # CASE: nid is not in $SLIP_RIGHTS_TABLE_NAME ==> NEW. Insert
+        # CASE: nid is not in slip_rights ==> NEW. Insert
         $case = 'NEW';
         DEBUG('lsdb', qq{DEBUG: $statement ::: (A) NEW});
     }
@@ -350,7 +383,7 @@ sub Replace_j_rights_id {
         }
     }
 
-    $statement = qq{REPLACE INTO $SLIP_RIGHTS_TABLE_NAME SET nid=?, attr=?, reason=?, source=?, user=?, time=?, sysid=?, update_time=?};
+    $statement = qq{REPLACE INTO slip_rights SET nid=?, attr=?, reason=?, source=?, user=?, time=?, sysid=?, update_time=?};
     DEBUG('lsdb', qq{DEBUG [Check=$Check_only, case=$case]: $statement : $nid, $attr, $reason, $source, $user, $time, $sysid, $updateTime_in_vSolr});
 
     if (! $Check_only) {
