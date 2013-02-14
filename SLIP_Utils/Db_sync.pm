@@ -33,7 +33,7 @@ use DbUtils;
 my $MYSQL_ZERO_TIMESTAMP = '0000-00-00 00:00:00';
 my $vSOLR_ZERO_TIMESTAMP = '00000000';
 
-use constant C_INSERT_SIZE => 100000;
+use constant C_INSERT_SIZE => 10000;
 
 # =====================================================================
 # =====================================================================
@@ -312,10 +312,6 @@ sub insert_j_indexed_temp_j_indexed {
     my $start = 0;
     my $offset = C_INSERT_SIZE;
     my $num_inserted = 0;
-
-    $statement = qq{ALTER TABLE slip_indexed DISABLE KEYS};
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
-    DEBUG('lsdb', qq{DEBUG: $statement});
     
     do {
         my $begin = time();
@@ -342,9 +338,6 @@ sub insert_j_indexed_temp_j_indexed {
         
     } until ($num_inserted <= 0);
     
-    $statement = qq{ALTER TABLE slip_indexed ENABLE KEYS};
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
-    DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
 
