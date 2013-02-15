@@ -125,11 +125,11 @@ sub Drop_j_rights_Rename_j_rights_temp {
 
     my ($statement, $sth);
 
-    $statement = qq{DROP TABLE slip_rights};
+    $statement = qq{DROP TABLE ht_maintenance.slip_rights};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
-    $statement = qq{RENAME TABLE slip_rights_temp TO slip_rights};
+    $statement = qq{ALTER TABLE slip_rights_temp RENAME TO ht_maintenance.slip_rights};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }

@@ -316,18 +316,11 @@ sub insert_j_indexed_temp_j_indexed {
     do {
         my $begin = time();
         
-        $statement = qq{LOCK TABLES slip_indexed_temp WRITE, slip_indexed WRITE};
-        $sth = DbUtils::prep_n_execute($dbh, $statement);
-        DEBUG('lsdb', qq{DEBUG: $statement});
 
         my $SELECT_clause = qq{SELECT $run, `shard`, `id`, '$MYSQL_ZERO_TIMESTAMP', 1 FROM slip_indexed_temp LIMIT $start, $offset};
         
         $statement = qq{INSERT INTO slip_indexed (`run`, `shard`, `id`, `time`, `indexed_ct`) ($SELECT_clause)};
         $sth = DbUtils::prep_n_execute($dbh, $statement, \$num_inserted);
-        DEBUG('lsdb', qq{DEBUG: $statement});
-
-        $statement = qq{UNLOCK TABLES};
-        $sth = DbUtils::prep_n_execute($dbh, $statement);
         DEBUG('lsdb', qq{DEBUG: $statement});
 
         my $elapsed = time() - $begin;
