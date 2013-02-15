@@ -38,7 +38,7 @@ use constant C_INSERT_SIZE => 10000;
 # =====================================================================
 # =====================================================================
 #
-#    Table:   [slip_rights] @@
+#    Table:   [ht_maintenance.slip_rights] @@
 #
 # =====================================================================
 # =====================================================================
@@ -55,7 +55,7 @@ use constant C_INSERT_SIZE => 10000;
 sub Select_j_rights_id {
     my ($C, $dbh, $nid) = @_;
 
-    my $statement = qq{SELECT count(*) FROM slip_rights WHERE nid=?};
+    my $statement = qq{SELECT count(*) FROM ht_maintenance.slip_rights WHERE nid=?};
     DEBUG('lsdb', qq{DEBUG: $statement});
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $nid);
 
@@ -76,7 +76,7 @@ Description
 sub Select_j_rights_NIN_j_indexed {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{SELECT nid FROM slip_rights WHERE nid NOT IN (SELECT id FROM slip_indexed_temp)};
+    my $statement = qq{SELECT nid FROM ht_maintenance.slip_rights WHERE nid NOT IN (SELECT id FROM slip_indexed_temp)};
     DEBUG('lsdb', qq{DEBUG: $statement});
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
 
@@ -97,7 +97,7 @@ Description
 sub Select_j_indexed_NIN_j_rights {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{SELECT id FROM slip_indexed_temp WHERE id NOT IN (SELECT nid FROM slip_rights)};
+    my $statement = qq{SELECT id FROM slip_indexed_temp WHERE id NOT IN (SELECT nid FROM ht_maintenance.slip_rights)};
     DEBUG('lsdb', qq{DEBUG: $statement});
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
 
@@ -183,7 +183,7 @@ idempotent
 sub Select_error_item_id {
     my ($C, $dbh, $run, $id) = @_;
 
-    my $statement = qq{SELECT id FROM slip_errors WHERE run=? AND id=?};
+    my $statement = qq{SELECT id FROM ht_web.slip_errors WHERE run=? AND id=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
     DEBUG('lsdb', qq{DEBUG: $statement});
 
