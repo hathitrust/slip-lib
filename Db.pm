@@ -189,13 +189,11 @@ Description
 
 # ---------------------------------------------------------------------
 sub update_vSolr_timestamp {
-    my($C, $dbh, $Rebuild) = @_;
+    my($C, $dbh) = @_;
 
     my ($statement, $sth);
 
-    my $SLIP_RIGHTS_TABLE_NAME = ($Rebuild ? 'slip_rights_temp' : 'slip_rights');
-
-    $statement = qq{SELECT MAX(update_time) FROM $SLIP_RIGHTS_TABLE_NAME};
+    $statement = qq{SELECT MAX(update_time) FROM slip_rights};
     $sth = DbUtils::prep_n_execute($dbh, $statement);
     my $latest_timestamp = $sth->fetchrow_array || $Db::vSOLR_ZERO_TIMESTAMP;
     DEBUG('lsdb', qq{DEBUG: $statement ::: $latest_timestamp});
