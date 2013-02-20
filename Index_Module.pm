@@ -232,7 +232,8 @@ sub index_one_id {
         }
         else {
             my $doc_content_ref = $doc->get_document_content($C);
-            push(@$doc_arr_ref, $doc_content_ref);
+            push(@$doc_arr_ref, $doc_content_ref)
+              if ($doc_content_ref && $$doc_content_ref);
         }
     }
 

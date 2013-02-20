@@ -385,9 +385,13 @@ sub get_document_content {
     my $data_fields_ref = $self->get_data_fields();
     my $metadata_fields_ref = $self->get_metadata_fields();
 
-    my $solr_doc = '<doc>' . $$metadata_fields_ref . $$data_fields_ref . '</doc>';
-
-    return \$solr_doc;
+    if ($metadata_fields_ref && $$metadata_fields_ref && $data_fields_ref && $$data_fields_ref) {
+        my $solr_doc = '<doc>' . $$metadata_fields_ref . $$data_fields_ref . '</doc>';
+        return \$solr_doc;
+    }
+    else {
+        return undef;
+    }
 }
 
 # ---------------------------------------------------------------------

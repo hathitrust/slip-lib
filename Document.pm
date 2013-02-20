@@ -181,12 +181,15 @@ sub debug_save_doc {
         my $complete_solr_doc_filename = "$temporary_dir/" . $pairtree_item_id . "-$$-$state" . '.solr.xml';
 
         my $complete_solr_doc_ref = $self->get_document_content($C);
-        Utils::write_data_to_file($complete_solr_doc_ref, $complete_solr_doc_filename);
-        chmod(0666, $complete_solr_doc_filename) if (-o $complete_solr_doc_filename);
+        if ($complete_solr_doc_ref) {
+            Utils::write_data_to_file($complete_solr_doc_ref, $complete_solr_doc_filename);
+            chmod(0666, $complete_solr_doc_filename) if (-o $complete_solr_doc_filename);
 
-        DEBUG('doconly', qq{build_document: save solr doc: "$complete_solr_doc_filename"});
+            DEBUG('doconly', qq{build_document: save solr doc: "$complete_solr_doc_filename"});
+        }
     }
 }
+
 
 # ---------------------------------------------------------------------
 
