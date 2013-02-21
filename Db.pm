@@ -1174,7 +1174,7 @@ sub Select_error_ids {
     my ($C, $dbh, $run, $shard, $reason) = @_;
 
     my @params;
-    my $AND_shard_clause;
+    my $AND_shard_clause = '';
     if ( defined($shard) ) {
         @params = ( $shard );
         $AND_shard_clause = qq{AND shard=?};
