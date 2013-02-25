@@ -6,16 +6,12 @@ Scheduler.pm
 
 =head1 DESCRIPTION
 
-Routines for scheduling:
-
-* full optimization
+Routines for scheduling full optimization
 
 =cut
 
 use strict;
-
-# Perl
-use Date::Calc;
+use warnings;
 
 # App
 use Utils;
@@ -45,13 +41,8 @@ sub Log_schedule {
 
 =item driver_do_full_optimize
 
-PUBLIC.  Assumes a full optimize is kicked off immediately after
-indexing finishes and that these two events occur on the same day, not
-split across midnight.  driver-j will validate that all shards have
-exactly one segment after completion of optimization and update the
-schedule file.
-
-Change delta days by negative one if the schedule spans midnight.
+PUBLIC.  If the second segment exceeds the trigger size the optimize
+phase in driver-j will optimize to a single (1) segment.
 
 =cut
 
@@ -61,32 +52,58 @@ sub driver_do_full_optimize {
     my $run = shift;
     my $msg_ref = shift;
 
-    if (! full_optimize_supported($C, $run)) {
+    if (! full_optimize_supported($C)) {
         if ($msg_ref) {
             $$msg_ref = qq{driver: do full optimize not supported};
         }
         return 0;
     }
 
-    my ($oyear, $omonth, $oday, $ohour, $omin, $interval) = __read_optimize_flag_file($C, $run);
-    my ($year, $month, $day) = Date::Calc::Add_Delta_Days($oyear, $omonth, $oday, 0);
-    my ($tyear, $tmonth, $tday) = Date::Calc::Today();
+    return __do_full_optimize($C, $run, 0, 'driver');
+}
 
-    my $do = (($tyear == $year) && ($tmonth == $month) && ($tday == $day));
-    if ($msg_ref) {
-        $$msg_ref = qq{driver: do full optimize=} . ($do ? 1 : 0) . qq{ today=$tyear-$tmonth-$tday schedule=$oyear-$omonth-$oday};
-    }
+
+# ---------------------------------------------------------------------
+
+=item do_full_optimize
+
+PUBLIC.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub do_full_optimize {
+    my $C = shift;
+    my $run = shift;
     
-    return $do; 
+    return __do_full_optimize($C, $run, 0, undef);
+}
+
+# ---------------------------------------------------------------------
+
+=item __get_segsizes
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __get_segsizes {
+    my ($C, $run) = @_;
+
+    my $cmd = "$ENV{SDRROOT}/slip/scripts/segsizes -r$run";
+    my $output = qx{$cmd 2>&1};
+    my $rc = ($? >> 8);
+    
+    return ($rc, $output);
 }
 
 # ---------------------------------------------------------------------
 
 =item __do_full_optimize
 
-PRIVATE.  If the scheduled day and time have arrived, optimize-j will
-optimize to one segment.  Time should be configured to be sometime
-after the time the driver starts running from cron.
+PRIVATE.  If the trigger condition applies, optimize-j will
+optimize to one segment.
 
 =cut
 
@@ -94,33 +111,36 @@ after the time the driver starts running from cron.
 sub __do_full_optimize {
     my ($C, $run, $shard, $what) = @_;
 
-    if (! full_optimize_supported($C, $run)) {
+    if (! full_optimize_supported($C)) {
         return 0;
     }
 
-    my ($oyear, $omonth, $oday, $ohour, $omin, $interval) = __read_optimize_flag_file($C, $run);
-    my ($tyear, $tmonth, $tday, $thour, $tmin, $tsec) = Date::Calc::Today_and_Now();
+    my $trigger_size = get_full_optimize_trigger_size($C);
+    my ($rc, $sizes) = __get_segsizes($C, $run);
+    if ($rc > 0) {
+        return 0;
+    }
+    my @sizes = split(/[ \n]+/, $sizes);
+    
+    # "baby" segment
+    my $do = ($sizes[1] > $trigger_size);
 
-    my $oTimeTime = Date::Calc::Date_to_Time($oyear, $omonth, $oday, $ohour, $omin, 1);
-    my $tTimeTime = Date::Calc::Date_to_Time($tyear, $tmonth, $tday, $thour, $tmin, $tsec);
-    
-    my $do = ($tTimeTime >= $oTimeTime);
-    
-    my $msg = qq{$what: shard=$shard, do full optimize=} . ($do ? 1 : 0) . qq{ today_now=$tyear-$tmonth-$tday $thour:$tmin schedule=$oyear-$omonth-$oday $ohour:$omin };
-    __output("$msg\n");
-    Log_schedule($C, $run, $msg);
-    
-    return $do; 
+    if (defined($what)) {
+        my $now = Utils::Time::iso_Time();
+        my $msg = qq{$what: shard=$shard, do full optimize=} . ($do ? 1 : 0) . qq{ at $now};
+        __output("$msg\n");
+        Log_schedule($C, $run, $msg);
+    }
+
+    return $do;
 }
-
 
 # ---------------------------------------------------------------------
 
 =item optimize_do_full_optimize
 
-PUBLIC.  If the scheduled day and time have arrived, optimize-j will
-optimize to one segment.  Time should be configured to be sometime
-after the time the driver starts running from cron.
+PUBLIC.  If the trigger condition applies, optimize-j will optimize to
+one segment.
 
 =cut
 
@@ -137,9 +157,8 @@ sub optimize_do_full_optimize {
 
 =item check_do_full_optimize
 
-PUBLIC.  If the scheduled day and time have arrived, check-j will
-check for one segment.  Time should be configured to be sometime
-after the time the driver starts running from cron.
+PUBLIC.  If the trigger condition applies, check-j will
+check for one segment.
 
 =cut
 
@@ -154,103 +173,6 @@ sub check_do_full_optimize {
 
 # ---------------------------------------------------------------------
 
-=item advance_full_optimize_date
-
-PUBLIC
-
-=cut
-
-# ---------------------------------------------------------------------
-sub advance_full_optimize_date {
-    my $C = shift;
-    my $run = shift;
-    
-    if (! full_optimize_supported($C, $run)) {
-        return 0;
-    }
-
-    my ($oyear, $omonth, $oday, $ohour, $omin, $interval) = __read_optimize_flag_file($C, $run);
-    my ($year, $month, $day) = Date::Calc::Add_Delta_Days($oyear, $omonth, $oday, $interval);
-
-    my $next_schedule = "$year $month $day $ohour $omin $interval";
-    my $msg = "advance next schedule=$next_schedule";
-    __output("$msg\n");
-    Log_schedule($C, $run, $msg);
-
-    __write_optimize_flag_file($C, $run, $next_schedule);
-}
-
-
-# ---------------------------------------------------------------------
-
-=item get_schedule_filepath
-
-PUBLIC
-
-=cut
-
-# ---------------------------------------------------------------------
-sub get_schedule_filepath {
-    my $C = shift;
-    my $run = shift;
-
-    my $config = $C->get_object('MdpConfig');
-    my $schedule_filepath = $config->get('shared_flags_dir') . '/' . $config->get('full_optimize_flag_file');
-    $schedule_filepath =~ s,__RUN__,$run,;
-
-    return $schedule_filepath;
-}
-
-# ---------------------------------------------------------------------
-
-=item __read_optimize_flag_file
-
-Private. Read a line:
-
-YYYY MM DD HH MM N[N]
-
-where NN is number of days between full optimizations 
-
-=cut
-
-# ---------------------------------------------------------------------
-sub __read_optimize_flag_file {
-    my $C = shift;
-    my $run = shift;
-
-    my $schedule_filepath = get_schedule_filepath($C, $run);
-    open(SCHED, "<$schedule_filepath") || die("$schedule_filepath i/o error: $!");
-    local $/;
-    my $schedule = <SCHED>;
-    close(SCHED);
-    chomp($schedule);
-    
-    return split(/\s+/, $schedule);
-}
-
-# ---------------------------------------------------------------------
-
-=item __write_optimize_flag_file
-
-Private
-
-=cut
-
-# ---------------------------------------------------------------------
-sub __write_optimize_flag_file {
-    my $C = shift;
-    my $run = shift;
-    my $schedule = shift;
-
-    my $schedule_filepath = get_schedule_filepath($C, $run);
-    open(SCHED, ">$schedule_filepath") || die("$schedule_filepath i/o error: $!");
-    print SCHED $schedule;
-    close(SCHED);
-}
-
-
-# ---------------------------------------------------------------------
-
 =item full_optimize_supported
 
 PUBLIC.  True if, the run is configured to do full optimization and the
@@ -261,19 +183,29 @@ schedule file is in place.
 # ---------------------------------------------------------------------
 sub full_optimize_supported {
     my $C = shift;
-    my $run = shift;
 
     my $config = $C->get_object('MdpConfig');
     my $is_supported = $config->get('full_optimize_supported');
-    if ($is_supported) {
-        # Is the schedule file present?
-        my $schedule_filepath = get_schedule_filepath($C, $run);
-        if (! -e $schedule_filepath) {
-            $is_supported = 0;
-        }
-    }
 
     return $is_supported;
+}
+
+# ---------------------------------------------------------------------
+
+=item get_full_optimize_trigger_size
+
+PUBLIC.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_full_optimize_trigger_size {
+    my $C = shift;
+
+    my $config = $C->get_object('MdpConfig');
+    my $size = $config->get('full_optimize_trigger_size');
+
+    return $size;
 }
 
 1;
@@ -285,7 +217,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2010 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2013 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
