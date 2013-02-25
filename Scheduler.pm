@@ -119,7 +119,7 @@ sub __do_full_optimize {
 
     if (defined($what)) {
         my $now = Utils::Time::iso_Time();
-        my $msg = qq{$what: shard=$shard, do full optimize=} . ($do ? 1 : 0) . qq{ at $now};
+        my $msg = qq{$what: shard=$shard sizes=$sizes do full optimize=} . ($do ? 1 : 0) . qq{ at $now};
         Log_schedule($C, $run, $msg);
     }
 
