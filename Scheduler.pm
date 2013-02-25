@@ -50,14 +50,6 @@ phase in driver-j will optimize to a single (1) segment.
 sub driver_do_full_optimize {
     my $C = shift;
     my $run = shift;
-    my $msg_ref = shift;
-
-    if (! full_optimize_supported($C)) {
-        if ($msg_ref) {
-            $$msg_ref = qq{driver: do full optimize not supported};
-        }
-        return 0;
-    }
 
     return __do_full_optimize($C, $run, 0, 'driver');
 }
