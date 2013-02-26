@@ -81,15 +81,38 @@ Description
 
 # ---------------------------------------------------------------------
 sub __get_segsizes {
-    my ($C, $run) = @_;
+    my ($C, $run, $shard) = @_;
 
-    my $cmd = "$ENV{SDRROOT}/slip/scripts/segsizes -r$run";
+    my $optional_shard = (defined($shard) ? "-R$shard" : "");
+    my $cmd = "$ENV{SDRROOT}/slip/scripts/segsizes -r$run $optional_shard";
     my $output = qx{$cmd 2>&1};
     my $rc = ($? >> 8);
     
     return ($rc, $output);
 }
 
+# ---------------------------------------------------------------------
+
+=item get_segsizes
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_segsizes {
+    my ($C, $run, $shard) = @_;
+    
+    my ($rc, $sizes) = __get_segsizes($C, $run, $shard);
+    if ($rc > 0) {
+        return '0 0';
+    }
+    else {
+        chomp($sizes);
+        return $sizes;
+    }
+}
+      
 # ---------------------------------------------------------------------
 
 =item __do_full_optimize
