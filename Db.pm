@@ -914,7 +914,7 @@ sub insert_restore_errors_to_queue {
     my $statement;
     my $num_inserted = 0;
 
-    __LOCK_TABLES($dbh, qw(slip_errors slip_queue));
+    __LOCK_TABLES($dbh, qw(slip_errors slip_queue slip_indexed));
 
     $statement = qq{SELECT id, shard FROM slip_errors WHERE run=?};
     if (defined $type) {
@@ -931,6 +931,13 @@ sub insert_restore_errors_to_queue {
     foreach my $ref (@$ref_to_ary_of_hashref) {
         my $id = $ref->{'id'};
         my $shard = $ref->{'shard'};
+        if (! $shard) {
+            # See if this got indexed added to slip_errors with shard 0 and in
+            # the meantime successfully indexed to to a different shard.
+            my $real_shard = Select_item_id_shard($C, $dbh, $run, $id);
+            $shard = $real_shard if ($real_shard);
+        }
+
         my $num = 0;
         $statement = qq{REPLACE INTO slip_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=?};
         $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $SLIP_Utils::States::Q_AVAILABLE, \$num);
@@ -1190,29 +1197,6 @@ sub Select_error_ids {
     return $id_arr_hashref;
 }
 
-# ---------------------------------------------------------------------
-
-=item Select_id_from_j_errors
-
-Sniff error queue
-
-=cut
-
-# ---------------------------------------------------------------------
-sub Select_id_from_j_errors {
-    my ($C, $dbh, $run, $id) = @_;
-
-    my $sth;
-    my $statement;
-
-    $statement = qq{SELECT reason FROM slip_errors WHERE run=? AND id=?};
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $id});
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
-
-    my $reason = $sth->fetchrow_array() || $C_NO_ERROR;
-
-    return $reason;
-}
 
 # ---------------------------------------------------------------------
 
