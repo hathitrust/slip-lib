@@ -1526,13 +1526,20 @@ To handle Deletes
 
 # ---------------------------------------------------------------------
 sub Delete_item_id_indexed {
-    my ($C, $dbh, $run, $id) = @_;
+    my ($C, $dbh, $run, $id, $shard) = @_;
 
     my ($statement, $sth);
 
-    $statement = qq{DELETE FROM slip_indexed WHERE run=? AND id=?};
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $id});
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
+    if (defined $shard) {
+        $statement = qq{DELETE FROM slip_indexed WHERE run=? AND id=? AND shard=?};
+        DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $shard});
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard);
+    }
+    else {
+        $statement = qq{DELETE FROM slip_indexed WHERE run=? AND id=?};
+        DEBUG('lsdb', qq{DEBUG: $statement : $run, $id});
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id);
+    }
 }
 
 
