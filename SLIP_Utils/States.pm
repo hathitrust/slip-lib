@@ -48,7 +48,7 @@ $RC_RIGHTS_NO_SEM      = 14;
 $RC_BAD_SCHED_FILE     = 15;
 $RC_TOMCAT_STOP_FAIL   = 16;
 $RC_TOMCAT_START_FAIL  = 17;
-$RC_WRONG_NUM_SHARDS   = 18;
+$RC_WRONG_NUM_SEGS     = 18;
 
 # Driver stages check these
 $St_Undefined       = 'Undefined';
