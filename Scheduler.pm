@@ -39,40 +39,6 @@ sub Log_schedule {
 
 # ---------------------------------------------------------------------
 
-=item driver_do_full_optimize
-
-PUBLIC.  If the second segment exceeds the trigger size the optimize
-phase in driver-j will optimize to a single (1) segment.
-
-=cut
-
-# ---------------------------------------------------------------------
-sub driver_do_full_optimize {
-    my $C = shift;
-    my $run = shift;
-
-    return __do_full_optimize($C, $run, 0, 'driver');
-}
-
-
-# ---------------------------------------------------------------------
-
-=item do_full_optimize
-
-PUBLIC.
-
-=cut
-
-# ---------------------------------------------------------------------
-sub do_full_optimize {
-    my $C = shift;
-    my $run = shift;
-    
-    return __do_full_optimize($C, $run, 0, undef);
-}
-
-# ---------------------------------------------------------------------
-
 =item __get_segsizes
 
 Description
@@ -131,7 +97,7 @@ sub __do_full_optimize {
     }
 
     my $trigger_size = get_full_optimize_trigger_size($C);
-    my ($rc, $sizes) = __get_segsizes($C, $run);
+    my ($rc, $sizes) = __get_segsizes($C, $run, $shard);
     if ($rc > 0) {
         return 0;
     }
