@@ -135,24 +135,6 @@ sub optimize_do_full_optimize {
 
 # ---------------------------------------------------------------------
 
-=item check_do_full_optimize
-
-PUBLIC.  If the trigger condition applies, check-j will
-check for one segment.
-
-=cut
-
-# ---------------------------------------------------------------------
-sub check_do_full_optimize {
-    my $C = shift;
-    my $run = shift;
-    my $shard = shift;
-
-    return __do_full_optimize($C, $run, $shard, 'check phase');
-}
-
-# ---------------------------------------------------------------------
-
 =item full_optimize_supported
 
 PUBLIC.  True if, the run is configured to do full optimization and the
