@@ -3228,6 +3228,61 @@ sub read_holdings_deltas_item_ids {
     return $id_arr_ref;
 }
 
+# ---------------------------------------------------------------------
+
+=item optimize_select_shard
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub optimize_select_shard {
+    my ($C, $dbh, $run, $shard, $max_selected) = @_;
+
+    __LOCK_TABLES($dbh, qw(slip_shard_control));
+
+    my $selected = 0;
+    my ($statement, $sth);
+
+    $statement = qq{SELECT count(*) FROM slip_shard_control WHERE run=? AND selected=?};
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, 1);
+    my $count = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard :: $count});
+
+    if ($count < $max_selected) {
+        $statement = qq{UPDATE slip_shard_control SET selected=? WHERE run=? AND shard=?};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, 1, $run, $shard);
+        DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
+        $selected = 1;
+    }
+
+    __UNLOCK_TABLES($dbh);
+
+    return $selected;
+}
+
+# ---------------------------------------------------------------------
+
+=item optimize_unselect_shard
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub optimize_unselect_shard {
+    my ($C, $dbh, $run, $shard) = @_;
+
+    __LOCK_TABLES($dbh, qw(slip_shard_control));
+
+    my $statement = qq{UPDATE slip_shard_control SET selected=? WHERE run=? AND shard=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, 0, $run, $shard);
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
+
+    __UNLOCK_TABLES($dbh);
+}
+
 
 1;
 

@@ -21,21 +21,6 @@ use MdpConfig;
 use SLIP_Utils::Log;
 use SLIP_Utils::Common;
 
-# ---------------------------------------------------------------------
-
-=item Log_schedule
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub Log_schedule {
-    my ($C, $run, $msg) = @_;
-
-    my $s = qq{***SCHEDULER: } . Utils::Time::iso_Time() . qq{ r=$run $msg};
-    SLIP_Utils::Log::this_string($C, $s, 'indexer_logfile', '___RUN___', $run);
-}
 
 # ---------------------------------------------------------------------
 
@@ -78,19 +63,19 @@ sub get_segsizes {
         return $sizes;
     }
 }
-      
+
 # ---------------------------------------------------------------------
 
-=item __do_full_optimize
+=item optimize_try_full_optimize
 
-PRIVATE.  If the trigger condition applies, optimize-j will
+PUBLIC.  If the trigger condition applies try to select myself to
 optimize to one segment.
 
 =cut
 
 # ---------------------------------------------------------------------
-sub __do_full_optimize {
-    my ($C, $run, $shard, $what) = @_;
+sub optimize_try_full_optimize {
+    my ($C, $run, $shard) = @_;
 
     if (! full_optimize_supported($C)) {
         return 0;
@@ -103,34 +88,10 @@ sub __do_full_optimize {
     }
     my @sizes = split(/[ \n]+/, $sizes);
     
-    # "baby" segment
-    my $do = ($sizes[1] > $trigger_size);
+    # "baby" segment size 
+    my $try = ($sizes[1] > $trigger_size);
 
-    if (defined($what)) {
-        my $now = Utils::Time::iso_Time();
-        my $msg = qq{$what: shard=$shard sizes=$sizes do full optimize=} . ($do ? 1 : 0) . qq{ at $now};
-        Log_schedule($C, $run, $msg);
-    }
-
-    return $do;
-}
-
-# ---------------------------------------------------------------------
-
-=item optimize_do_full_optimize
-
-PUBLIC.  If the trigger condition applies, optimize-j will optimize to
-one segment.
-
-=cut
-
-# ---------------------------------------------------------------------
-sub optimize_do_full_optimize {
-    my $C = shift;
-    my $run = shift;
-    my $shard = shift;
-
-    return __do_full_optimize($C, $run, $shard, 'optimize phase');
+    return $try;
 }
 
 # ---------------------------------------------------------------------
@@ -146,9 +107,7 @@ schedule file is in place.
 sub full_optimize_supported {
     my $C = shift;
 
-    my $config = $C->get_object('MdpConfig');
-    my $is_supported = $config->get('full_optimize_supported');
-
+    my $is_supported = $C->get_object('MdpConfig')->get('full_optimize_supported');
     return $is_supported;
 }
 
