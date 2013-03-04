@@ -59,9 +59,9 @@ sub Service_ID {
 
     my $start = Time::HiRes::time();
 
-    # Get the correct indexer for this id.  If this is a
-    # re-index and the shard it belongs in is suspended, the
-    # id will be added to the error list.
+    # Get the correct indexer for this id.  If this is a re-index and
+    # the shard it belongs in is not enabled, the id will be added to
+    # the error list.
     my ($index_state, $data_status, $metadata_status, $stats_ref);
     my $indexer = get_Shard_indexer($C, $dbh, $run, $pid, $host, $id, $dedicated_shard);
     my $op = get_required_op($C, $dbh, $id);

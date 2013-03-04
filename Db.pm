@@ -1335,108 +1335,6 @@ sub delete_timeouts {
 # =====================================================================
 # =====================================================================
 #
-#                      Index size table [slip_index_size] @@
-#
-# =====================================================================
-# =====================================================================
-
-# ---------------------------------------------------------------------
-
-=item update_indexdir_size
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub update_indexdir_size {
-    my ($C, $dbh, $run, $shard, $index_size) = @_;
-
-    my $sth;
-    my $statement;
-
-    $statement = qq{REPLACE INTO slip_index_size SET run=?, shard=?, du=?};
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $index_size});
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $index_size);
-}
-
-# ---------------------------------------------------------------------
-
-=item Select_indexdir_size
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub Select_indexdir_size {
-    my ($C, $dbh, $run, $shard) = @_;
-
-    # Index size
-    my $statement = qq{SELECT du FROM slip_index_size WHERE run=? AND shard=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
-
-    my $index_size = $sth->fetchrow_array || 0;
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard ::: $index_size});
-
-    return $index_size;
-}
-
-# ---------------------------------------------------------------------
-
-=item Renumber_Index_size
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub Renumber_Index_size {
-    my ($C, $dbh, $from_run, $to_run) = @_;
-
-    my $statement = qq{UPDATE slip_index_size SET run=? WHERE run=?};
-    DEBUG('lsdb', qq{DEBUG: $statement : $to_run, $from_run});
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $to_run, $from_run);
-}
-
-
-# ---------------------------------------------------------------------
-
-=item Reset_Index_size
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub Reset_Index_size {
-    my ($C, $dbh, $run) = @_;
-
-    my $statement = qq{UPDATE slip_index_size SET du=0 WHERE run=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
-    DEBUG('lsdb', qq{DEBUG: $statement : $run});
-}
-# ---------------------------------------------------------------------
-
-=item delete_Index_size
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub delete_Index_size {
-    my ($C, $dbh, $run) = @_;
-
-    my $statement = qq{DELETE FROM slip_index_size WHERE run=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
-    DEBUG('lsdb', qq{DEBUG: $statement : $run});
-}
-
-
-# =====================================================================
-# =====================================================================
-#
 #                         Indexed [slip_indexed] @@
 #
 # =====================================================================
@@ -2097,7 +1995,7 @@ Description
 sub Reset_shard_control {
     my ($C, $dbh, $run, $shard) = @_;
 
-    my $statement = qq{UPDATE slip_shard_control SET enabled=0, suspended=0, allocated=0, build=0, optimiz=0, checkd=0 WHERE run=? AND shard=?};
+    my $statement = qq{UPDATE slip_shard_control SET enabled=0, selected=0, allocated=0, build=0, optimiz=0, checkd=0 WHERE run=? AND shard=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 }
@@ -2121,7 +2019,7 @@ sub init_shard_control {
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 
-    $statement = qq{INSERT INTO slip_shard_control SET run=?, shard=?, enabled=0, suspended=0, num_producers=0, allocated=0, build=0, optimiz=0, checkd=0, build_time='$Db::MYSQL_ZERO_TIMESTAMP', optimize_time='$Db::MYSQL_ZERO_TIMESTAMP', checkd_time='$Db::MYSQL_ZERO_TIMESTAMP', release_state=0};
+    $statement = qq{INSERT INTO slip_shard_control SET run=?, shard=?, enabled=0, selected=0, num_producers=0, allocated=0, build=0, optimiz=0, checkd=0, build_time='$Db::MYSQL_ZERO_TIMESTAMP', optimize_time='$Db::MYSQL_ZERO_TIMESTAMP', checkd_time='$Db::MYSQL_ZERO_TIMESTAMP', release_state=0};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 }
@@ -2200,7 +2098,7 @@ sub Select_run_num_shards_available {
 
     my ($statement, $sth);
 
-    $statement = qq{SELECT count(*) FROM slip_shard_control WHERE run=? AND enabled=1 AND suspended=0};
+    $statement = qq{SELECT count(*) FROM slip_shard_control WHERE run=? AND enabled=1};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
 
     my $num_enabled = $sth->fetchrow_array || 0;
@@ -2222,17 +2120,15 @@ Description
 sub Select_shard_enabled {
     my ($C, $dbh, $run, $shard) = @_;
 
-    my $statement = qq{SELECT enabled, suspended FROM slip_shard_control WHERE run=? AND shard=?};
+    my $statement = qq{SELECT enabled FROM slip_shard_control WHERE run=? AND shard=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
 
     my $ref_to_ary_of_hashref = $sth->fetchall_arrayref({});
-    my $enabled = $ref_to_ary_of_hashref->[0]->{'enabled'};
-    my $suspended = $ref_to_ary_of_hashref->[0]->{'suspended'};
+    my $enabled = $ref_to_ary_of_hashref->[0]->{'enabled'} || 0;
 
-    my $state = $enabled && (! $suspended);
-    DEBUG('lsdb', qq{DEBUG: $statement: $run, $shard ::: enabled=$state});
+    DEBUG('lsdb', qq{DEBUG: $statement: $run, $shard ::: enabled=$enabled});
 
-    return $state;
+    return $enabled;
 }
 
 
@@ -2281,62 +2177,6 @@ sub update_shard_enabled {
         $sth = DbUtils::prep_n_execute($dbh, $statement, $enabled, $run, $shard);
         DEBUG('lsdb', qq{DEBUG: $statement : $enabled, $run, $shard});
     }
-}
-
-
-# ---------------------------------------------------------------------
-
-=item suspend_shard
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub suspend_shard {
-    my ($C, $dbh, $run, $shard) = @_;
-
-    my $statement = qq{UPDATE slip_shard_control SET suspended=1 WHERE run=? AND shard=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
-}
-
-# ---------------------------------------------------------------------
-
-=item unsuspend_shard
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub unsuspend_shard {
-    my ($C, $dbh, $run, $shard) = @_;
-
-    my $statement = qq{UPDATE slip_shard_control SET suspended=0 WHERE run=? AND shard=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
-}
-
-# ---------------------------------------------------------------------
-
-=item shard_is_suspended
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub shard_is_suspended {
-    my ($C, $dbh, $run, $shard) = @_;
-
-    my $statement = qq{SELECT suspended FROM slip_shard_control WHERE run=? AND shard=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
-
-    my $suspended = $sth->fetchrow_array || 0;
-    DEBUG('lsdb', qq{DEBUG: $statement ::: suspended=$suspended});
-
-    return $suspended;
 }
 
 # ---------------------------------------------------------------------
