@@ -49,8 +49,8 @@ Description
 sub __get_segsizes {
     my ($C, $run, $shard) = @_;
 
-    my $optional_shard = (defined($shard) ? "-R$shard" : "");
-    my $cmd = "$ENV{SDRROOT}/slip/scripts/segsizes -r$run $optional_shard";
+    my $optional_shard_arg = (defined($shard) ? "-R$shard" : "");
+    my $cmd = "$ENV{SDRROOT}/slip/scripts/segsizes -r$run -S $optional_shard_arg";
     my $output = qx{$cmd 2>&1};
     my $rc = ($? >> 8);
     
