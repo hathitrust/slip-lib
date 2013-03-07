@@ -3264,23 +3264,26 @@ sub optimize_select_shard {
 
 # ---------------------------------------------------------------------
 
-=item optimize_unselect_shard
+=item optimize_shard_is_selected
 
 Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub optimize_unselect_shard {
+sub optimize_shard_is_selected {
     my ($C, $dbh, $run, $shard) = @_;
 
     __LOCK_TABLES($dbh, qw(slip_shard_control));
 
-    my $statement = qq{UPDATE slip_shard_control SET selected=? WHERE run=? AND shard=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, 0, $run, $shard);
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
+    my $statement = qq{SELECT selected FROM slip_shard_control WHERE run=? AND shard=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
+    my $selected = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard ::: $selected});
 
     __UNLOCK_TABLES($dbh);
+
+    return $selected;
 }
 
 
