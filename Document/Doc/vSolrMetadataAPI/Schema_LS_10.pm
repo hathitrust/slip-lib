@@ -372,13 +372,9 @@ sub post_process_metadata {
 
     # Derive htsource per item by mapping namespace to institution
     # name, i.e.  if namespace=mdp htsource="University of Michigan"
-    my $htsource_display_name;
-    my ($namespace) = ($item_id =~ /([^\.]+)\./);
-    if ($namespace) {
-        $htsource_display_name = Namespaces::get_institution_by_namespace($C, $namespace);
-        if (defined($htsource_display_name)) {
-            $metadata_hashref->{htsource} = [$htsource_display_name];
-        }
+    my $htsource_display_name = Namespaces::get_institution_by_namespace($C, $item_id);
+    if (defined($htsource_display_name)) {
+        $metadata_hashref->{htsource} = [$htsource_display_name];
     }
 }
 
