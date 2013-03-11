@@ -2019,7 +2019,7 @@ sub init_shard_control {
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 
-    $statement = qq{INSERT INTO slip_shard_control SET run=?, shard=?, enabled=0, selected=0, num_producers=0, allocated=0, build=0, optimiz=0, checkd=0, build_time='$Db::MYSQL_ZERO_TIMESTAMP', optimize_time='$Db::MYSQL_ZERO_TIMESTAMP', checkd_time='$Db::MYSQL_ZERO_TIMESTAMP', release_state=0};
+    $statement = qq{INSERT INTO slip_shard_control SET run=?, shard=?, enabled=0, selected=0, num_producers=0, allocated=0, build=0, optimiz=0, checkd=0, build_time=0, optimize_time=0, checkd_time=0, release_state=0};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 }
