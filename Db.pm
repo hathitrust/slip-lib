@@ -1847,7 +1847,7 @@ sub Select_shard_build_done {
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 
-    my $time = $sth->fetchrow_array || '$Db::MYSQL_ZERO_TIMESTAMP';
+    my $time = $sth->fetchrow_array || 0;
     return $time;
 }
 
@@ -1868,7 +1868,7 @@ sub Select_shard_optimize_done {
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 
-    my $time = $sth->fetchrow_array || '$Db::MYSQL_ZERO_TIMESTAMP';
+    my $time = $sth->fetchrow_array || 0;
     return $time;
 }
 
@@ -1888,7 +1888,7 @@ sub Select_shard_check_done {
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 
-    my $time = $sth->fetchrow_array || '$Db::MYSQL_ZERO_TIMESTAMP';
+    my $time = $sth->fetchrow_array || 0;
     return $time;
 }
 
