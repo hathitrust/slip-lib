@@ -235,8 +235,6 @@ sub get_metadata_f_item_id {
             my $event = qq{METADATA: ERROR missing title for item_id=$item_id};
             DEBUG('doc', $event);
             $self->D_add_event($event);
-
-            $status = IX_METADATA_FAILURE;
         }
     }
 
