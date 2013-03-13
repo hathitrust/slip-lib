@@ -6,11 +6,15 @@ Document::vSolrMetadataAPI::Schema_LS_10
 
 =head1 DESCRIPTION
 
-Tye 10 schema
+Type 10 schema
 
 Delete ht_heldby field.  Now obtained from PHDB not from VuFind
 Solr. Add ht_heldby_brlm (held + brittle, lost, missing) obtained from
 PHDB.
+
+Wed Mar 13 12:11:20 2013 'title' no longer used as a proxy for
+metadata validity. Previously, if absent we did not index the
+item. Now we index the item using 245b,c.
 
 Type 9 Schema
 
@@ -337,10 +341,6 @@ sub post_process_metadata {
 
     $metadata_hashref->{'record_no'} = $metadata_hashref->{'id'};
     $metadata_hashref->{'id'} = [$item_id];
-
-    # Title is used as a proxy for metadata validity
-    my @titles = @{$metadata_hashref->{'title'}};
-    return unless (scalar(@titles) > 0);
 
     # Save title as Vtitle before Mbooks specific processing reserved
     # for "title" field
