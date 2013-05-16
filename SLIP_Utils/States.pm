@@ -49,6 +49,7 @@ our $RC_BAD_SCHED_FILE     = 15;
 our $RC_TOMCAT_STOP_FAIL   = 16;
 our $RC_TOMCAT_START_FAIL  = 17;
 our $RC_WRONG_NUM_SEGS     = 18;
+our $RC_STOPSLIP_DRIVER    = 19;
 
 # Driver stages check these
 our $St_Undefined       = 'Undefined';

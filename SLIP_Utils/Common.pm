@@ -360,6 +360,7 @@ sub stage_rc_to_string {
     elsif ($rc == $SLIP_Utils::States::RC_TOMCAT_STOP_FAIL)   { $s = 'tomcat stop failure';              }
     elsif ($rc == $SLIP_Utils::States::RC_TOMCAT_START_FAIL)  { $s = 'tomcat start failure';             }
     elsif ($rc == $SLIP_Utils::States::RC_WRONG_NUM_SEGS)     { $s = 'wrong number of segments';         }
+    elsif ($rc == $SLIP_Utils::States::RC_STOPSLIP_DRIVER)    { $s = 'driver STOPSLIP exit';             }
     else                                                      { $s = 'unknown rc';                       }
     
     return $s;
