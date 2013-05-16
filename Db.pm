@@ -612,6 +612,7 @@ my $DELETE_Q_SLICE_SIZE = 10000;
 sub Delete_queue {
     my ($C, $dbh, $run) = @_;
 
+    my $total_affected = 0;
     my $num_affected = 0;
     do {
         my $begin = time;
@@ -620,10 +621,15 @@ sub Delete_queue {
         DEBUG('lsdb', qq{DEBUG: $statement : $run});
         my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$num_affected);
 
+        $num_affected = ($num_affected == '0E0') ? 0 : $num_affected;
+        $total_affected += $num_affected;
+
         my $elapsed = time - $begin;
         sleep $elapsed/2;
 
     } until ($num_affected <= 0);
+
+    return $total_affected;
 }
 
 # ---------------------------------------------------------------------
@@ -1215,14 +1221,14 @@ shard.
 # ---------------------------------------------------------------------
 sub handle_error_insertion {
     my ($C, $dbh, $run, $dedicated_shard, $id, $pid, $host, $reason) = @_;
-    
+
     __LOCK_TABLES($dbh, qw(slip_indexed slip_errors slip_queue));
 
     my $use_shard = 0;
 
     my $shard = Select_item_id_shard($C, $dbh, $run, $id);
     if ($shard) {
-        ASSERT(($shard == $dedicated_shard), 
+        ASSERT(($shard == $dedicated_shard),
                qq{shard number mismatch: indexed_shard=$shard dedicated_shard=$dedicated_shard id=$id});
         $use_shard = $dedicated_shard;
     }
@@ -1274,7 +1280,7 @@ sub Delete_errors {
     my $ct = 0;
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$ct);
 
-    return ($ct == '0E0') ? 0 : $ct;;
+    return ($ct == '0E0') ? 0 : $ct;
 }
 
 
@@ -1508,7 +1514,7 @@ sub Renumber_indexed {
         my $statement = qq{UPDATE slip_indexed SET run=? WHERE run=? LIMIT $RENUMBER_Q_SLICE_SIZE};
         my $sth = DbUtils::prep_n_execute($dbh, $statement, $to_run, $from_run, \$num_affected);
         DEBUG('lsdb', qq{DEBUG: $statement : $to_run, $from_run});
-        
+
         my $elapsed = time - $begin;
         sleep $elapsed;
 
@@ -3076,7 +3082,7 @@ sub undedicated_producer_monitor {
 
 # ---------------------------------------------------------------------
 
-=item get_holdings_slice_size 
+=item get_holdings_slice_size
 
 Description
 
@@ -3084,7 +3090,7 @@ Description
 
 # ---------------------------------------------------------------------
 sub get_holdings_slice_size {
-    my ($C, $dbh, $last_loaded_version, $max_version) = @_;    
+    my ($C, $dbh, $last_loaded_version, $max_version) = @_;
 
     my $statement = qq{SELECT count(*) FROM holdings_deltas WHERE (version > ? AND version <= ?)};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $last_loaded_version, $max_version);
@@ -3149,10 +3155,10 @@ holding deltas.
 sub init_holdings_version {
     my ($C, $dbh, $run) = @_;
 
-    my $max_version = get_holdings_max_version($C, $dbh, $run);    
-    
+    my $max_version = get_holdings_max_version($C, $dbh, $run);
+
     delete_holdings_record($C, $dbh, $run);
-    
+
     my $statement = qq{INSERT INTO slip_holdings_version SET run=?, last_loaded_version=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $max_version, $run);
     DEBUG('lsdb', qq{DEBUG: $statement});
@@ -3168,7 +3174,7 @@ Description
 
 # ---------------------------------------------------------------------
 sub get_holdings_max_version {
-    my ($C, $dbh) = @_;    
+    my ($C, $dbh) = @_;
 
     __LOCK_TABLES($dbh, qw(holdings_deltas));
 
@@ -3192,7 +3198,7 @@ Description
 
 # ---------------------------------------------------------------------
 sub get_last_loaded_holdings_version {
-    my ($C, $dbh, $run) = @_;    
+    my ($C, $dbh, $run) = @_;
 
     my $statement = qq{SELECT last_loaded_version FROM slip_holdings_version WHERE run=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
