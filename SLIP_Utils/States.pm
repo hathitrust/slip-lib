@@ -53,6 +53,7 @@ our $RC_STOPSLIP_DRIVER    = 19;
 
 # Driver stages check these
 our $St_Undefined       = 'Undefined';
+our $St_Build_Resume    = 'Build_Resume';
 our $St_Build_Wait      = 'Build_Wait';
 our $St_Building        = 'Building';
 our $St_Optimizing      = 'Optimizing';
