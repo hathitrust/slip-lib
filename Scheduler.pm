@@ -18,6 +18,7 @@ use Utils;
 use MdpConfig;
 
 # SLIP
+use Db;
 use SLIP_Utils::Log;
 use SLIP_Utils::Common;
 
@@ -93,6 +94,53 @@ sub optimize_try_full_optimize {
 
     return $try;
 }
+
+# ---------------------------------------------------------------------
+
+=item am_processing_PHDB_update
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub am_processing_PHDB_update {
+    my ($C, $dbh, $run) = @_;
+
+    my $last_loaded = Db::get_last_loaded_holdings_version($C, $dbh, $run);
+    my $last_processed = Db::get_last_processed_holdings_version($C, $dbh, $run);
+
+    my $am = ($last_processed < $last_loaded);
+    return $am;
+}
+
+
+# ---------------------------------------------------------------------
+
+=item get_max_full_optimizing_shards
+
+When indexing a large PHDB update all shards will be > trigger_size so
+make max=num_shards to do a full optimize on all shards
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_max_full_optimizing_shards {
+    my ($C, $dbh, $run) = @_;
+
+    my $config = $C->get_object('MdpConfig');    
+
+    my $max = 1;
+    if (am_processing_PHDB_update($C, $dbh, $run)) {
+        $max = scalar( $config->get('num_shards_list') );
+    }
+    else {
+        $max = $config->get('max_full_optimizing_shards');
+    }
+    
+    return $max;
+}
+
 
 # ---------------------------------------------------------------------
 

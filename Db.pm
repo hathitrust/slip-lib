@@ -3210,6 +3210,43 @@ sub get_last_loaded_holdings_version {
 
 # ---------------------------------------------------------------------
 
+=item get_last_processed_holdings_version
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_last_processed_holdings_version {
+    my ($C, $dbh, $run) = @_;
+
+    my $statement = qq{SELECT last_processed_version FROM slip_holdings_version WHERE run=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
+    my $version = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement ::: $version});
+
+    return $version;
+}
+
+# ---------------------------------------------------------------------
+
+=item update_last_processed_holdings_version
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub update_last_processed_holdings_version {
+    my ($C, $dbh, $run, $version) = @_;
+
+    my $statement = qq{UPDATE slip_holdings_version SET last_processed_version=? WHERE run=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $version, $run);
+    DEBUG('lsdb', qq{DEBUG: $statement ::: $version});
+}
+
+# ---------------------------------------------------------------------
+
 =item read_holdings_deltas_item_ids
 
 Description
