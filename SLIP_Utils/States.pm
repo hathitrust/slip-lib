@@ -53,11 +53,13 @@ our $RC_STOPSLIP_DRIVER    = 19;
 
 # Driver stages check these
 our $St_Undefined       = 'Undefined';
-our $St_Build_Resume    = 'Build_Resume';
 our $St_Build_Wait      = 'Build_Wait';
 our $St_Building        = 'Building';
+our $St_Build_Resume    = 'Build_Resume';
 our $St_Optimizing      = 'Optimizing';
+our $St_Optimize_Resume = 'Optimize_Resume';
 our $St_Checking        = 'Checking';
+our $St_Check_Resume    = 'Check_Resume';
 our $St_Driver_ERROR    = 'Driver_ERROR';
 
 # Shard states
