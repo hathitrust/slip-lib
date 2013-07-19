@@ -90,9 +90,11 @@ sub optimize_try_full_optimize {
     my @sizes = split(/[ \n]+/, $sizes);
     
     # "baby" segment size 
-    my $try = ($sizes[1] > $trigger_size);
+    my $snd_segment_size = $sizes[1];
+    
+    my $try = ($snd_segment_size > $trigger_size);
 
-    return $try;
+    return ($try, $snd_segment_size);
 }
 
 # ---------------------------------------------------------------------
@@ -119,23 +121,25 @@ sub am_processing_PHDB_update {
 
 =item get_max_full_optimizing_shards
 
-When indexing a large PHDB update all shards will be > trigger_size so
-make max=num_shards to do a full optimize on all shards
+When indexing a large update all shards will be > trigger_size so
+apply the criterion to do a full optimize on all shards
 
 =cut
 
 # ---------------------------------------------------------------------
 sub get_max_full_optimizing_shards {
-    my ($C, $dbh, $run) = @_;
+    my ($C, $dbh, $run, $snd_segment_size) = @_;
 
     my $config = $C->get_object('MdpConfig');    
 
     my $max = 1;
-    if (am_processing_PHDB_update($C, $dbh, $run)) {
+    my $all_shards_trigger_size = get_all_full_optimize_trigger_size($C);
+    
+    if ($snd_segment_size > $all_shards_trigger_size) {
         $max = scalar( $config->get('num_shards_list') );
     }
     else {
-        $max = $config->get('max_full_optimizing_shards');
+        $max = get_full_optimize_trigger_size($C);
     }
     
     return $max;
@@ -173,6 +177,24 @@ sub get_full_optimize_trigger_size {
 
     my $config = $C->get_object('MdpConfig');
     my $size = $config->get('full_optimize_trigger_size');
+
+    return $size;
+}
+
+# ---------------------------------------------------------------------
+
+=item get_all_full_optimize_trigger_size
+
+PUBLIC.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_all_full_optimize_trigger_size {
+    my $C = shift;
+
+    my $config = $C->get_object('MdpConfig');
+    my $size = $config->get('full_optimize_all_shards_trigger_size');
 
     return $size;
 }
