@@ -3160,7 +3160,7 @@ sub init_holdings_version {
     delete_holdings_record($C, $dbh, $run);
 
     my $statement = qq{INSERT INTO slip_holdings_version SET run=?, last_loaded_version=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $max_version, $run);
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $max_version);
     DEBUG('lsdb', qq{DEBUG: $statement});
 }
 
