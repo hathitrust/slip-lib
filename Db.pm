@@ -313,7 +313,7 @@ Description
 
 # ---------------------------------------------------------------------
 sub Replace_j_rights_id {
-    my ($C, $dbh, $hashref, $Check_only) = @_;
+    my ($C, $dbh, $hashref, $Check_only, $Force) = @_;
 
     # From mdp.rights, currently
     my $attr = $hashref->{'attr'};
@@ -360,8 +360,14 @@ sub Replace_j_rights_id {
         # already recorded due to range query [last_run_time-2d TO *].
         # Use '<=' even though it should be impossible for the nid
         # timestamp we are seeing now to be older than what we
-        # recorded when we saw it for the first time.
-        if ($updateTime_in_vSolr <= $updateTime_in_slip_rights) {
+        # recorded when we saw it for the first time except for the
+        # FORCED case when repairing (*)
+
+        if ($Force) {
+            $case = 'FORCED';
+            DEBUG('lsdb', qq{DEBUG: $statement ::: FORCED});
+        }        
+        elsif ($updateTime_in_vSolr <= $updateTime_in_slip_rights) {
             $case = 'NOOP';
             DEBUG('lsdb', qq{DEBUG: $statement ::: NOOP});
         }
