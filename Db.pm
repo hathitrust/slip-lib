@@ -105,7 +105,7 @@ sub initialize_j_rights_temp {
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
-    $statement = qq{CREATE TABLE `slip_rights_temp` (`nid` varchar(32) NOT NULL DEFAULT '', `attr` tinyint(4) NOT NULL DEFAULT '0', `reason` tinyint(4) NOT NULL DEFAULT '0', `source` tinyint(4) NOT NULL DEFAULT '0', `user` varchar(32) NOT NULL DEFAULT '', `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, `sysid` varchar(32) NOT NULL DEFAULT '', `update_time` int(11) NOT NULL DEFAULT '0', PRIMARY KEY (`nid`), KEY `update_time` (`update_time`), KEY `attr` (`attr`))};
+    $statement = qq{CREATE TABLE slip_rights_temp LIKE slip_rights};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
