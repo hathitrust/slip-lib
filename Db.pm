@@ -101,11 +101,11 @@ sub initialize_j_rights_temp {
 
     my ($statement, $sth);
 
-    $statement = qq{DROP TABLE IF EXISTS slip_rights_temp};
+    $statement = qq{DROP TABLE IF EXISTS ht_maintenance.slip_rights_temp};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
-    $statement = qq{CREATE TABLE slip_rights_temp LIKE slip_rights};
+    $statement = qq{CREATE TABLE ht_maintenance.slip_rights_temp LIKE slip_rights};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
@@ -129,7 +129,7 @@ sub Drop_j_rights_Rename_j_rights_temp {
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
-    $statement = qq{ALTER TABLE slip_rights_temp RENAME TO ht_maintenance.slip_rights};
+    $statement = qq{ALTER TABLE ht_maintenance.slip_rights_temp RENAME TO ht_maintenance.slip_rights};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
@@ -167,7 +167,7 @@ sub init_vSolr_timestamp {
 
 =item Select_vSolr_timestamp
 
-A pointer into slip_rights
+Time last used to query vufind for updates/inserts into slip_rights.
 
 =cut
 
@@ -187,7 +187,8 @@ sub Select_vSolr_timestamp {
 
 =item update_vSolr_timestamp
 
-Description
+Query VuFind Solr for ht_id_display times based on LAG days earlier
+than this new MAX(update_time).
 
 =cut
 
@@ -275,9 +276,9 @@ sub Select_latest_rights_row {
 
 =item Insert_j_rights_temp_id
 
-The table
-starts out empty during a full rebuild. nid in slip_rights table is
-PRIMARY KEY so an nid can't appear more than once.
+The table starts out empty during a full rebuild_rights-j session. nid
+in slip_rights table is PRIMARY KEY so an nid can't appear more than
+once.
 
 =cut
 
@@ -481,8 +482,8 @@ sub Test_j_rights_timestamp {
 
 =item Select_j_rights_timestamp
 
-Description: holds timestamp into slip_rights when last enqueue to slip_queue
-occured.
+Holds MAX(slip_rights.insert_time) timestamp when last enqueue to
+slip_queue occured.
 
 =cut
 
@@ -503,17 +504,24 @@ sub Select_j_rights_timestamp {
 
 =item update_j_rights_timestamp
 
-Description: update timestamp into slip_rights when last enqueue to slip_queue
-occured.
+Store MAX(slip_rights.insert_time) timestamp when last enqueue to
+slip_queue occured.
 
 =cut
 
 # ---------------------------------------------------------------------
 sub update_j_rights_timestamp {
-    my ($C, $dbh, $run, $timestamp) = @_;
+    my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{UPDATE slip_rights_timestamp SET time=? WHERE run=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $timestamp, $run);
+    my ($sth, $statement);
+
+    $statement = qq{SELECT MAX(insert_time) FROM slip_rights};
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $timestamp = $sth->fetchrow_array;
+    DEBUG('lsdb', qq{DEBUG: $statement : $timestamp, $run});
+
+    $statement = qq{UPDATE slip_rights_timestamp SET time=? WHERE run=?};
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $timestamp, $run);
     DEBUG('lsdb', qq{DEBUG: $statement : $timestamp, $run});
 }
 
@@ -529,7 +537,7 @@ Description
 sub init_j_rights_timestamp {
     my ($C, $dbh, $run, $time) = @_;
 
-    my $timestamp = defined($time) ? $time : $Db::vSOLR_ZERO_TIMESTAMP;
+    my $timestamp = defined($time) ? $time : $Db::MYSQL_ZERO_TIMESTAMP;
     my $statement = qq{REPLACE INTO slip_rights_timestamp SET run=?, time=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $timestamp);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $timestamp});
@@ -664,8 +672,7 @@ sub Renumber_queue {
 
 =item insert_queue_items
 
-Description: does not advance timestamp in slip_rights_timestamp.  Just
-used for static testing.
+Description:
 
 =cut
 
@@ -767,7 +774,7 @@ sub __get_update_time_WHERE_clause {
     my ($C, $dbh, $run) = @_;
 
     my $timestamp = Select_j_rights_timestamp($C, $dbh, $run);
-    my $WHERE_clause;
+    my $WHERE_clause; XXX
     if ($timestamp eq $Db::vSOLR_ZERO_TIMESTAMP) {
         $WHERE_clause = qq{ WHERE update_time >= ?};
     }
@@ -782,7 +789,7 @@ sub __get_update_time_WHERE_clause {
 
 =item count_insert_latest_into_queue
 
-Coupled to insert_latest_into_queue via update_time > $timestamp
+Coupled to insert_latest_into_queue via insert_time > $timestamp
 
 =cut
 
@@ -831,11 +838,8 @@ sub insert_latest_into_queue {
         $id_arr_ref = [ map {$_->[0]} @$ref_to_arr_of_arr_ref ];
     }
 
-    # Use the maximum update_time in slip_rights to update the timestamp.
-    $statement = qq{SELECT MAX(update_time) FROM slip_rights};
-    $sth = DbUtils::prep_n_execute($dbh, $statement);
-    my $new_timestamp = $sth->fetchrow_array;
-    update_j_rights_timestamp($C, $dbh, $run, $new_timestamp);
+    # Use the maximum insert_time in slip_rights to update the timestamp.
+    update_j_rights_timestamp($C, $dbh, $run);
 
     __UNLOCK_TABLES($dbh);
 
