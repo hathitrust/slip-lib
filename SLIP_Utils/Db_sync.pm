@@ -28,10 +28,8 @@ use Utils;
 use Debug::DUtils;
 
 use Context;
+use Db;
 use DbUtils;
-
-my $MYSQL_ZERO_TIMESTAMP = '0000-00-00 00:00:00';
-my $vSOLR_ZERO_TIMESTAMP = '00000000';
 
 use constant C_INSERT_SIZE => 10000;
 
@@ -128,7 +126,7 @@ sub init_j_indexed_temp {
     my ($C, $dbh) = @_;
 
     my ($statement, $sth);
-    
+
     $statement = qq{DROP TABLE IF EXISTS slip_indexed_temp};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
@@ -150,8 +148,8 @@ idempotent
 sub insert_item_id_j_indexed_temp {
     my ($C, $dbh, $shard, $id_arr_ref) = @_;
 
-    # my $values = join(',', map("($shard, '$_')", @$id_arr_ref));    
-    
+    # my $values = join(',', map("($shard, '$_')", @$id_arr_ref));
+
     my @values = ();
     my @params = ();
     foreach my $id ( @$id_arr_ref ) {
@@ -159,7 +157,7 @@ sub insert_item_id_j_indexed_temp {
         push @values, qq{(?, ?)};
     }
     my $values = join(', ', @values);
-    
+
     my $statement = qq{INSERT INTO slip_indexed_temp (`shard`, `id`) VALUES $values};
 
     my $begin = time();
@@ -312,13 +310,13 @@ sub insert_j_indexed_temp_j_indexed {
     my $start = 0;
     my $offset = C_INSERT_SIZE;
     my $num_inserted = 0;
-    
+
     do {
         my $begin = time();
-        
 
-        my $SELECT_clause = qq{SELECT $run, `shard`, `id`, '$MYSQL_ZERO_TIMESTAMP', 1 FROM slip_indexed_temp LIMIT $start, $offset};
-        
+
+        my $SELECT_clause = qq{SELECT $run, `shard`, `id`, '$Db::MYSQL_ZERO_TIMESTAMP', 1 FROM slip_indexed_temp LIMIT $start, $offset};
+
         $statement = qq{INSERT INTO slip_indexed (`run`, `shard`, `id`, `time`, `indexed_ct`) ($SELECT_clause)};
         $sth = DbUtils::prep_n_execute($dbh, $statement, \$num_inserted);
         DEBUG('lsdb', qq{DEBUG: $statement});
@@ -328,9 +326,9 @@ sub insert_j_indexed_temp_j_indexed {
         sleep $elapsed/2;
 
         $start += C_INSERT_SIZE;
-        
+
     } until ($num_inserted <= 0);
-    
+
 }
 
 
