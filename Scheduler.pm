@@ -136,7 +136,8 @@ sub get_max_full_optimizing_shards {
     my $all_shards_trigger_size = get_all_full_optimize_trigger_size($C);
     
     if ($snd_segment_size > $all_shards_trigger_size) {
-        $max = scalar( $config->get('num_shards_list') );
+        my @shards = $config->get('num_shards_list');
+        $max = scalar @shards;
     }
     else {
         $max = get_full_optimize_trigger_size($C);
