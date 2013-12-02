@@ -115,15 +115,7 @@ sub D_add_event {
 
 sub D_get_events {
     my $self = shift;
-
-    my $s = '';
-
-    my ($m_e, $d_e) = ($self->{D_metadata}->{D_events}, $self->{D_data}->{D_events});
-
-    $s .= qq{\nMETADATA: $m_e} if ($m_e);
-    $s .= qq{\nDATA: $d_e} if ($d_e);
-
-    return $s;
+    return $self->{D_events};
 }
 
 sub D_check_event {
