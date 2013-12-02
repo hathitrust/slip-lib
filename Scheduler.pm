@@ -140,7 +140,7 @@ sub get_max_full_optimizing_shards {
         $max = scalar @shards;
     }
     else {
-        $max = get_full_optimize_trigger_size($C);
+        $max = get_conf_max_full_optimizing_shards($C);
     }
     
     return $max;
@@ -180,6 +180,24 @@ sub get_full_optimize_trigger_size {
     my $size = $config->get('full_optimize_trigger_size');
 
     return $size;
+}
+
+# ---------------------------------------------------------------------
+
+=item get_conf_max_full_optimizing_shards
+
+PUBLIC.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_conf_max_full_optimizing_shards {
+    my $C = shift;
+
+    my $config = $C->get_object('MdpConfig');
+    my $max = $config->get('max_full_optimizing_shards');
+
+    return $max;
 }
 
 # ---------------------------------------------------------------------
