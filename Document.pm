@@ -237,7 +237,7 @@ sub apply_algorithms {
                        );
         my $goc = $of->create_instance($C, \%of_attrs);
 
-        DEBUG('doc', qq{ALG: apply Garbage_1 algorithm});
+        DEBUG('doc', qq{ALG: apply Garbage algorithm});
         $goc->remove_garbage($C, $text_ref);
     }
 }
