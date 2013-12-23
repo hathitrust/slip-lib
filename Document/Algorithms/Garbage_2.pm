@@ -1,5 +1,8 @@
 package Document::Algorithms::Garbage_2;
 
+use Debug::DUtils;
+
+
 sub new {
     my $class = shift;
 
@@ -38,7 +41,7 @@ sub remove_garbage {
     my $self = shift;
     my $C = shift;
     my $text_ref = shift;
-
+    
     my $start = Time::HiRes::time();    
     # add timing here
 
@@ -46,7 +49,7 @@ sub remove_garbage {
     my @lines = split(/\n/,$$text_ref);
     my $out = [];
     
-    for ( my $i = 0 ; $i <= $#{$lines} ; $i++ ) 
+    for ( my $i = 0 ; $i <= $#lines ; $i++ ) 
     {
         # would it be faster to pop off the last word and test it?
         #if the line ends with a hyhpen
@@ -81,18 +84,22 @@ sub remove_garbage {
         }
         
     }
-    my $fixed_ref = join ("\n",@{$out});
-   
-       
-    print STDERR "removing garbage With new args\n";
-   
+    my $fixed_text = join ("\n",@{$out});
+          
+    #print STDERR "removing garbage With new args\n";
+    # replace text ref with fixed
+    $$text_ref=$fixed_text;
+    
     my $elapsed = (Time::HiRes::time() - $start);   
+    #XXX need to figure out how to turn this on with docs-j
+
     DEBUG('garbage', 
           sprintf("remove garbage: elapsed=%.3f sec ", $elapsed)
           
    );
-
-    return $fixed_ref;
+    #XXX in meantime just turn it on
+   # my $time =sprintf("remove garbage: elapsed=%.3f sec ", $elapsed);
+   # print "\n$time\n";
 }
 
 
