@@ -45,6 +45,7 @@ sub remove_garbage {
     my $start = Time::HiRes::time();    
     # add timing here
 
+    
 # is there a faster way ?
     my @lines = split(/\n/,$$text_ref);
     my $out = [];
@@ -53,28 +54,44 @@ sub remove_garbage {
     {
         # would it be faster to pop off the last word and test it?
         #if the line ends with a hyhpen
-        if ($lines[$i]=~/\s+([^\s]+\-)$/)
+        if ($lines[$i]=~/\-$/)
         {
+
             #if its not the last line dehypenate
-            # this will mess up words that should be hypenated
+            # Warning this will mess up words that should be hypenated such as "human-computer interaction"
             if ($i <$#lines)
             {
-                #pop off last word in this line and first word in next line
+                #pop off last word in this line and shift off first word in next line
                 my (@words) = split(/\s+/,$lines[$i]);
                 my $last = pop(@words);
-                #do we need to clean this up
-                #remove hyphen
-                $last =~s/-$//;
+                # check that last word is a reasonable word
+                # exclude numbers or words containing numbers
+                # and require at least 2 letters
+                # should exclude punct but unicode issues and legitimate punct in words
+                if ($last !~/\d/ && length($last)>1 )
+                #    if ($last !~ $no_numbers && length($last)>1 )
+                {
+                    #remove ending hyphen
+                    $last =~s/-$//;
                 
-                my (@next_line_words)=split(/\s+/,$lines[$i+1]);
-                my $first = shift (@next_line_words);
-                my $fixed = $last . $first;
-                my $fixed_line = join (' ', @words);
-                $fixed_line .= " " . $fixed;
-                push (@{$out},$fixed_line);
-                # fix next line 
-                $lines[$i+1] = join (' ',@next_line_words);
-                
+                    my (@next_line_words)=split(/\s+/,$lines[$i+1]);
+                    my $first = shift (@next_line_words);
+                    my $fixed = $last . $first;
+                    my $fixed_line = join (' ', @words);
+                    $fixed_line .= " " . $fixed;
+                    push (@{$out},$fixed_line);
+                    # fix next line 
+                    $lines[$i+1] = join (' ',@next_line_words);
+                }
+                else
+                {
+                    push (@{$out},$lines[$i]);
+                }
+            }
+            else
+            {
+                #copy line somewhere or do nothing and at end join @lines with \n
+                push (@{$out},$lines[$i]);
             }
         }
         else
@@ -98,8 +115,8 @@ sub remove_garbage {
           
    );
     #XXX in meantime just turn it on
-   # my $time =sprintf("remove garbage: elapsed=%.3f sec ", $elapsed);
-   # print "\n$time\n";
+    my $time =sprintf("remove garbage: elapsed=%.3f sec ", $elapsed);
+    print "\n$time\n";
 }
 
 
