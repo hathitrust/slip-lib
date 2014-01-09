@@ -115,8 +115,8 @@ sub remove_garbage {
           
    );
     #XXX in meantime just turn it on
-    my $time =sprintf("remove garbage: elapsed=%.3f sec ", $elapsed);
-    print "\n$time\n";
+    #my $time =sprintf("remove garbage: elapsed=%.3f sec ", $elapsed);
+    #print "\n$time\n";
 }
 
 
