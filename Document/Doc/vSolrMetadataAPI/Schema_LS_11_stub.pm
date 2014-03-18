@@ -300,7 +300,7 @@ sub __get_metadata_from_vufind_f_item_id {
     my ($C, $dbh, $item_id, $field_list_arr_ref) = @_;
 
     my $status = IX_NO_ERROR;
-    
+
     use Document::Doc::vSolrMetadataAPI::11_stub;
     my $response = $Document::Doc::vSolrMetadataAPI::11_stub::response;
 

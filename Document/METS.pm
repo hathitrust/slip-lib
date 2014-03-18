@@ -34,48 +34,51 @@ use MetsReadingOrder;
 
 my %selector =
   (
-   volume =>   {
-                volume => {
-                           _structmap => {
-                                          xpath   => q{/METS:mets/METS:structMap[@TYPE='physical']/METS:div[@TYPE='volume']/METS:div[@ORDER]},
-                                          ordered => 1,
-                                         },
-                           _filegrp   => {
-                                          mimetypes => [ 'text/plain' ],
-                                         },
-                          },
-                TEI    => {
-                           _structmap => {
-                                          xpath   => q{/METS:mets/METS:structMap[@TYPE='physical']/METS:div[@TYPE='volume']/METS:div[@ORDER]},
-                                          ordered => 1,
-                                         },
-                           _filegrp   => {
-                                          mimetypes => [ 'text/plain' ],
-                                         },
-                          },
-               },
-   audio =>    {
-                audio  => {
-                           _structmap => {
-                                          xpath   => q{/METS:mets/METS:structMap[@TYPE='physical']/METS:div/METS:div[@TYPE='container']},
-                                          ordered => 0,
-                                         },
-                           _filegrp   => {
-                                          mimetypes => [ 'text/plain' ],
-                                         },
-                          },
-               },
-   article =>  {
-                JATS   => {
-                           _structmap => {
-                                          xpath   => q{/METS:mets/METS:structMap[@TYPE='physical']/METS:div[@TYPE='contents']/METS:div[@TYPE='article']/METS:div[@TYPE='primary']},
-                                          ordered => 0,
-                                         },
-                           _filegrp   => {
-                                          mimetypes => [ 'text/xml' ],
-                                         },
-                          },
-               },
+   volume =>
+   {
+    volume => {
+               _structmap => {
+                              xpath   => q{/METS:mets/METS:structMap[@TYPE='physical']/METS:div[@TYPE='volume']/METS:div[@ORDER]},
+                              ordered => 1,
+                             },
+               _filegrp   => {
+                              mimetypes => [ 'text/plain' ],
+                             },
+              },
+    TEI    => {
+               _structmap => {
+                              xpath   => q{/METS:mets/METS:structMap[@TYPE='physical']/METS:div[@TYPE='volume']/METS:div[@ORDER]},
+                              ordered => 1,
+                             },
+               _filegrp   => {
+                              mimetypes => [ 'text/plain' ],
+                             },
+              },
+   },
+   audio =>
+   {
+    audio  => {
+               _structmap => {
+                              xpath   => q{/METS:mets/METS:structMap[@TYPE='physical']/METS:div/METS:div[@TYPE='container']},
+                              ordered => 0,
+                             },
+               _filegrp   => {
+                              mimetypes => [ 'text/plain' ],
+                             },
+              },
+   },
+   article =>
+   {
+    JATS   => {
+               _structmap => {
+                              xpath   => q{/METS:mets/METS:structMap[@TYPE='physical']/METS:div[@TYPE='contents']/METS:div[@TYPE='article']/METS:div[@TYPE='primary']},
+                              ordered => 0,
+                             },
+               _filegrp   => {
+                              mimetypes => [ 'text/xml' ],
+                             },
+              },
+   },
   );
 
 
@@ -372,7 +375,7 @@ sub __set_USE_member_data {
     $self->{dataset}{METS_filelist} = $files;
     $self->{dataset}{METS_maps} = $maps;
     $self->{dataset}{METS_has_files} = $file_grp_hashref->{summary}{has_files};
-    
+
     # structMap may lack fptr for fileGrp fileid.
     unless (scalar @$files) {
         $self->{dataset}{METS_has_files} = 0;
@@ -464,7 +467,7 @@ sub __process_ordered_structMap {
 
         foreach my $fptr (@metsFptrs) {
             my $fileid = $fptr->getAttribute('FILEID');
-            
+
             if (exists $file_grp_hashref->{filelist}{$fileid}) {
                 $METS_hash{$order} = {
                                       filename => $file_grp_hashref->{filelist}{$fileid},
@@ -590,7 +593,7 @@ sub __parse_fileGrp {
                 foreach my $type (@{ $self->__filegrp_mimetypes }) {
                     if ($mimetype eq $type) {
                         my $filename = ($node->childNodes)[1]->getAttribute('xlink:href');
-                        $file_grp_hashref->{filelist}{$fileid} = $filename;                                                                
+                        $file_grp_hashref->{filelist}{$fileid} = $filename;
                         $total_non_zero_file_size += $filesize;
                     }
                     else {

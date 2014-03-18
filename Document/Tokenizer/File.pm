@@ -7,8 +7,8 @@ Document::Tokenizer::File
 =head1 DESCRIPTION
 
 This class implements division the textual content of a repository
-object into a number of chunks each chunk consists of one or more,
-or possibly all, files in the object.
+object into a number of chunks each chunk consists of one or more, or
+possibly all, files in the object.
 
 =head1 SYNOPSIS
 
@@ -40,18 +40,18 @@ Description
 # ---------------------------------------------------------------------
 sub __initialize {
     my $self = shift;
-    
+
     my $buf = [];
 
     my $granularity = $self->__T_granularity;
     my $mets = $self->T_get_METS;
     my $num_files = $mets->num_files;
-    my $file_arr_ref = $mets->filelist; 
-            
+    my $file_arr_ref = $mets->filelist;
+
     my $chunk = 0;
     my $file_num = 0;
     my $file_ct = 0;
-        
+
     # insert N files into each chunk to implement granularity = N
     while (1) {
         my $filename_arr_ref = [];
@@ -61,13 +61,13 @@ sub __initialize {
             $file_ct++;
         }
         $buf->[$chunk] = $filename_arr_ref;
-            
+
         last if ($file_num >= $num_files);
-            
+
         $file_ct = 0;
         $chunk++;
     }
-    
+
     $self->T_main_buffer($buf);
 }
 
@@ -132,7 +132,7 @@ sub T_get_chunk {
     my $N = shift;
 
     my $num_chunks = $self->T_num_chunks;
-    ASSERT($N <= $num_chunks, qq{chunk number="$N" is out of range});    
+    ASSERT($N <= $num_chunks, qq{chunk number="$N" is out of range});
 
     my $buf;
     my $filename_arr_ref = $self->T_main_buffer->[$N-1];
@@ -150,7 +150,7 @@ sub T_get_chunk {
     unless ($buf) {
         $buf = $self->T_get_empty_data_token;
     }
-    
+
     return $buf;
 }
 

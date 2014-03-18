@@ -9,8 +9,8 @@ Document::Doc
 Document::Doc implements the interface for document creation. The
 Solr document is structured for submission to an Indexer.
 
-Document::Doc is modeled as the Composition of a Data Class (such
-as text in the form of OCR or XML) and a Metadata Class (consisting of
+Document::Doc is modeled as the Composition of a Data Class (such as
+text in the form of OCR or XML) and a Metadata Class (consisting of
 title, author, rights and so on), i.e. as a HAS-A relationship.
 
 Methods defined in the interface are implemented by delegation to
@@ -560,7 +560,7 @@ sub __construct_extension_fields {
 
     my $start = time;
     my $item_id = $self->D_get_doc_id;
-    
+
     my $extension_status = IX_NO_ERROR;
     my $extension_object = $self->D_get_extension_obj;
 

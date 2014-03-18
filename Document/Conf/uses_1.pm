@@ -28,7 +28,7 @@ sub new {
     bless $self, $class;
 
     $self->{_uses} = $USE_CONFIGURATION;
-    
+
     return $self;
 }
 

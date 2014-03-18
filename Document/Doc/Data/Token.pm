@@ -10,8 +10,8 @@ This class encapsulates the retrieval of text to build a Solr document
 that contains a chunk of a configured number of tokens from the
 concatenated text of all files within of a repository item.
 
-The concatenation consists of the contents of all OCR .txt files or
-of the entire textual content of an XML structured document.
+The concatenation consists of the contents of all OCR .txt files or of
+the entire textual content of an XML structured document.
 
 =head1 SYNOPSIS
 

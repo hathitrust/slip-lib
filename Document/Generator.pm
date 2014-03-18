@@ -8,16 +8,14 @@ Document::Generator;
 
 This class defines a generator for Document::Doc.
 
-It expects a Context and a item id. Which constituents of
-Document::Doc are generated depends on config data.
+It expects a Context and a item id. The constituents of Document::Doc
+that are generated depends on config data.
 
-Document::Generator HAS-A Document::Doc, Extractor and
-METS.
+Document::Generator HAS-A Document::Doc, Extractor and METS.
 
-The generate() method will create the document content that
-expresses the schema of the Document::Doc metadata and data
-constituents.  A given item_id may equate to one or more instances
-of Solr documents.
+The generate() method will create the document content that expresses
+the schema of the Document::Doc metadata and data constituents.  A
+given item_id may equate to one or more instances of Solr documents.
 
 A state variable is maintained so that the generator can tell when all
 the Solr document content instances have been generated.
@@ -105,13 +103,13 @@ sub __initialize {
     my ($C, $item_id) = @_;
 
     my $start = time;
-    
+
     $self->{_context} = $C;
     $self->{_item_id} = $item_id;
     $self->{_config} = $C->get_object('MdpConfig');
     $self->{_doclist} = [];
     $self->{_configured_granularity} = $self->__G_config->get('document_data_tokenizer_granulatity');
-    
+
     $self->{_data_status} = IX_NO_ERROR;
     $self->{_metadata_status} = IX_NO_ERROR;
 
@@ -179,7 +177,7 @@ Description
 sub G_get_generated_document {
     my $self = shift;
     my $C = $self->__G_context;
-    
+
     my $docs_arr_ref = [];
 
     if ($self->__G_generator_type eq 'nested') {
@@ -340,7 +338,7 @@ sub __G_generate_next {
         my $level = $self->__G_doc_level;
         my $granularity = $self->__G_granularity;
         my $token_type = $self->__G_tokenizer->T_tokenization_type;
- 
+
         my $tools = {
                      _METS         => $self->__G_METS,
                      _extractor    => $self->__G_extractor,

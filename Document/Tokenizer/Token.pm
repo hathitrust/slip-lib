@@ -163,7 +163,7 @@ sub T_get_chunk {
 
     my $buf = join( ' ', @$tokens[ $start_index ..  $end_index ] );
     my $ref = \$buf;
-    
+
     unless ($$ref) {
         $ref = $self->T_get_empty_data_token;
     }

@@ -9,8 +9,8 @@ Document::Doc::Data::File
 This class encapsulates the retrieval of text to build a Solr document
 that contains the text of one or all "pages" of an item.
 
-A "page" consists of the contents of one or all OCR .txt files or
-of the entire textual content of an XML structured document.
+A "page" consists of the contents of one or all OCR .txt files or of
+the entire textual content of an XML structured document.
 
 This subclass builds auxillary fields for the seq and pgnum Solr
 document fields.
@@ -34,7 +34,7 @@ use Utils;
 
 # ---------------------------------------------------------------------
 
-=item build_auxiliary_data_fields 
+=item build_auxiliary_data_fields
 
 Description
 
@@ -44,7 +44,7 @@ Description
 sub build_auxiliary_data_fields {
     my $self = shift;
     my ($C, $state) = @_;
-    
+
     # seq == state
     my $seq_field = wrap_string_in_tag($state, 'field', [['name', 'seq']]);
 
@@ -53,7 +53,7 @@ sub build_auxiliary_data_fields {
     my $pgnum_field = wrap_string_in_tag($pgnum, 'field', [['name', 'pgnum']]);
 
     my $aux = $seq_field . $pgnum_field;
-    
+
     return \$aux;
 }
 

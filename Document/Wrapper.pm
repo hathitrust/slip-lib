@@ -25,9 +25,9 @@ Coding example
 sub wrap {
     my $C = shift;
     my $buf_ref = shift;
-    
+
     my $wrapped_doc = '<add>' . $$buf_ref . '</add>';
-    
+
     return \$wrapped_doc;
 }
 

@@ -8,8 +8,9 @@ Document::vSolrMetadataAPI::Schema_LS_11
 
 Type 11 schema
 
-Emit new fields: vol_id, ht_reading_order, ht_scanning_order, ht_cover_tag, seq
-and pgnum.  Support for nested and chunked Solr documents.
+Emit new fields: vol_id, ht_reading_order, ht_scanning_order,
+ht_cover_tag, seq and pgnum.  Support for nested and chunked Solr
+documents.
 
 Type 10 schema
 
@@ -290,7 +291,7 @@ sub __add_page_features {
 
     my $features_ref = $self->M_my_facade->D_get_doc_METS->page_features;
     $primary_metadata_hashref->{ht_page_feature} = $features_ref;
- 
+
     return $status;
 }
 
@@ -310,7 +311,7 @@ sub __add_reading_order {
     my $status = IX_NO_ERROR;
 
     my ($reading, $scanning, $cover_tag) = $self->M_my_facade->D_get_doc_METS->reading_orders;
-    $primary_metadata_hashref->{ht_reading_order} = [ $reading ]; 
+    $primary_metadata_hashref->{ht_reading_order} = [ $reading ];
     $primary_metadata_hashref->{ht_scanning_order} = [ $scanning ];
     $primary_metadata_hashref->{ht_cover_tag} = [ $cover_tag ];
 

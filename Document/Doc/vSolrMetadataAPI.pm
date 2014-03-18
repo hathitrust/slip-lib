@@ -51,19 +51,19 @@ sub new {
 
     if (defined $vSolrMetadataAPI_Singleton) {
         my $my_facade = $vSolrMetadataAPI_Singleton->M_my_facade;
-        
+
         unless ($my_facade->D_get_doc_id eq $facade->D_get_doc_id) {
             undef $vSolrMetadataAPI_Singleton;
         }
     }
-    
+
     unless (defined $vSolrMetadataAPI_Singleton) {
         my $this = {};
         $vSolrMetadataAPI_Singleton = bless $this, $class;
 
         $vSolrMetadataAPI_Singleton->{_M_parser} = $Parser;
     }
-    
+
     $vSolrMetadataAPI_Singleton->M_my_facade($facade);
 
     return $vSolrMetadataAPI_Singleton;
@@ -73,7 +73,7 @@ sub new {
 
 # ---------------------------------------------------------------------
 
-=item M_parser 
+=item M_parser
 
 Description
 
@@ -102,7 +102,7 @@ sub M_event {
 
 # ---------------------------------------------------------------------
 
-=item M_my_facade 
+=item M_my_facade
 
 Description
 
@@ -155,8 +155,8 @@ sub build_metadata_fields {
     my $item_id = $self->M_my_facade->D_get_doc_id;
 
     # Author, etc.
-    my ($metadata_hashref, $status) = 
-      $cached 
+    my ($metadata_hashref, $status) =
+      $cached
         ? ($self->{M_metadata_cache}{_hashref}, $self->{M_metadata_cache}{_status})
           : $self->get_metadata_f_item_id($C, $dbh, $item_id, $field_list_ref);
 
@@ -399,7 +399,7 @@ sub __get_metadata_from_vufind_f_item_id {
         report($event, 1, 'vufind');
         $self->M_event($event);
     }
-    
+
 
     return ($ref_to_vSolr_response, $status);
 }

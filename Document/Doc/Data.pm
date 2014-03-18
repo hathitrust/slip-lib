@@ -96,7 +96,7 @@ sub d_my_num_chars {
     unless (exists $self->{_d_my_num_chars}) {
         $self->{_d_my_num_chars} = 0;
     }
-    
+
     if (defined $num) {
         $self->{_d_my_num_chars} += $num;
     }
@@ -160,13 +160,13 @@ sub build_data_fields {
     }
 
     my $item_id = $self->D_get_doc_id;
-    
+
     # text field
     my $text_ref = $self->d_my_tokenizer->T_get_chunk($state);
     $self->d_my_num_chars( length($$text_ref) );
     wrap_string_in_tag_by_ref($text_ref, 'field', [['name', 'ocr']]);
 
-    
+
 
     my $aux_fields_ref = $self->build_auxiliary_data_fields($C, $state);
 
