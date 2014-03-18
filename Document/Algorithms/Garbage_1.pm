@@ -1,5 +1,7 @@
 package Document::Algorithms::Garbage_1;
 
+use Debug::DUtils;
+
 sub new {
     my $class = shift;
 
@@ -34,9 +36,11 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-sub remove_garbage {
+sub execute {
     my $self;
     my $args_hashref = shift;
+
+    DEBUG('doc', qq{Document::Algorithms::Garbage_1::execute});
 }
 
 1;

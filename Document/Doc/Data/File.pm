@@ -1,13 +1,19 @@
-package Document::Wrapper;
+package Document::Doc::Data::File;
 
 =head1 NAME
 
-Document::Wrapper
+Document::Doc::Data::File
 
 =head1 DESCRIPTION
 
-Wrapper packages the buffer containing the Solr document(s) generated
-by Document::Generator->generate.
+This class encapsulates the retrieval of text to build a Solr document
+that contains the text of one or all "pages" of an item.
+
+A "page" consists of the contents of one or all OCR .txt files or
+of the entire textual content of an XML structured document.
+
+This subclass builds auxillary fields for the seq and pgnum Solr
+document fields.
 
 =head1 SYNOPSIS
 
@@ -19,18 +25,39 @@ Coding example
 
 =cut
 
+use strict;
+use warnings;
 
-1;
+use base qw( Document::Doc::Data );
 
-sub wrap {
-    my $C = shift;
-    my $buf_ref = shift;
+use Utils;
+
+# ---------------------------------------------------------------------
+
+=item build_auxiliary_data_fields 
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub build_auxiliary_data_fields {
+    my $self = shift;
+    my ($C, $state) = @_;
     
-    my $wrapped_doc = '<add>' . $$buf_ref . '</add>';
+    # seq == state
+    my $seq_field = wrap_string_in_tag($state, 'field', [['name', 'seq']]);
+
+    # pgnum field
+    my $pgnum = $self->d_my_METS->seq2pgnum_map->{$state} || '0';
+    my $pgnum_field = wrap_string_in_tag($pgnum, 'field', [['name', 'pgnum']]);
+
+    my $aux = $seq_field . $pgnum_field;
     
-    return \$wrapped_doc;
+    return \$aux;
 }
 
+1;
 
 __END__
 
@@ -40,7 +67,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2011 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2014 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -62,5 +89,3 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =cut
-
-

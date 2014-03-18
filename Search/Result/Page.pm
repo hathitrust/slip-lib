@@ -144,10 +144,10 @@ sub AFTER_ingest_Solr_search_response {
     foreach my $hl_node ($root->findnodes(q{/response/lst[@name="highlighting"]})) {
 
         foreach my $lst_child_node ($hl_node->findnodes(q{lst})) {
-            my $hid = $lst_child_node->findvalue(q{@name});
+            my $id = $lst_child_node->findvalue(q{@name});
 
             my $hashref = {
-                           'hid' => $hid,
+                           'id' => $id,
                           };
 
             my $text_snippet_arr_ref = [];
@@ -173,8 +173,8 @@ sub AFTER_ingest_Solr_search_response {
             
             my $hashref = $complete_result_arr_ref->[$doc_node_ct];
 
-            if ($attr_name eq 'hid') {
-                soft_ASSERT($hashref->{hid} eq $attr_value, qq{Solr highlight response mismatch: hid="$attr_value"});
+            if ($attr_name eq 'id') {
+                soft_ASSERT($hashref->{id} eq $attr_value, qq{Solr highlight response mismatch: id="$attr_value"});
                 push(@$result_ids_arr_ref, $attr_value);
             }
             $hashref->{$attr_name} = ($attr_name eq 'ocr') ? \$attr_value : $attr_value;

@@ -21,7 +21,7 @@ Coding example
 =cut
 
 use strict;
-use Time::HiRes;
+use Time::HiRes qw( time );
 
 use Db;
 use Utils;
@@ -57,7 +57,7 @@ Description
 sub Service_ID {
     my ($C, $dbh, $run, $dedicated_shard, $pid, $host, $id, $item_ct) = @_;
 
-    my $start = Time::HiRes::time();
+    my $start = time;
 
     # Get the correct indexer for this id.  If this is a re-index and
     # the shard it belongs in is not enabled, the id will be added to
@@ -90,7 +90,7 @@ sub Service_ID {
 
     my $reindexed = 0;
     my $deleted = 0;
-    if (! $result_was_error) {
+    unless ($result_was_error) {
         if ($op == INDEX_OP) {
             $reindexed = update_ids_indexed($C, $dbh, $run, $dedicated_shard, $id);
         }
@@ -181,14 +181,14 @@ sub delete_one_id {
     my ($C, $dbh, $id, $indexer) = @_;
 
     my ($index_state, $data_status, $metadata_status) = (IX_NO_ERROR, IX_NO_ERROR, IX_NO_ERROR);
-    #
+
     # --------------------  Delete Document By Query  --------------------
     #
     my $del_stats_ref;
     my $delete_field = $C->get_object('MdpConfig')->get('default_Solr_delete_field');
     my $safe_id = Identifier::get_safe_Solr_id($id);
     my $query = qq{$delete_field:$safe_id};
-    
+
     ($index_state, $del_stats_ref) = $indexer->delete_by_query($C, $query);
 
     return ($index_state, $data_status, $metadata_status, $del_stats_ref);
@@ -207,48 +207,48 @@ Description
 sub index_one_id {
     my ($C, $dbh, $run, $id, $indexer) = @_;
 
-    my %merged_stats;
-
-    my $dGen = new Document::Generator($C, $id);
-
-    my $doc;
-    my $doc_arr_ref = [];
-    my $doc_build_failure = 0;
-
     my ($index_state, $data_status, $metadata_status) = (IX_NO_ERROR, IX_NO_ERROR, IX_NO_ERROR);
-    #
+
     # --------------------  Create Document(s)  --------------------
     #
-    while ( $doc = $dGen->generate_next($C) ) {
+    my $generator;
+    eval {
+        $generator = new Document::Generator($C, $id);
+        $generator->G_generate($C);
+    };
+    if ($@) {
+        ($data_status, $metadata_status) = (IX_SYSTEM_FAILURE, IX_SYSTEM_FAILURE);
 
-        my $doc_stats_ref = $doc->get_document_stats($C);
-        SLIP_Utils::Common::merge_stats($C, \%merged_stats, $doc_stats_ref);
-
-        ($data_status, $metadata_status) = $doc->get_document_status();
-        $doc_build_failure = ($data_status != IX_NO_ERROR) || ($metadata_status != IX_NO_ERROR);
-
-        if ($doc_build_failure) {
-            last;
+        if (ref $generator eq 'Document::Generator') {
+            Log_generator_events($C, $run, $id, $generator->G_events($@));
         }
         else {
-            my $doc_content_ref = $doc->get_document_content($C);
-            push(@$doc_arr_ref, $doc_content_ref)
-              if ($doc_content_ref && $$doc_content_ref);
+            Log_generator_events($C, $run, $id, $@);
         }
-    }
 
-    #
+        return ($index_state, $data_status, $metadata_status, {});
+    }
+    # POSSIBLY NOTREACHED
+
+    ($data_status, $metadata_status) = $generator->G_status;
+
+    unless ( ($data_status == IX_NO_ERROR) && ($metadata_status == IX_NO_ERROR) ) {
+        return ($index_state, $data_status, $metadata_status, {});
+    }
+    # POSSIBLY NOTREACHED
+
+    my $doc = $generator->G_get_generated_document;
+    my $stats = $generator->G_stats;
+
     # --------------------  Index Document  --------------------
     #
-    if (! $doc_build_failure) {
-        my $full_Solr_doc_ref = Document::Wrapper::wrap($C, $doc_arr_ref);
+    my $full_Solr_doc_ref = Document::Wrapper::wrap($C, $doc);
 
-        my $idx_stats_ref;
-        ($index_state, $idx_stats_ref) = $indexer->index_Solr_document($C, $full_Solr_doc_ref);
-        SLIP_Utils::Common::merge_stats($C, \%merged_stats, $idx_stats_ref);
-    }
+    my $idexing_stats;
+    ($index_state, $idexing_stats) = $indexer->index_Solr_document($C, $full_Solr_doc_ref);
+    SLIP_Utils::Common::merge_stats($C, $stats, $idexing_stats);
 
-    return ($index_state, $data_status, $metadata_status, \%merged_stats);
+    return ($index_state, $data_status, $metadata_status, $stats);
 }
 
 
@@ -297,7 +297,7 @@ processed - may be more than one producer per shard
 sub update_stats {
     my ($C, $dbh, $run, $shard, $reindexed, $deleted, $errored, $stats_ref, $start) = @_;
 
-    my $tot_Time = Time::HiRes::time() - $start;
+    my $tot_Time = time - $start;
 
     my $doc_size = $$stats_ref{'create'}{'doc_size'} || 0;
     my $doc_Time = $$stats_ref{'create'}{'elapsed'} || 0;
@@ -486,9 +486,9 @@ sub handle_i_result {
     # Optimistic
     my $result_was_error = 0;
 
-    # determine reason code in priority order: 1)indexing, 2)ocr, 3)metadata.
+    # determine reason code in priority order: 1)indexing, 2)data, 3)metadata.
     my $index_ok = (! Search::Constants::indexing_failed($index_state));
-    my $ocr_ok = ($data_status == IX_NO_ERROR);
+    my $data_ok = ($data_status == IX_NO_ERROR);
     my $metadata_ok = ($metadata_status == IX_NO_ERROR);
 
     my $reason;
@@ -496,7 +496,7 @@ sub handle_i_result {
         $reason = $index_state;
         $result_was_error = 1;
     }
-    elsif (! $ocr_ok) {
+    elsif (! $data_ok) {
         $reason = $data_status;
         $result_was_error = 1;
     }
@@ -518,7 +518,7 @@ sub handle_i_result {
 
     if ($result_was_error) {
         Db::handle_error_insertion($C, $dbh, $run, $dedicated_shard, $id, $pid, $host, $reason);
-    
+
         my ($max_errors_seen, $condition, $num, $max) = max_errors_reached($C, $dbh, $run, $dedicated_shard);
         if ($max_errors_seen && (! $MAX_ERRORS_SEEN)) {
             $MAX_ERRORS_SEEN = $SLIP_Utils::States::RC_MAX_ERRORS;
@@ -535,8 +535,8 @@ sub handle_i_result {
             Db::update_shard_enabled($C, $dbh, $run, $dedicated_shard, 0);
             Db::set_shard_build_error($C, $dbh, $run, $dedicated_shard);
         }
-        
-        if (! $metadata_ok) {
+
+        unless ($metadata_ok) {
             # Dump the HTTP response dump to the log
             if ($C->has_object('Result')) {
                 my $rs = $C->get_object('Result');
@@ -584,9 +584,9 @@ sub Log_item {
     $error .= ' - ' . SLIP_Utils::Common::IXconstant2string($index_state)
         if (Search::Constants::indexing_failed($index_state));
     $error .= ' - ' . SLIP_Utils::Common::IXconstant2string($data_status)
-        if ($data_status != IX_NO_ERROR);
+        unless ($data_status == IX_NO_ERROR);
     $error .= ' - ' . SLIP_Utils::Common::IXconstant2string($metadata_status)
-        if ($metadata_status != IX_NO_ERROR);
+        unless ($metadata_status == IX_NO_ERROR);
 
     my $ri = '';
     if ($reindexed) {
@@ -619,7 +619,6 @@ sub Log_timeout {
     SLIP_Utils::Log::this_string($C, $s, 'indexer_logfile', '___RUN___', $run);
 }
 
-
 # ---------------------------------------------------------------------
 
 =item Log_error_stop
@@ -636,6 +635,21 @@ sub Log_error_stop {
     SLIP_Utils::Log::this_string($C, $ss, 'indexer_logfile', '___RUN___', $run);
 }
 
+# ---------------------------------------------------------------------
+
+=item Log_generator_event
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Log_generator_event {
+    my ($C, $run, $id, $s) = @_;
+
+    my $ss = qq{***GENERATOR EVENT: } . Utils::Time::iso_Time() . qq{ run=$run id=$id event=$s};
+    SLIP_Utils::Log::this_string($C, $ss, 'indexer_logfile', '___RUN___', $run);
+}
 
 # ---------------------------------------------------------------------
 

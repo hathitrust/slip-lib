@@ -31,41 +31,91 @@ use XML::LibXML;
 # App
 use base qw(Document::Doc);
 use Utils;
-use Debug::DUtils;
 use Search::Constants;
 
 # SLIP
 use Db;
 use SLIP_Utils::Solr;
 use Search::Result::vSolrRaw;
+use Document::Reporter;
 
+my $Parser = XML::LibXML->new();
 
-
-# CLASS member data
-my $g_PARSER = XML::LibXML->new();
+my $vSolrMetadataAPI_Singleton;
 
 sub new {
     my $class = shift;
+    my $param_hashref = shift;
 
-    my $self = {};
-    bless $self, $class;
+    my $facade = $param_hashref->{_facade};
 
-    return $self;
+    if (defined $vSolrMetadataAPI_Singleton) {
+        my $my_facade = $vSolrMetadataAPI_Singleton->M_my_facade;
+        
+        unless ($my_facade->D_get_doc_id eq $facade->D_get_doc_id) {
+            undef $vSolrMetadataAPI_Singleton;
+        }
+    }
+    
+    unless (defined $vSolrMetadataAPI_Singleton) {
+        my $this = {};
+        $vSolrMetadataAPI_Singleton = bless $this, $class;
+
+        $vSolrMetadataAPI_Singleton->{_M_parser} = $Parser;
+    }
+    
+    $vSolrMetadataAPI_Singleton->M_my_facade($facade);
+
+    return $vSolrMetadataAPI_Singleton;
 }
+
 
 
 # ---------------------------------------------------------------------
 
-=item PUBLIC API: finish_document
+=item M_parser 
 
 Description
 
 =cut
 
 # ---------------------------------------------------------------------
-sub finish_document {
+sub M_parser {
     my $self = shift;
-    my $C = shift;
+    return $self->{_M_parser};
+}
+
+# ---------------------------------------------------------------------
+
+=item M_event
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub M_event {
+    my $self = shift;
+    my $event = shift;
+    return $self->M_my_facade->D_add_event($event);
+}
+
+# ---------------------------------------------------------------------
+
+=item M_my_facade 
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub M_my_facade {
+    my $self = shift;
+    my $facade = shift;
+    if (defined $facade) {
+        $self->{_M_my_facade} = $facade;
+    }
+    return $self->{_M_my_facade};
 }
 
 # ---------------------------------------------------------------------
@@ -97,11 +147,13 @@ Implements pure virtual method. Main method.
 # ---------------------------------------------------------------------
 sub build_metadata_fields {
     my $self = shift;
-    my ($C, $dbh, $item_id, $state) = @_;
+    my ($C, $dbh, $state) = @_;
 
     my $cached = defined( $self->{M_metadata_cache} );
 
     my $field_list_ref = $self->get_field_list();
+    my $item_id = $self->M_my_facade->D_get_doc_id;
+
     # Author, etc.
     my ($metadata_hashref, $status) = 
       $cached 
@@ -151,7 +203,7 @@ sub build_metadata_fields {
 
     $self->metadata_fields(\$metadata_fields);
 
-    return ($status);
+    return $status;
 }
 
 
@@ -231,10 +283,10 @@ sub get_metadata_f_item_id {
             $self->get_structured_metadata_f_item_id($C, $item_id, $metadata_ref);
 
         # Test for title.
-        if (! defined($metadata_struct_hashref->{'title'})) {
+        unless ( defined $metadata_struct_hashref->{title} ) {
             my $event = qq{METADATA: ERROR missing title for item_id=$item_id};
-            DEBUG('doc', $event);
-            $self->D_add_event($event);
+            report($event, 1, 'doc');
+            $self->M_event($event);
         }
     }
 
@@ -257,7 +309,7 @@ sub get_structured_metadata_f_item_id {
 
     my %metadata_hash;
 
-    my $doc = $g_PARSER->parse_string($$metadata_ref);
+    my $doc = $self->M_parser->parse_string($$metadata_ref);
     my $doc_xpath = q{/response/result/doc};
 
     my @doc_nodes = $doc->findnodes($doc_xpath);
@@ -334,19 +386,18 @@ sub __get_metadata_from_vufind_f_item_id {
         if ($rs->http_status_ok() && ($rs->get_num_found() > 0)) {
             $status = IX_NO_ERROR;
             $ref_to_vSolr_response = $rs->get_complete_result();
-
-            DEBUG('vufind', qq{VuFind: response="$$ref_to_vSolr_response"});
+            report(qq{VuFind: response="$$ref_to_vSolr_response"}, 0, 'vufind');
         }
         else {
             my $event = qq{VuFind: response="EMPTY" code=} . $rs->get_response_code() . qq{ num_found=} . $rs->get_num_found();
-            DEBUG('vufind', $event);
-            $self->D_add_event($event);
+            report($event, 1, 'vufind');
+            $self->M_event($event);
         }
     }
     else {
         my $event = qq{VuFind: sysid is 0 for $item_id};
-        DEBUG('vufind', $event);
-        $self->D_add_event($event);
+        report($event, 1, 'vufind');
+        $self->M_event($event);
     }
     
 
@@ -364,7 +415,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2009 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2009-2014 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

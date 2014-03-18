@@ -26,8 +26,13 @@ my $id_arr_ref = $rs->get_result_ids();
 
 =cut
 
+use strict;
+use warnings;
+
 use Encode;
 use LWP::UserAgent;
+use List::Util qw( first );
+
 
 #use App;
 use Context;
@@ -39,6 +44,8 @@ use Search::Query;
 use Search::Result;
 
 use constant DEFAULT_TIMEOUT => 30; # LWP default
+
+my $UA_VERSION = 1.1;
 
 sub new {
     my $class = shift;
@@ -167,7 +174,7 @@ sub __create_user_agent {
 
     # Create a user agent object
     my $ua = LWP::UserAgent->new;
-    $ua->agent(qq{MBooks/$::VERSION});
+    $ua->agent(qq{HathiTrust/$UA_VERSION});
     $ua->timeout($timeout)
         if (defined($timeout));
 
@@ -245,11 +252,23 @@ Description
 
 # ---------------------------------------------------------------------
 sub __force_head_node_DEBUG {
+    my @num_shards_list = @_;
+
+    my $index_of_head_node;
+
     my ($head_node_debug) = grep(/^head\d+/, split(',', $ENV{'DEBUG'}));
-    my ($head_node) = ($head_node_debug =~ m,(\d+),);
-    DEBUG($head_node_debug, qq{head node FORCED to: $head_node});
+    if ($head_node_debug) {
+        my ($head_node) = ($head_node_debug =~ m,(\d+),);
+        if ($head_node) {
+            ASSERT( grep(/^$head_node$/, @num_shards_list),
+                    qq{head node debug node=$head_node not listed in num_shards_list} );
+            DEBUG($head_node_debug, qq{head node FORCED to: $head_node});
+
+            $index_of_head_node = first { $num_shards_list[$_] eq $head_node } 0..$#num_shards_list;
+        }
+    }
     
-    return $head_node;
+    return $index_of_head_node;
 }
 
 # ---------------------------------------------------------------------
@@ -270,19 +289,14 @@ sub get_random_shard_solr_engine_uri {
     my @engine_uris = $config->get('mbooks_solr_engines');
     my @num_shards_list = $config->get('num_shards_list');
 
-    # an integer between 0 and number of shards in @num_shards_list - 1
-    my $index_of_shard_in_list; 
-    my $forced_node = __force_head_node_DEBUG();
-    if ($forced_node) {
-        $index_of_shard_in_list = $forced_node - 1;
+    my $index_of_engine_uri = __force_head_node_DEBUG(@num_shards_list);
+    unless ($index_of_engine_uri) {
+        $index_of_engine_uri = int(rand(scalar(@num_shards_list)));
     }
-    else {
-        $index_of_shard_in_list = int(rand(scalar(@num_shards_list)));
-    }
+    ASSERT($index_of_engine_uri < scalar(@num_shards_list),
+           qq{random shard index greater than number of configured engines});
     
-    my $random_shard = $num_shards_list[$index_of_shard_in_list];
-    
-    return $engine_uris[$random_shard-1];
+    return $engine_uris[$index_of_engine_uri];
 }
 
 

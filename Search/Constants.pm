@@ -14,10 +14,6 @@ It also includes a map of class B IP addresses and corresponding site
 names that key item_ids in index queues for multisite application
 indexing support.
 
-=head1 VERSION
-
-$Id: Constants.pm,v 1.19 2010/01/10 19:39:41 pfarber Exp $
-
 =head1 SYNOPSIS
 
 use Search::Constants;
@@ -43,6 +39,8 @@ our @EXPORT = qw(
                  IX_METADATA_FAILURE
                  IX_CRITICAL_FAILURE
                  IX_NO_INDEXER_AVAIL
+                 IX_EXTENSION_FAILURE
+                 IX_SYSTEM_FAILURE
                  IX_MAX_VALUE
 
                  IX_NO_COLLECTION
@@ -61,10 +59,12 @@ use constant IX_DATA_FAILURE            => 7;
 use constant IX_METADATA_FAILURE        => 8;
 use constant IX_CRITICAL_FAILURE        => 9;
 use constant IX_NO_INDEXER_AVAIL        => 10;
+use constant IX_EXTENSION_FAILURE       => 11;
+use constant IX_SYSTEM_FAILURE          => 12;
 
 # UPDATE THIS MAX VALUE.  Other can add onto this to create a private
 # index_state value
-use constant IX_MAX_VALUE               => 10;
+use constant IX_MAX_VALUE               => 12;
 
 # Reserved coll_id for indexing item not in any collection
 use constant IX_NO_COLLECTION           => 0;

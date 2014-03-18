@@ -5,13 +5,20 @@ The plugin mechanism uses Class::MOP (perl 5 Meta Object Protocol) to
 introspect the methods created by plugin(s) configured on the Data
 or vSolrMetadataAPI classes.
 
-For example, consider Document::Doc::Data::Ocr::Volume
 
-Create plugin files
+For example, consider Document::Doc::Data when configured as:
 
-/htapps/babel/slip-lib/Document/Doc/Data/Ocr/Volume/Plugin_ratios.pm
-/htapps/babel/slip-lib/Document/Doc/Data/Ocr/Volume/Plugin_otherstuff.pm
-/htapps/babel/slip-lib/Document/Doc/Data/Ocr/Volume/Plugin_evenmorestuff.pm
+document_data_tokenizer_class = Document::Tokenizer::File
+document_data_tokenizer_granulatity = 0
+document_data_class = Document::Doc::Data::File
+document_data_class_type = flat
+
+
+Create plugin files:
+
+/htapps/babel/slip-lib/Document/Doc/Data/File/Plugin_ratios.pm
+/htapps/babel/slip-lib/Document/Doc/Data/File/Plugin_otherstuff.pm
+/htapps/babel/slip-lib/Document/Doc/Data/File/Plugin_evenmorestuff.pm
 
 Then in a run configuration file, add a comma-separated list of just
 the Plugins to be consumed by the instances of the class(es) of
@@ -20,7 +27,7 @@ interest.
 For example, in a run-N.conf file add a line to consume two of the
 three available plugins:
 
-plugins_for_Document::Doc::Data::Ocr::Volume = Plugin_ratios,Plugin_otherstuff
+plugins_for_Document::Doc::Data::File = Plugin_ratios,Plugin_otherstuff
 
 
 Rules

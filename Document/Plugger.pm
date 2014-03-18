@@ -40,6 +40,8 @@ sub initialize_plugins {
     my $self = shift;
     my $C = shift;
 
+    $self->{_plugin_method_names} = [];
+
     my $config = $C->get_object('MdpConfig');
     my $class = ref $self;
     my $plugin_key = 'plugin_for_' . $class;
@@ -48,19 +50,23 @@ sub initialize_plugins {
         my @plugin_names = split(/,/, $config->get($plugin_key));
         my @plugins = map { $class . '::' . $_ } @plugin_names;
 
-        foreach my $pin (@plugins) {
-            eval "require $pin";
-            ASSERT(!$@, qq{Error compiling Plugin name="$pin": $@});
-        }
+        if (scalar @plugins) {
+            require Class::MOP;
 
-        my $metaclass = Class::MOP::Class->initialize($class);
-        my @plugin_method_names;
-        my @all_methods = ( $metaclass->get_all_methods );
-        foreach my $meth (@all_methods) {
-            my $method_name = $meth->fully_qualified_name;
-            push(@plugin_method_names, $method_name) if (grep(/PLG_/, $method_name));
+            foreach my $pin (@plugins) {
+                eval "require $pin";
+                ASSERT(!$@, qq{Error compiling Plugin name="$pin": $@});
+            }
+
+            my $metaclass = Class::MOP::Class->initialize($class);
+            my @plugin_method_names;
+            my @all_methods = ( $metaclass->get_all_methods );
+            foreach my $meth (@all_methods) {
+                my $method_name = $meth->fully_qualified_name;
+                push(@plugin_method_names, $method_name) if (grep(/PLG_/, $method_name));
+            }
+            $self->{_plugin_method_names} = [ @plugin_method_names ];
         }
-        $self->{_plugin_method_names} = [ @plugin_method_names ];
     }
 }
 
@@ -74,7 +80,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2013 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2013-14 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

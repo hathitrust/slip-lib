@@ -1,13 +1,17 @@
-package Document::Wrapper;
+package Document::Doc::Data::Token;
 
 =head1 NAME
 
-Document::Wrapper
+Document::Doc::Data::Token
 
 =head1 DESCRIPTION
 
-Wrapper packages the buffer containing the Solr document(s) generated
-by Document::Generator->generate.
+This class encapsulates the retrieval of text to build a Solr document
+that contains a chunk of a configured number of tokens from the
+concatenated text of all files within of a repository item.
+
+The concatenation consists of the contents of all OCR .txt files or
+of the entire textual content of an XML structured document.
 
 =head1 SYNOPSIS
 
@@ -19,18 +23,13 @@ Coding example
 
 =cut
 
+use strict;
+use warnings;
+
+use base qw( Document::Doc::Data );
+
 
 1;
-
-sub wrap {
-    my $C = shift;
-    my $buf_ref = shift;
-    
-    my $wrapped_doc = '<add>' . $$buf_ref . '</add>';
-    
-    return \$wrapped_doc;
-}
-
 
 __END__
 
@@ -40,7 +39,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2011 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2014 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -62,5 +61,3 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =cut
-
-

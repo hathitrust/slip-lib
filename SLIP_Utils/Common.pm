@@ -22,6 +22,9 @@ Coding example
 =cut
 
 use strict;
+use warnings;
+
+use Time::HiRes qw( time );
 
 # Perl
 use Mail::Mailer;
@@ -59,15 +62,15 @@ Increment can be negative to advance.
 # ---------------------------------------------------------------------
 sub get_offset_ISO_timestamp {
     my ($timestamp, $increment) = @_;
-    
+
     my $unixTime = Utils::Time::unix_Time($timestamp);
     return '00000000'
       if ($unixTime == 0);
-    
+
     my $offset_timestamp =
       Utils::Time::iso_Time('date', $unixTime - $increment*(24*60*60));
     $offset_timestamp =~ s,-,,g;
-    
+
     return $offset_timestamp;
 }
 
@@ -83,7 +86,7 @@ sub get_offset_ISO_timestamp {
 sub get_now_ISO_timestamp {
     my $timestamp = Utils::Time::iso_Time('date');
     $timestamp =~ s,-,,g;
-    
+
     return $timestamp;
 }
 
@@ -98,12 +101,12 @@ Description
 # ---------------------------------------------------------------------
 sub uniq {
     my $list_ref = shift;
-    
+
     my %hash;
     foreach my $item ( @$list_ref ) {
         $hash{$item}++;
     }
-    
+
     @$list_ref = keys %hash;
 }
 
@@ -118,7 +121,7 @@ Description
 # ---------------------------------------------------------------------
 sub get_shards_from_host {
     my ($C, $host) = @_;
-    
+
     my @shards = $C->get_object('MdpConfig')->get('shards_of_host_' . $host);
     return @shards;
 }
@@ -136,7 +139,7 @@ used as a table key, never as an actual host name, e.g. in a url.
 # ---------------------------------------------------------------------
 sub Solr_host_from_shard {
     my ($C, $shard) = @_;
-    
+
     my $host = $C->get_object('MdpConfig')->get('host_of_shard_' . $shard);
     return $host;
 }
@@ -153,7 +156,7 @@ Description
 # ---------------------------------------------------------------------
 sub get_producer_host_list {
     my $C = shift;
-    
+
     my @host_list = $C->get_object('MdpConfig')->get('producer_hosts');
     return @host_list;
 }
@@ -169,7 +172,7 @@ Description
 # ---------------------------------------------------------------------
 sub get_solr_host_list {
     my $C = shift;
-    
+
     my @host_list = $C->get_object('MdpConfig')->get('solr_hosts');
     return @host_list;
 }
@@ -186,7 +189,7 @@ Description
 sub get_config_path {
     my $app = shift;
     my $conf_file = shift;
-    
+
     my $path;
     if (DEBUG('local')) {
         $path = $ENV{SDRROOT} . "/slip-lib/Config/$conf_file";
@@ -195,7 +198,7 @@ sub get_config_path {
         $path = $ENV{SDRROOT} . "/$app/vendor/slip-lib/lib/Config/$conf_file";
     }
     ASSERT(-e $path, qq{get_config_path: path to $conf_file for $app does not exist});
-           
+
     return $path;
 }
 
@@ -212,7 +215,7 @@ sub merge_run_config {
     my $app = shift;
     my $config = shift;
     my $run = shift;
-    
+
     my $run_number = (defined $run) ? $run : get_run_number($config);
     my $run_config = gen_run_config($app, $run_number);
     $config->merge($run_config);
@@ -234,8 +237,8 @@ sub get_run_number {
 
     # Different sites can use different run numbers (pt/search)
     my $production_site = Search::Site::get_server_site_name();
-    my $production_key = 'production_run_configuration' . "_$production_site"; 
-    
+    my $production_key = 'production_run_configuration' . "_$production_site";
+
     my $run_number = defined($ENV{HT_DEV})
       ? $config->get('development_run_configuration')
         : $config->get($production_key);
@@ -264,14 +267,14 @@ vendor/slip-lib/lib (if debug=local)
 # ---------------------------------------------------------------------
 sub gen_SLIP_config {
     my $run = shift;
-    
+
     ASSERT(defined($run), qq{run_number missing in gen_SLIP_config});
 
     my $uber_configfile = Utils::get_uber_config_path('slip');
     my $uber_config = new MdpConfig($uber_configfile);
 
     my $config = merge_run_config('slip', $uber_config, $run);
-    
+
     return $config;
 }
 
@@ -296,17 +299,20 @@ vendor/slip-lib/lib (if debug=local)
 sub gen_run_config {
     my $app = shift;
     my $run = shift;
-     
+
     ASSERT(defined($app) && defined($run), qq{app or run_number missing.});
- 
+
     my $common_configfile = get_config_path($app, qq{common.conf});
     my $run_configfile = get_config_path($app, qq{run-$run.conf});
 
-    my $config = new MdpConfig($common_configfile, $run_configfile);
-    
+    my $config = new MdpConfig(
+                               $common_configfile,
+                               $run_configfile,
+                               $ENV{SDRROOT} . "/slip/lib/Config/local.conf"
+                              );
+
     return $config;
 }
-
 
 # ---------------------------------------------------------------------
 
@@ -325,6 +331,7 @@ sub merge_stats {
             $merged_stats_hashref->{$key}{$subkey} += $stats_hashref->{$key}{$subkey};
         }
     }
+    return $merged_stats_hashref;
 }
 
 # ---------------------------------------------------------------------
@@ -338,9 +345,9 @@ Description
 # ---------------------------------------------------------------------
 sub stage_rc_to_string {
     my $rc = shift;
-    
+
     my $s;
-    
+
     if    ($rc == $SLIP_Utils::States::RC_OK)                 { $s = 'all is well!';                     }
     elsif ($rc == $SLIP_Utils::States::RC_DATABASE_CONNECT)   { $s = 'database connect error';           }
     elsif ($rc == $SLIP_Utils::States::RC_MAX_ERRORS)         { $s = 'max errors reached';               }
@@ -362,7 +369,7 @@ sub stage_rc_to_string {
     elsif ($rc == $SLIP_Utils::States::RC_WRONG_NUM_SEGS)     { $s = 'wrong number of segments';         }
     elsif ($rc == $SLIP_Utils::States::RC_STOPSLIP_DRIVER)    { $s = 'driver STOPSLIP exit';             }
     else                                                      { $s = 'unknown rc';                       }
-    
+
     return $s;
 }
 
@@ -377,20 +384,22 @@ Description
 # ---------------------------------------------------------------------
 sub IXconstant2string {
     my $const = shift;
-    
+
     my $s;
-    
-    if    ($const == IX_INDEXED)          { $s = 'IX_INDEXED';          }
-    elsif ($const == IX_INDEX_FAILURE)    { $s = 'IX_INDEX_FAILURE';    }
-    elsif ($const == IX_INDEX_TIMEOUT)    { $s = 'IX_INDEX_TIMEOUT';    }
-    elsif ($const == IX_SERVER_GONE)      { $s = 'IX_SERVER_GONE';      }
-    elsif ($const == IX_ALREADY_FAILED)   { $s = 'IX_ALREADY_FAILED';   }
-    elsif ($const == IX_DATA_FAILURE)     { $s = 'IX_DATA_FAILURE';     }
-    elsif ($const == IX_METADATA_FAILURE) { $s = 'IX_METADATA_FAILURE'; }
-    elsif ($const == IX_CRITICAL_FAILURE) { $s = 'IX_CRITICAL_FAILURE'; }
-    elsif ($const == IX_NO_INDEXER_AVAIL) { $s = 'IX_NO_INDEXER_AVAIL'; }
-    else                                  { $s = 'IX_UNKNOWN_ERROR';    }
-    
+
+    if    ($const == IX_INDEXED)           { $s = 'IX_INDEXED';           }
+    elsif ($const == IX_INDEX_FAILURE)     { $s = 'IX_INDEX_FAILURE';     }
+    elsif ($const == IX_INDEX_TIMEOUT)     { $s = 'IX_INDEX_TIMEOUT';     }
+    elsif ($const == IX_SERVER_GONE)       { $s = 'IX_SERVER_GONE';       }
+    elsif ($const == IX_ALREADY_FAILED)    { $s = 'IX_ALREADY_FAILED';    }
+    elsif ($const == IX_DATA_FAILURE)      { $s = 'IX_DATA_FAILURE';      }
+    elsif ($const == IX_METADATA_FAILURE)  { $s = 'IX_METADATA_FAILURE';  }
+    elsif ($const == IX_CRITICAL_FAILURE)  { $s = 'IX_CRITICAL_FAILURE';  }
+    elsif ($const == IX_NO_INDEXER_AVAIL)  { $s = 'IX_NO_INDEXER_AVAIL';  }
+    elsif ($const == IX_EXTENSION_FAILURE) { $s = 'IX_EXTENSION_FAILURE'; }
+    elsif ($const == IX_SYSTEM_FAILURE)    { $s = 'IX_SYSTEM_FAILURE';    }
+    else                                   { $s = 'IX_UNKNOWN_ERROR';     }
+
     return $s;
 }
 
@@ -405,7 +414,7 @@ When scripts are children of cron, print to STDERR.
 # ---------------------------------------------------------------------
 sub __non_interactive_err_output {
     my ($rc, $msg) = @_;
-    
+
     return unless ($rc > 0);
     return if ($ENV{'TERM'});
     print STDERR qq{$msg};
@@ -422,7 +431,7 @@ Description
 # ---------------------------------------------------------------------
 sub __output {
     my $msg = shift;
-    
+
     return if (! $ENV{'TERM'});
     print STDOUT qq{$msg};
 }
@@ -438,7 +447,7 @@ Description
 # ---------------------------------------------------------------------
 sub __output_non_interactive {
     my $msg = shift;
-    
+
     return if ($ENV{'TERM'});
     print STDOUT qq{$msg};
 }
@@ -454,9 +463,9 @@ Description
 # ---------------------------------------------------------------------
 sub __confirm {
     my $s = shift;
-    
+
     return if (! $ENV{'TERM'});
-    
+
     __output "$s";
     my $pass_1 = <STDIN>;
     exit if ($pass_1 !~ m,y,i);
@@ -473,9 +482,9 @@ Description
 # ---------------------------------------------------------------------
 sub __confirm_continue {
     my $s = shift;
-    
+
     return if (! $ENV{'TERM'});
-    
+
     __output "$s";
     my $pass_1 = <STDIN>;
     return 0 if ($pass_1 !~ m,y,i);
@@ -496,7 +505,7 @@ sub Log_database_connection_error {
 
     my $host = `hostname`;
     my $time = Utils::Time::iso_Time();
-    
+
     my $s = qq{script=$script, host=$host, error="$error" at: } . $time;
     SLIP_Utils::Log::this_string($C, $s, 'connect_logfile', '___RUN___', 'connect');
 
@@ -515,13 +524,13 @@ Description
 sub Send_email
 {
     my ($C, $key, $email_subject, $msg) = @_;
-    
+
     my $config = $C->get_object('MdpConfig');
     my $email_to_addr = $config->get($key . '_to_email_address');
     my $email_from_addr = $config->get($key . '_from_email_address');
-    
+
     my $email_body = $msg;
-    
+
     my $mailer = new Mail::Mailer('sendmail');
     $mailer->open({
                    'To'      => $email_to_addr,
@@ -607,6 +616,8 @@ sequences.
 sub clean_xml {
     my $s_ref = shift;
 
+    my $start = time;
+
     $$s_ref = Encode::encode_utf8($$s_ref);
     ___Google_NCR_to_UTF8($s_ref);
     $$s_ref = Encode::decode_utf8($$s_ref);
@@ -644,6 +655,9 @@ sub clean_xml {
 
     # Protect against non-XML character data like "<"
     Utils::map_chars_to_cers($s_ref, [q{"}, q{'}], 1);
+
+    my $elapsed = time - $start;
+    DEBUG('doc', sprintf("DATA: cleaned in sec=%.6f", $elapsed));
 }
 
 # ---------------------------------------------------------------------

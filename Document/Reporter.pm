@@ -1,17 +1,18 @@
-package Document::Wrapper;
+package Document::Reporter;
+
 
 =head1 NAME
 
-Document::Wrapper
+Document::Reporter
 
 =head1 DESCRIPTION
 
-Wrapper packages the buffer containing the Solr document(s) generated
-by Document::Generator->generate.
+This package combined debugging and logging.
 
 =head1 SYNOPSIS
 
-Coding example
+use Document::Reporter;
+report($where, $what);
 
 =head1 METHODS
 
@@ -19,20 +20,38 @@ Coding example
 
 =cut
 
+use Debug::DUtils;
+use Utils::Logger;
+
+use Exporter;
+use base qw(Exporter);
+
+our @EXPORT = qw( report );
+
+
+# ---------------------------------------------------------------------
+
+=item reprot
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub report {
+    my $what = shift;
+    my $log = shift;
+    my $debug_switch = shift;
+
+    DEBUG($debug_switch, $what) if ($debug_switch);
+    Utils::Logger::__Log_simple($what) if ($log);
+}
 
 1;
 
-sub wrap {
-    my $C = shift;
-    my $buf_ref = shift;
-    
-    my $wrapped_doc = '<add>' . $$buf_ref . '</add>';
-    
-    return \$wrapped_doc;
-}
-
-
 __END__
+
+=back
 
 =head1 AUTHOR
 
@@ -40,7 +59,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2011 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2014 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -62,5 +81,3 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =cut
-
-
