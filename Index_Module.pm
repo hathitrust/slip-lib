@@ -220,10 +220,10 @@ sub index_one_id {
         ($data_status, $metadata_status) = (IX_SYSTEM_FAILURE, IX_SYSTEM_FAILURE);
 
         if (ref $generator eq 'Document::Generator') {
-            Log_generator_events($C, $run, $id, $generator->G_events($@));
+            Log_generator_event($C, $run, $id, $generator->G_events($@));
         }
         else {
-            Log_generator_events($C, $run, $id, $@);
+            Log_generator_event($C, $run, $id, $@);
         }
 
         return ($index_state, $data_status, $metadata_status, {});
