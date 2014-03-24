@@ -47,6 +47,7 @@ our $C_DATA_FAILURE     = IX_DATA_FAILURE;
 our $C_METADATA_FAILURE = IX_METADATA_FAILURE;
 our $C_CRITICAL_FAILURE = IX_CRITICAL_FAILURE;
 our $C_NO_INDEXER_AVAIL = IX_NO_INDEXER_AVAIL;
+our $C_GENERATOR_ERROR  = IX_GENERATOR_ERROR;
 
 our $MYSQL_ZERO_TIMESTAMP = '0000-00-00 00:00:00';
 our $VSOLR_ZERO_TIMESTAMP = '00000000';
@@ -1191,7 +1192,13 @@ sub Select_error_data {
 
     my $num_N = $sth->fetchrow_array() || 0;
 
-    return ($num_errors, $num_I, $num_O, $num_M, $num_C, $num_S, $num_N);
+    $statement = qq{SELECT count(*) from slip_errors WHERE run=? AND shard=? AND reason=?};
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $C_GENERATOR_ERROR});
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $C_GENERATOR_ERROR);
+
+    my $num_G = $sth->fetchrow_array() || 0;
+
+    return ($num_errors, $num_I, $num_O, $num_M, $num_C, $num_S, $num_N, $num_G);
 }
 
 # ---------------------------------------------------------------------

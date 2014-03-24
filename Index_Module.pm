@@ -217,7 +217,7 @@ sub index_one_id {
         $generator->G_generate($C);
     };
     if ($@) {
-        ($data_status, $metadata_status) = (IX_SYSTEM_FAILURE, IX_SYSTEM_FAILURE);
+        ($data_status, $metadata_status) = (IX_GENERATOR_ERROR, IX_GENERATOR_ERROR);
 
         if (ref $generator eq 'Document::Generator') {
             Log_generator_event($C, $run, $id, $generator->G_events($@));

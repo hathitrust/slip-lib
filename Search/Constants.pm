@@ -40,7 +40,7 @@ our @EXPORT = qw(
                  IX_CRITICAL_FAILURE
                  IX_NO_INDEXER_AVAIL
                  IX_EXTENSION_FAILURE
-                 IX_SYSTEM_FAILURE
+                 IX_GENERATOR_ERROR
                  IX_MAX_VALUE
 
                  IX_NO_COLLECTION
@@ -60,7 +60,7 @@ use constant IX_METADATA_FAILURE        => 8;
 use constant IX_CRITICAL_FAILURE        => 9;
 use constant IX_NO_INDEXER_AVAIL        => 10;
 use constant IX_EXTENSION_FAILURE       => 11;
-use constant IX_SYSTEM_FAILURE          => 12;
+use constant IX_GENERATOR_ERROR         => 12;
 
 # UPDATE THIS MAX VALUE.  Other can add onto this to create a private
 # index_state value

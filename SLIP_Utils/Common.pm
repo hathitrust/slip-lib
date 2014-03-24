@@ -397,7 +397,7 @@ sub IXconstant2string {
     elsif ($const == IX_CRITICAL_FAILURE)  { $s = 'IX_CRITICAL_FAILURE';  }
     elsif ($const == IX_NO_INDEXER_AVAIL)  { $s = 'IX_NO_INDEXER_AVAIL';  }
     elsif ($const == IX_EXTENSION_FAILURE) { $s = 'IX_EXTENSION_FAILURE'; }
-    elsif ($const == IX_SYSTEM_FAILURE)    { $s = 'IX_SYSTEM_FAILURE';    }
+    elsif ($const == IX_GENERATOR_ERROR)   { $s = 'IX_GENERATOR_ERROR';    }
     else                                   { $s = 'IX_UNKNOWN_ERROR';     }
 
     return $s;
