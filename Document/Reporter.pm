@@ -43,7 +43,7 @@ sub report {
     my $log = shift;
     my $debug_switch = shift;
 
-    DEBUG($debug_switch, $what) if ($debug_switch);
+    DEBUG($debug_switch, $what);
     Utils::Logger::__Log_simple($what) if ($log);
 }
 
