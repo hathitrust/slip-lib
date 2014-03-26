@@ -493,7 +493,7 @@ sub log_query {
     my $query_dir_part = shift;
 
     # Log
-    my $ipaddr = $ENV{'REMOTE_ADDR'};
+    my $ipaddr = ($ENV{REMOTE_ADDR} ? $ENV{REMOTE_ADDR} : '0.0.0.0');
     my $Qtime = $rs->get_query_time();
     my $num_found = $rs->get_num_found();
     my $config = $C->get_object('MdpConfig');

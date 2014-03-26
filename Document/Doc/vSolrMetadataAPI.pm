@@ -160,7 +160,7 @@ sub build_metadata_fields {
         ? ($self->{M_metadata_cache}{_hashref}, $self->{M_metadata_cache}{_status})
           : $self->get_metadata_f_item_id($C, $dbh, $item_id, $field_list_ref);
 
-    my $metadata_fields;
+    my $metadata_fields = '';
     if ($status == IX_NO_ERROR) {
         # Add aux data
         ($metadata_hashref, $status) =

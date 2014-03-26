@@ -109,7 +109,8 @@ sub data_fields {
         push( @{ $self->{_data_fields_ref} }, @_ );
     }
     else {
-        my $data_ref;
+        my $data_ref; $$data_ref .= '';
+
         foreach my $ref (@{ $self->{_data_fields_ref} }) {
             $$data_ref .= $$ref;
         }
