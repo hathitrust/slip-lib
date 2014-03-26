@@ -198,7 +198,7 @@ sub E_extract_files_from_object {
             $self->E_status(IX_DATA_FAILURE);
              }
         else {
-            report( sprintf(qq{Extractor: zipfile extracted to dir="%s" in sec=%.6f}, $temp_dir, time-$start), 1, 'doc' );
+            report( sprintf(qq{Extractor: zipfile extracted to dir="%s" in sec=%.6f}, $temp_dir, (time - $start)), 0, 'doc' );
         }
     }
 

@@ -130,7 +130,7 @@ sub __initialize {
     $self->{_stats} = {
                        create => { elapsed => $elapsed }
                       };
-    report( sprintf("Generator[initialization]: elapsed=%.5f sec", $elapsed), 1, 'doc');
+    report( sprintf("Generator[initialization]: elapsed=%.5f sec", $elapsed), 0, 'doc');
 }
 
 # ---------------------------------------------------------------------

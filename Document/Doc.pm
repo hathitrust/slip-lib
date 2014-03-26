@@ -211,7 +211,7 @@ sub build_document {
     my $self = shift;
     my ($C, $state, $level, $granularity, $type) = @_;
 
-    report(qq{build_document: start}, 1, 'doc');
+    report(qq{build_document: start}, 0, 'doc');
     my $start = time;
 
     # Metadata fields
@@ -224,7 +224,7 @@ sub build_document {
     $self->__construct_extension_fields($C, $state, $level, $granularity, $type);
 
     my $elapsed = (time - $start);
-    report( sprintf("build_document[$level]: elapsed=%.6f sec metadata=%s data=%s", $elapsed, $self->metadata_status, $self->data_status), 1, 'doc');
+    report( sprintf("build_document[$level]: elapsed=%.6f sec metadata=%s data=%s", $elapsed, $self->metadata_status, $self->data_status), 0, 'doc');
 
     $self->__save_stats($level, $elapsed);
 }
