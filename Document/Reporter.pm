@@ -39,12 +39,18 @@ Description
 
 # ---------------------------------------------------------------------
 sub report {
-    my $what = shift;
+    my $msg = shift;
     my $log = shift;
     my $debug_switch = shift;
 
-    DEBUG($debug_switch, $what);
-    Utils::Logger::__Log_simple($what) if ($log);
+    if ( DEBUG($debug_switch) || $log ) {
+        my $host = `hostname`; chomp($host);
+        my ($package, $filename, $line, $subroutine, $hasargs, $wantarray, $evaltext, $is_require, $hints, $bitmask, $hinthash) = caller(1);
+        my $s = $msg . qq{ $host $$ $package $filename $line $subroutine};
+
+        DEBUG($debug_switch, $s);
+        Utils::Logger::__Log_simple($s) if ($log);
+    }
 }
 
 1;
