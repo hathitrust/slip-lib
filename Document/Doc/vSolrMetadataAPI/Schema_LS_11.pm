@@ -329,11 +329,9 @@ Over-rides base class method, which see.
 # ---------------------------------------------------------------------
 sub get_auxiliary_field_data {
     my $self = shift;
-    my ($C, $dbh, $item_id, $primary_metadata_hashref, $state, $cached) = @_;
+    my ($C, $dbh, $item_id, $primary_metadata_hashref) = @_;
 
     my $status = IX_NO_ERROR;
-
-    return ($primary_metadata_hashref, $status) if ($cached);
 
     # Solr doc <coll_id> field(s)
     if ($status == IX_NO_ERROR) {
@@ -389,7 +387,7 @@ This mapping adheres to the LS Schema above.
 # ---------------------------------------------------------------------
 sub post_process_metadata {
     my $self = shift;
-    my ($C, $item_id, $metadata_hashref, $state) = @_;
+    my ($C, $item_id, $metadata_hashref) = @_;
 
     # Get MARC XML and concatenate text contents of all fields > 99
     # i.e. no control 0xx fields!

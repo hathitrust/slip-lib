@@ -64,6 +64,11 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
+sub d_release {
+    my $self = shift;
+    $self->{_d_my_facade} = undef;
+}
+
 sub d_my_facade {
     my $self = shift;
     my $facade = shift;

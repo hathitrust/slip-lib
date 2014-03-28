@@ -45,6 +45,20 @@ sub new {
 
 # ---------------------------------------------------------------------
 
+=item e_release
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub e_release {
+    my $self = shift;
+    return $self->{_e_my_facade} = undef;
+}
+
+# ---------------------------------------------------------------------
+
 =item build_extension_fields
 
 Description

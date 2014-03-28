@@ -127,6 +127,28 @@ sub __initialize {
 # ==
 # =====================================================================
 
+# ---------------------------------------------------------------------
+
+=item D_release
+
+Break circular references.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub D_release {
+    my $self = shift;
+
+    my $m_object = $self->D_get_metadata_obj;
+    $m_object->m_release if ($m_object);
+
+    my $d_object = $self->D_get_data_obj;
+    $d_object->d_release if ($d_object);
+
+    my $e_object = $self->D_get_extension_obj;
+    $e_object->e_release if ($e_object);
+ }
+
 sub D_get_metadata_obj {
     my $self = shift;
     return $self->{D_metadata};
@@ -215,7 +237,7 @@ sub build_document {
     my $start = time;
 
     # Metadata fields
-    $self->__construct_metadata_fields($C, $state);
+    $self->__construct_metadata_fields($C);
 
     # Data (like OCR, JATS)
     $self->__construct_data_fields($C, $state);
@@ -521,7 +543,7 @@ Description
 # ---------------------------------------------------------------------
 sub __construct_metadata_fields {
     my $self = shift;
-    my ($C, $state) = @_;
+    my $C = shift;
 
     my $start = time;
     my $dbh = $C->get_object('Database')->get_DBH($C);
@@ -531,7 +553,7 @@ sub __construct_metadata_fields {
 
     if (defined $metadata_object) {
         eval {
-            $metadata_status = $metadata_object->build_metadata_fields($C, $dbh, $state);
+            $metadata_status = $metadata_object->build_metadata_fields($C, $dbh);
         };
         if ($@) {
             $metadata_status = IX_METADATA_FAILURE;

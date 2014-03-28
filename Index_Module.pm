@@ -221,6 +221,7 @@ sub index_one_id {
 
         if (ref $generator eq 'Document::Generator') {
             Log_generator_event($C, $run, $id, $generator->G_events($@));
+            $generator->G_release;
         }
         else {
             Log_generator_event($C, $run, $id, $@);
@@ -239,6 +240,7 @@ sub index_one_id {
 
     my $doc = $generator->G_get_generated_document;
     my $stats = $generator->G_stats;
+    $generator->G_release;
 
     # --------------------  Index Document  --------------------
     #

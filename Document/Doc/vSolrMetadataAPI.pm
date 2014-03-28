@@ -43,6 +43,20 @@ my $Parser = XML::LibXML->new();
 
 my $vSolrMetadataAPI_Singleton;
 
+# ---------------------------------------------------------------------
+
+=item new
+
+This singleton is a caching mechanism to maintain the metadata across
+
+1) flat chunked documents (they all have the same metadata)
+
+2) nested documents the parent usually has the metadata (but we want
+allow for it to be split across parent and children).
+
+=cut
+
+# ---------------------------------------------------------------------
 sub new {
     my $class = shift;
     my $param_hashref = shift;
@@ -52,7 +66,12 @@ sub new {
     if (defined $vSolrMetadataAPI_Singleton) {
         my $my_facade = $vSolrMetadataAPI_Singleton->M_my_facade;
 
-        unless ($my_facade->D_get_doc_id eq $facade->D_get_doc_id) {
+        if (defined $my_facade) {
+            unless ($my_facade->D_get_doc_id eq $facade->D_get_doc_id) {
+                undef $vSolrMetadataAPI_Singleton;
+            }
+        }
+        else {
             undef $vSolrMetadataAPI_Singleton;
         }
     }
@@ -60,8 +79,7 @@ sub new {
     unless (defined $vSolrMetadataAPI_Singleton) {
         my $this = {};
         $vSolrMetadataAPI_Singleton = bless $this, $class;
-
-        $vSolrMetadataAPI_Singleton->{_M_parser} = $Parser;
+        $vSolrMetadataAPI_Singleton->{_M_parser} = XML::LibXML->new();
     }
 
     $vSolrMetadataAPI_Singleton->M_my_facade($facade);
@@ -70,6 +88,19 @@ sub new {
 }
 
 
+# ---------------------------------------------------------------------
+
+=item m_release
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub m_release {
+    my $self = shift;
+    return $self->{_M_my_facade} = undef;
+}
 
 # ---------------------------------------------------------------------
 
@@ -147,28 +178,27 @@ Implements pure virtual method. Main method.
 # ---------------------------------------------------------------------
 sub build_metadata_fields {
     my $self = shift;
-    my ($C, $dbh, $state) = @_;
+    my ($C, $dbh) = @_;
 
-    my $cached = defined( $self->{M_metadata_cache} );
-
+    my $metadata_fields_ref = $self->metadata_fields;
+    if (defined $metadata_fields_ref && $$metadata_fields_ref) {
+        return IX_NO_ERROR;
+    }
+    
     my $field_list_ref = $self->get_field_list();
     my $item_id = $self->M_my_facade->D_get_doc_id;
 
     # Author, etc.
-    my ($metadata_hashref, $status) =
-      $cached
-        ? ($self->{M_metadata_cache}{_hashref}, $self->{M_metadata_cache}{_status})
-          : $self->get_metadata_f_item_id($C, $dbh, $item_id, $field_list_ref);
+    my ($metadata_hashref, $status) = $self->get_metadata_f_item_id($C, $dbh, $item_id, $field_list_ref);
 
     my $metadata_fields = '';
     if ($status == IX_NO_ERROR) {
         # Add aux data
         ($metadata_hashref, $status) =
-          $self->get_auxiliary_field_data($C, $dbh, $item_id, $metadata_hashref, $state, $cached);
+          $self->get_auxiliary_field_data($C, $dbh, $item_id, $metadata_hashref);
 
         if ($status == IX_NO_ERROR) {
-            # Field mapping. Always do this even to cached data.
-            $self->post_process_metadata($C, $item_id, $metadata_hashref, $state, $cached);
+            $self->post_process_metadata($C, $item_id, $metadata_hashref);
 
             foreach my $field_name (keys(%$metadata_hashref)) {
                 # If multi-valued field
@@ -194,12 +224,6 @@ sub build_metadata_fields {
             }
         }
     }
-
-    # Metadata is basically the same across all doc content instances
-    # for this subclass.  Any metadata that changes should be handled
-    # in post_process_metadata().
-    $self->{M_metadata_cache}{_hashref} = $metadata_hashref;
-    $self->{M_metadata_cache}{_status} = $status;
 
     $self->metadata_fields(\$metadata_fields);
 
@@ -241,7 +265,7 @@ additional data:
 # ---------------------------------------------------------------------
 sub get_auxiliary_field_data {
     my $self = shift;
-    my ($C, $dbh, $item_id, $primary_metadata_hashref, $state, $cached) = @_;
+    my ($C, $dbh, $item_id, $primary_metadata_hashref) = @_;
 
     return ($primary_metadata_hashref, IX_NO_ERROR);
 }

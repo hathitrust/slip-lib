@@ -167,6 +167,31 @@ sub G_generate {
 
 # ---------------------------------------------------------------------
 
+=item PUBLIC: G_release
+
+Document::Doc has circular-references that have to be broken to
+garbage-collect memory.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub G_release {
+    my $self = shift;
+
+    my $doc_ct = 0;
+    my $start = time;
+
+    while ( my $doc = pop @{ $self->__G_doc_list } ) {
+        $doc->D_release;
+        $doc_ct++;
+    }
+
+    my $elapsed = time - $start;
+    report( sprintf("Generator[release]: num_docs=$doc_ct elapsed=%.5f sec", $elapsed), 0, 'doc');
+}
+
+# ---------------------------------------------------------------------
+
 =item PUBLIC: G_get_generated_document
 
 Description
@@ -178,20 +203,9 @@ sub G_get_generated_document {
     my $self = shift;
     my $C = $self->__G_context;
 
-    my $docs_arr_ref = [];
-
-    if ($self->__G_generator_type eq 'nested') {
-        # pop parent. parent includes children in self from parent
-        # recursive step
-        push( @$docs_arr_ref, pop(@{ $self->__G_doc_list }) );
-    }
-    else {
-        $docs_arr_ref = $self->__G_doc_list;
-    }
-
     my $Solr_document;
 
-    foreach my $doc (@$docs_arr_ref) {
+    foreach my $doc ( @{ $self->__G_doc_list } ) {
         my $ref = $doc->get_document_content($C);
         $$Solr_document .= $$ref if ($ref);
     }
