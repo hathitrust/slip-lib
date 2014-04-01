@@ -153,7 +153,7 @@ sub Create_View_for_j_rights {
 
     my ($statement, $sth);
 
-    $statement = qq{CREATE VIEW SQL SECURITY INVOKER ht.slip_rights AS SELECT * FROM ht_maintenance.slip_rights};
+    $statement = qq{CREATE OR REPLACE SQL SECURITY INVOKER VIEW ht.slip_rights AS SELECT * FROM ht_maintenance.slip_rights};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
