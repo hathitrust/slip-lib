@@ -106,7 +106,7 @@ sub initialize_j_rights_temp {
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
-    $statement = qq{CREATE TABLE ht_maintenance.slip_rights_temp LIKE slip_rights};
+    $statement = qq{CREATE TABLE ht_maintenance.slip_rights_temp LIKE ht_maintenance.slip_rights};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
@@ -135,6 +135,25 @@ sub Drop_j_rights_Rename_j_rights_temp {
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 
     $statement = qq{CREATE OR REPLACE SQL SECURITY INVOKER VIEW ht.slip_rights AS SELECT * FROM ht_maintenance.slip_rights};
+    DEBUG('lsdb', qq{DEBUG: $statement});
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
+}
+
+# ---------------------------------------------------------------------
+
+=item Create_View_for_j_rights
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Create_View_for_j_rights {
+    my ($C, $dbh) = @_;
+
+    my ($statement, $sth);
+
+    $statement = qq{CREATE VIEW SQL SECURITY INVOKER ht.slip_rights AS SELECT * FROM ht_maintenance.slip_rights};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
