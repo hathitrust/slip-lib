@@ -132,9 +132,10 @@ sub get_auxiliary_field_data {
       if ($cached);
 
     # Aux metadata: Volume id + rights fields
-    $primary_metadata_hashref->{vol_id} = [$item_id];
+#XXX somewhere else tbw    $primary_metadata_hashref->{vol_id} = [$item_id];
 
-    my $rights_attribute = Document::get_rights_f_id($C, $item_id);
+    my $rights_attribute = Document::Doc::get_rights_f_id($C, $item_id);
+
     if ($rights_attribute) {
         $primary_metadata_hashref->{rights} = [$rights_attribute];
     }
@@ -165,14 +166,16 @@ sub post_process_metadata {
     # The vufind id is called record_no in our code and our id for a
     # page-level document for one page of an item is the volume id
     # e.g. mdp.39015015823563 concatenated with the state
-    # variable. This is called 'hid' and is <uniqueKey>hid</uniqueKey>
+    # variable. 
+    #XXX tbw change hid to id
+    # This is called 'hid' and is <uniqueKey>hid</uniqueKey>
     # in schema.xml. Everything else will have been cached.
     #
     if (defined($metadata_hashref->{'id'})) {
         $metadata_hashref->{'record_no'} = $metadata_hashref->{'id'};
         delete $metadata_hashref->{'id'};
     }
-    $metadata_hashref->{hid} = [$item_id . qq{_$state}];
+   #XXX think this is happending somewhere else $metadata_hashref->{id} = [$item_id . qq{_$state}];
 
     # Nothing else to do after the first call.
     return if ($cached);
