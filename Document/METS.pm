@@ -108,9 +108,14 @@ sub __initialize {
 
     my $root = $self->METS_root($id);
 
-    my $type = DataTypes::getDataType($root) || '__unknown';
-    my $subtype = DataTypes::getDataSubType($root) || '__unknown';
-    my $USE_attr_arr_ref = $USE_conf->{$type}{$subtype} || [];
+    my $type = DataTypes::getDataType($root);
+    ASSERT($type, qq{undefined data type in Document::METS::__initialize});
+
+    my $subtype = DataTypes::getDataSubType($root);
+    ASSERT($subtype, qq{undefined data subtype in Document::METS::__initialize});
+
+    my $USE_attr_arr_ref = $USE_conf->{$type}{$subtype};
+    ASSERT($USE_attr_arr_ref, qq{cannot determine USE attribute in Document::METS::__initialize});
 
     $self->USEs($USE_attr_arr_ref);
     $self->__zero_USE_member_data;
@@ -121,7 +126,7 @@ sub __initialize {
         $self->__build_METS_dataset($root);
     };
     if ($@) {
-        ASSERT(0,qq{error in __initialize: $@} );
+        ASSERT(0, qq{error in __initialize: $@});
     }
 }
 
