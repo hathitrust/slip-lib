@@ -635,19 +635,20 @@ sub clean_xml {
 
     # At some time after Wed Aug 5 16:32:34 2009, Google will begin
     # CJK segmenting using 0x200B ZERO WIDTH SPACE instead of 0x0020
-    # SPACE. 
+    # SPACE.
 
-    #Code below was intended to maintain compatibility by  
-    #"changing ZERO WIDTH SPACE to  SPACE until we have a Solr query segmenter."
-    # The code below has been commented out because we don't want spaces 
-    # inserted because it interferes with bigram matching  tbw Sept 8, 2014.
-    #$$s_ref =~ s,[\x{200B}]+, ,gs;
-    
-    # Until we have a use for the ZERO WIDTH SPACE segmentation markers 
-    # remove ZERO WIDTH SPACE rather than convert it to SPACE or 
-    #leaving  it in (tbw)
+    # Code below was intended to maintain compatibility by "changing
+    # ZERO WIDTH SPACE to SPACE until we have a Solr query segmenter."
+    # The code below has been commented out because we don't want
+    # spaces inserted because it interferes with bigram matching tbw
+    # Thu Oct  9 10:25:02 2014
+
+    # $$s_ref =~ s,[\x{200B}]+, ,gs;
+
+    # Until we have a use for the ZERO WIDTH SPACE segmentation
+    # markers remove ZERO WIDTH SPACE rather than convert it to SPACE
+    # or leaving it in (tbw)
     $$s_ref =~ s,[\x{200B}]+,,gs;
-
 
     # Kill characters that are invalid in XML data. Valid XML
     # characters and ranges are:
