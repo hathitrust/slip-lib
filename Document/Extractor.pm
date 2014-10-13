@@ -145,6 +145,26 @@ sub E_extraction_dir {
     return $self->{_extraction_dir} = $dir;
 }
 
+# ---------------------------------------------------------------------
+
+=item PUBLIC: E_unlink_extraction_dir
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub E_unlink_extraction_dir {
+    my $self = shift;
+
+    my $dir = $self->E_extraction_dir;
+
+    if (defined $dir) {
+        if (-e $dir) {
+            system("rm", "-rf", "$dir");
+        }
+    }
+}
 
 # ---------------------------------------------------------------------
 

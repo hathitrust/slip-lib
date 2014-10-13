@@ -185,6 +185,9 @@ sub G_release {
         $doc->D_release;
         $doc_ct++;
     }
+    
+    # release extraction directory
+    $self->__G_extractor->E_unlink_extraction_dir;
 
     my $elapsed = time - $start;
     report( sprintf("Generator[release]: num_docs=$doc_ct elapsed=%.5f sec", $elapsed), 0, 'doc');
