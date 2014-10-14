@@ -52,6 +52,33 @@ our $C_GENERATOR_ERROR  = IX_GENERATOR_ERROR;
 our $MYSQL_ZERO_TIMESTAMP = '0000-00-00 00:00:00';
 our $VSOLR_ZERO_TIMESTAMP = '00000000';
 
+# Attempt to filter some garbage, lazily
+my $Valid_Namespaces = [];
+
+# ---------------------------------------------------------------------
+
+=item __load_valid_namespaces
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub __load_valid_namespaces {
+    my $dbh = shift;
+
+    unless (scalar @$Valid_Namespaces) {
+        my $statement = qq{SELECT namespace FROM ht_namespaces};
+        my $sth = DbUtils::prep_n_execute($dbh, $statement);
+        my $ref_to_arr_of_arr_ref = $sth->fetchall_arrayref([0]);
+
+        $Valid_Namespaces = [ map {$_->[0]} @$ref_to_arr_of_arr_ref ];
+    }
+
+    return $Valid_Namespaces;
+}
+
+
 # ---------------------------------------------------------------------
 
 =item __LOCK_TABLES, __UNLOCK_TABLES
@@ -702,6 +729,8 @@ Description:
 sub insert_queue_items {
     my ($C, $dbh, $run, $ref_to_ary_of_hashref) = @_;
 
+    my $valid_namespaces_arr_ref = __load_valid_namespaces($dbh);
+
     my $sth;
     my $statement;
     my $num_inserted = 0;
@@ -709,13 +738,16 @@ sub insert_queue_items {
     __LOCK_TABLES($dbh, qw(slip_queue));
 
     foreach my $hashref (@$ref_to_ary_of_hashref) {
-        my $id = $hashref->{id};
-        my $shard = $hashref->{shard};
 
-        $statement = qq{REPLACE INTO slip_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=?};
-        DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $SLIP_Utils::States::Q_AVAILABLE});
-        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $SLIP_Utils::States::Q_AVAILABLE);
-        $num_inserted++;
+        my $id = $hashref->{id};
+        if ( grep(/^$id$/, @$valid_namespaces_arr_ref) ) {
+            my $shard = $hashref->{shard};
+
+            $statement = qq{REPLACE INTO slip_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=?};
+            DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $SLIP_Utils::States::Q_AVAILABLE});
+            $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $SLIP_Utils::States::Q_AVAILABLE);
+            $num_inserted++;
+        }
     }
 
     __UNLOCK_TABLES($dbh);
@@ -740,7 +772,6 @@ sub handle_queue_insert {
     my $ref_to_arr_of_ids = shift;
 
     my $total_start = time;
-
     my $total_to_be_inserted = scalar @$ref_to_arr_of_ids;
     my $total_num_inserted = 0;
 
@@ -766,7 +797,7 @@ sub handle_queue_insert {
         $total_num_inserted += $num_inserted;
 
         my $elapsed = time - $start;
-        my $ids_per_sec = $total_num_inserted / (time - $total_start);
+        my $ids_per_sec = ($total_num_inserted / (time - $total_start)) || 1;
         my @parts = gmtime int(($total_to_be_inserted - $total_num_inserted) * (1 / $ids_per_sec));
         my $time_remaining = sprintf("%dh %dm %ds", @parts[2,1,0]);
 
