@@ -33,6 +33,7 @@ use warnings;
 
 use Time::HiRes qw( time );
 
+use Utils;
 use Utils::Extract;
 use Identifier;
 
@@ -157,9 +158,15 @@ Description
 sub E_unlink_extraction_dir {
     my $self = shift;
 
-    my $dir = $self->E_extraction_dir;
-
-    if (defined $dir) {
+    my $dir;
+    eval {
+        $dir = $self->E_extraction_dir;
+    };
+    if ($@) {
+        my $item_id = $self->E_get_id;
+        report(qq{Extractor: undefined extraction dir in E_unlink_extraction_dir for id=$item_id: $@}, 1, 'doc');
+    }
+    elsif (defined $dir) {
         if (-e $dir) {
             system("rm", "-rf", "$dir");
         }
