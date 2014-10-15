@@ -32,6 +32,7 @@ use Debug::DUtils;
 
 use Context;
 use DbUtils;
+use Identifier;
 use Search::Constants;
 
 use SLIP_Utils::States;
@@ -740,7 +741,9 @@ sub insert_queue_items {
     foreach my $hashref (@$ref_to_ary_of_hashref) {
 
         my $id = $hashref->{id};
-        if ( grep(/^$id$/, @$valid_namespaces_arr_ref) ) {
+        my $namespace = Identifier::the_namespace($id);
+
+        if ( grep(/^$namespace$/, @$valid_namespaces_arr_ref) ) {
             my $shard = $hashref->{shard};
 
             $statement = qq{REPLACE INTO slip_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=?};
