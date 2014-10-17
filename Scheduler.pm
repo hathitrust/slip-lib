@@ -67,6 +67,31 @@ sub get_segsizes {
 
 # ---------------------------------------------------------------------
 
+=item get_segsizes_count
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_segsizes_count {
+    my ($C, $run, $shard) = @_;
+    
+    my $cmd = "$ENV{SDRROOT}/slip/scripts/segsizes -r$run -C$shard";
+    my $count = qx{$cmd 2>&1};
+    my $rc = ($? >> 8);
+    
+    if ($rc > 0) {
+        return '0';
+    }
+    else {
+        chomp($count);    
+        return $count;
+    }
+}
+
+# ---------------------------------------------------------------------
+
 =item optimize_try_full_optimize
 
 PUBLIC.  If the trigger condition applies try to select myself to
