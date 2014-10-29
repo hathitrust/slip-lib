@@ -3112,8 +3112,9 @@ sub undedicated_producer_monitor {
     my ($host_has_room, $set_num_running) =  (0, 0);
 
     my $state = 'Mon_undef';
+    my $queued_shards_list_ref = __get_queued_shards_list($C, $dbh, $run);
 
-    __LOCK_TABLES($dbh, qw(slip_shard_control slip_host_control slip_queue));
+    __LOCK_TABLES($dbh, qw(slip_shard_control slip_host_control));
 
     if (! Select_host_enabled($C, $dbh, $run, $host)) {
         $state = 'Mon_host_disabled';
@@ -3122,8 +3123,6 @@ sub undedicated_producer_monitor {
         $state = 'Mon_host_overallocated';
     }
     else {
-        my $queued_shards_list_ref = __get_queued_shards_list($C, $dbh, $run);
-
         ($allocated_shard, $num_to_allocate) = __allocate_shard_test($C, $dbh, $run, $shard_list_ref, $queued_shards_list_ref);
         ($host_has_room, $set_num_running) = __allocate_host_test($C, $dbh, $run, $host);
 
