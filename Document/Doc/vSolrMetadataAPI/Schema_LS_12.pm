@@ -423,7 +423,11 @@ sub post_process_metadata {
 
     my @hathiTrust_str = grep(/^$item_id\|.*/, @{$metadata_hashref->{'ht_id_display'}});
     # 0      1            2          3                      4           5
-    # htid | ingestDate | enumcron | rightsCodeForThisItem |enumPubDate|enumPubDateRange
+#old    # htid | ingestDate | enumcron | rightsCodeForThisItem |enumPubDate|enumPubDateRange
+#new    # 0      1            2           3           4
+    # htid | ingestDate | enumcron |enumPubDate|enumPubDateRange
+
+
     my @ht_id_display = split(/\|/, $hathiTrust_str[0]);
 
     # Store enumcron as separate Solr field and concatenate at a later
@@ -441,21 +445,21 @@ sub post_process_metadata {
     # these will contain either the enum values if they exist for this item from the ht_id_display
     # or not in ht_id_display will contain the values from the regular bib publishDate and publishDateRange
     #XXX The above assumes that  Bill does not put the bib record pubDate and pubDateRange here if the enum cron can;t be parsed
-    if (defined($ht_id_display[4])){
-	$metadata_hashref->{'enumPubDate'}= $ht_id_display[4];
-	$metadata_hashref->{'bothPubDate'}= $ht_id_display[4];
+    if (defined($ht_id_display[3])){
+	$metadata_hashref->{'enumPubDate'}= $ht_id_display[3];
+	$metadata_hashref->{'bothPubDate'}= $ht_id_display[3];
     }
     else
     {
 	# stick regular pub date in a separate field if we couldn't find one in the enum
 	if (defined($metadata_hashref->{'publishDate'})) 
 	{
-	    $metadata_hashref->{'bothPubDate'}= $ht_id_display[4];
+	    $metadata_hashref->{'bothPubDate'}= $ht_id_display[3];
 	}
     }
-    if (defined($ht_id_display[5])){
-	$metadata_hashref->{'enumPubDateRange'}= $ht_id_display[5];
-	$metadata_hashref->{'bothPubDateRange'}= $ht_id_display[5];
+    if (defined($ht_id_display[4])){
+	$metadata_hashref->{'enumPubDateRange'}= $ht_id_display[4];
+	$metadata_hashref->{'bothPubDateRange'}= $ht_id_display[4];
     }
     else
     {
