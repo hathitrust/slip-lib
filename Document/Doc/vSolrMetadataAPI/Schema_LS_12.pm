@@ -423,7 +423,7 @@ sub post_process_metadata {
 
     my @hathiTrust_str = grep(/^$item_id\|.*/, @{$metadata_hashref->{'ht_id_display'}});
     # 0      1            2           3           4
-    # htid | ingestDate | enumcron |enumPubDate|enumPubDateRange
+    # htid | ingestDate | enumcron |enumPublishDate|enumPublishDateRange
 
     my @ht_id_display = split(/\|/, $hathiTrust_str[0]);
 
@@ -436,33 +436,33 @@ sub post_process_metadata {
     }
     #Add 4 fields to the schema so we can keep these separate and then have two combined
     # fields that will contain either the item data or the bib data while the other set will be empty if no item data
-    # add enumPubDate and enumPubDateRange
+    # add enumPublishDate and enumPublishDateRange
     # these will be empty if not populated in the ht_id_display
-    # add also a bothPubDate and bothPubDateRange
+    # add also a bothPublishDate and bothPublishDateRange
     # these will contain either the enum values if they exist for this item from the ht_id_display
     # or if not in ht_id_display will contain the values from the regular bib publishDate and publishDateRange
 
     if (defined($ht_id_display[3])){
-	$metadata_hashref->{'enumPubDate'}= [$ht_id_display[3]];
-	$metadata_hashref->{'bothPubDate'}= [$ht_id_display[3]];
+	$metadata_hashref->{'enumPublishDate'}= [$ht_id_display[3]];
+	$metadata_hashref->{'bothPublishDate'}= [$ht_id_display[3]];
     }
     else
     {
 	# stick regular pub date in a separate field if we couldn't find one in the enum
 	if (defined($metadata_hashref->{'publishDate'})) 
 	{
-	    $metadata_hashref->{'bothPubDate'}= [$ht_id_display[3]];
+	    $metadata_hashref->{'bothPublishDate'}= [$ht_id_display[3]];
 	}
     }
     if (defined($ht_id_display[4])){
-	$metadata_hashref->{'enumPubDateRange'}= [$ht_id_display[4]];
-	$metadata_hashref->{'bothPubDateRange'}= [$ht_id_display[4]];
+	$metadata_hashref->{'enumPublishDateRange'}= [$ht_id_display[4]];
+	$metadata_hashref->{'bothPublishDateRange'}= [$ht_id_display[4]];
     }
     else
     {
 	if (defined($metadata_hashref->{'publishDateRange'})) 
 	{
-	    $metadata_hashref->{'bothPubDateRange'}= $metadata_hashref->{'publishDateRange'};
+	    $metadata_hashref->{'bothPublishDateRange'}= $metadata_hashref->{'publishDateRange'};
 	}
 	
     }
