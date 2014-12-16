@@ -2,7 +2,7 @@ package Document::Doc::vSolrMetadataAPI::Schema_LS_12;
 
 =head1 NAME
 
-Document::vSolrMetadataAPI::Schema_LS_11
+Document::vSolrMetadataAPI::Schema_LS_12
 
 =head1 DESCRIPTION
 
