@@ -451,7 +451,7 @@ sub post_process_metadata {
 	# stick regular pub date in a separate field if we couldn't find one in the enum
 	if (defined($metadata_hashref->{'publishDate'})) 
 	{
-	    $metadata_hashref->{'bothPublishDate'}= [$ht_id_display[3]];
+	    $metadata_hashref->{'bothPublishDate'}= [$metadata_hashref->{'publishDate'}];
 	}
     }
     if (defined($ht_id_display[4])){
