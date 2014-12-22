@@ -447,7 +447,7 @@ sub post_process_metadata {
     my $enum_date=$ht_id_display[3];
     
     if (defined($enum_date)){
-	if is_number($enum_date)
+	if (is_number($enum_date))
 	{
 	    $metadata_hashref->{'enumPublishDate'}= [$enum_date];
 	    $metadata_hashref->{'bothPublishDate'}= [$enum_date];
@@ -464,21 +464,16 @@ sub post_process_metadata {
     }
     my $enum_range=$ht_id_display[4];
     
-    if ( defined($enum_range) && $enum_range=~/\d+\-*\d*/ ){
+    if ( defined($enum_range) && $enum_range=~/\d+\-*\d*/ )
+    {
 	{
-	    
-	    if 
-	    {
-		$metadata_hashref->{'enumPublishDateRange'}= [$enum_range];
-		$metadata_hashref->{'bothPublishDateRange'}= [$enum_range];
-	    }
-	    
+	    $metadata_hashref->{'enumPublishDateRange'}= [$enum_range];
+	    $metadata_hashref->{'bothPublishDateRange'}= [$enum_range];
 	}
-	
     }
     else
     {
-	if ( defined($metadata_hashref->{'publishDateRange'}) && $metadata_hashref->{'publishDateRange'}~/\d+\-*\d*/ ) 
+	if ( defined($metadata_hashref->{'publishDateRange'}) && $metadata_hashref->{'publishDateRange'}=~/\d+\-*\d*/ ) 
 	{
 	    $metadata_hashref->{'bothPublishDateRange'}= $metadata_hashref->{'publishDateRange'};
 	}
@@ -506,13 +501,13 @@ sub post_process_metadata {
 sub is_number
 {
     my $in = shift;
-    my $toreturn;
+    my $to_return;
     
     if ($in =~/^\d+$/)
     {
-	toreturn "true"
+	$to_return = "true";
     }
-    return ($toreturn);
+    return ($to_return);
 }
 
 
