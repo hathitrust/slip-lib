@@ -441,26 +441,44 @@ sub post_process_metadata {
     # add also a bothPublishDate and bothPublishDateRange
     # these will contain either the enum values if they exist for this item from the ht_id_display
     # or if not in ht_id_display will contain the values from the regular bib publishDate and publishDateRange
+    
+# XXX do we need to check that publishDate is a number?
 
-    if (defined($ht_id_display[3])){
-	$metadata_hashref->{'enumPublishDate'}= [$ht_id_display[3]];
-	$metadata_hashref->{'bothPublishDate'}= [$ht_id_display[3]];
+    my $enum_date=$ht_id_display[3];
+    
+    if (defined($enum_date)){
+	if is_number($enum_date)
+	{
+	    $metadata_hashref->{'enumPublishDate'}= [$enum_date];
+	    $metadata_hashref->{'bothPublishDate'}= [$enum_date];
+	}
+	
     }
     else
     {
 	# stick regular pub date in a separate field if we couldn't find one in the enum
 	if (defined($metadata_hashref->{'publishDate'})) 
 	{
-	    $metadata_hashref->{'bothPublishDate'}= [$metadata_hashref->{'publishDate'}];
+	    $metadata_hashref->{'bothPublishDate'}= $metadata_hashref->{'publishDate'};
 	}
     }
-    if (defined($ht_id_display[4])){
-	$metadata_hashref->{'enumPublishDateRange'}= [$ht_id_display[4]];
-	$metadata_hashref->{'bothPublishDateRange'}= [$ht_id_display[4]];
+    my $enum_range=$ht_id_display[4];
+    
+    if ( defined($enum_range) && $enum_range=~/\d+\-*\d*/ ){
+	{
+	    
+	    if 
+	    {
+		$metadata_hashref->{'enumPublishDateRange'}= [$enum_range];
+		$metadata_hashref->{'bothPublishDateRange'}= [$enum_range];
+	    }
+	    
+	}
+	
     }
     else
     {
-	if (defined($metadata_hashref->{'publishDateRange'})) 
+	if ( defined($metadata_hashref->{'publishDateRange'}) && $metadata_hashref->{'publishDateRange'}~/\d+\-*\d*/ ) 
 	{
 	    $metadata_hashref->{'bothPublishDateRange'}= $metadata_hashref->{'publishDateRange'};
 	}
@@ -483,6 +501,20 @@ sub post_process_metadata {
         $metadata_hashref->{htsource} = [$htsource_display_name];
     }
 }
+
+# ---------------------------------------------------------------------
+sub is_number
+{
+    my $in = shift;
+    my $toreturn;
+    
+    if ($in =~/^\d+$/)
+    {
+	toreturn "true"
+    }
+    return ($toreturn);
+}
+
 
 # ---------------------------------------------------------------------
 
