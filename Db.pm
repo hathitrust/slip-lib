@@ -1470,16 +1470,16 @@ sub insert_item_id_indexed {
 
     my ($statement, $sth);
 
+    $statement = qq{INSERT INTO slip_indexed SET run=?, shard=?, id=?, time=CURRENT_TIMESTAMP, indexed_ct=? ON DUPLICATE KEY UPDATE time=CURRENT_TIMESTAMP, indexed_ct=indexed_ct+1};
+    # $statement = qq{REPLACE INTO slip_indexed SET run=?, shard=?, id=?, time=CURRENT_TIMESTAMP, indexed_ct=?};
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $id, 1});
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, 1);
+
     $statement = qq{SELECT indexed_ct FROM slip_indexed WHERE run=? AND id=? AND shard=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $shard});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard);
 
     my $indexed_ct = $sth->fetchrow_array() || 0;
-    $indexed_ct++;
-
-    $statement = qq{REPLACE INTO slip_indexed SET run=?, shard=?, id=?, time=CURRENT_TIMESTAMP, indexed_ct=?};
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $id, $indexed_ct});
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $indexed_ct);
 
     return ($indexed_ct > 1);
 }
