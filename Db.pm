@@ -6,8 +6,11 @@ Db
 
 =head1 DESCRIPTION
 
-This class is a non-OO database interface
+This class is a non-OO database interface.
 
+Fri Jan 9 12:15:06 2015 changed all table to ENGINE=INNODB for row
+locking to increase parallelism.  Only lock tables when we do not have
+a primary key to select which rows to lock.
 
 =head1 VERSION
 
@@ -1661,7 +1664,7 @@ sub update_shard_stats {
     my $sth;
     my $statement;
 
-    __LOCK_TABLES($dbh, qw(slip_shard_stats));
+    # @innodb __LOCK_TABLES($dbh, qw(slip_shard_stats));
 
     $statement = qq{SELECT s_reindexed_ct, s_deleted_ct, s_errored_ct, s_num_docs, s_doc_size, s_doc_time, s_idx_time, s_tot_time FROM slip_shard_stats WHERE run=? AND shard=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
@@ -1703,7 +1706,7 @@ sub update_shard_stats {
         $sth = DbUtils::prep_n_execute($dbh, $statement, $s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time, $run, $shard);
     }
 
-    __UNLOCK_TABLES($dbh);
+    # @innodb __UNLOCK_TABLES($dbh);
 
     return ($s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
 }
@@ -1792,7 +1795,7 @@ sub update_rate_stats {
     my $statement;
     my $ref_to_ary_of_hashref;
 
-    __LOCK_TABLES($dbh, qw(slip_rate_stats));
+    # @innodb __LOCK_TABLES($dbh, qw(slip_rate_stats));
 
     $statement = qq{SELECT * FROM slip_rate_stats WHERE run=? AND shard=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
@@ -1828,7 +1831,7 @@ sub update_rate_stats {
         $sth = DbUtils::prep_n_execute($dbh, $statement, $timeNow, $run, $shard);
     }
 
-    __UNLOCK_TABLES($dbh);
+    # @innodb __UNLOCK_TABLES($dbh);
 }
 
 
@@ -2373,13 +2376,13 @@ sub set_shard_build_error {
 
     my ($statement, $sth);
 
-    __LOCK_TABLES($dbh, qw(slip_shard_control));
+    # @innodb __LOCK_TABLES($dbh, qw(slip_shard_control));
 
     $statement = qq{UPDATE slip_shard_control SET build=$SLIP_Utils::States::Sht_Build_Error WHERE run=? AND shard=?};
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
 
-    __UNLOCK_TABLES($dbh);
+    # @innodb __UNLOCK_TABLES($dbh);
 }
 
 # ---------------------------------------------------------------------
@@ -3396,14 +3399,14 @@ Description
 sub optimize_shard_is_selected {
     my ($C, $dbh, $run, $shard) = @_;
 
-    __LOCK_TABLES($dbh, qw(slip_shard_control));
+    # @innodb __LOCK_TABLES($dbh, qw(slip_shard_control));
 
     my $statement = qq{SELECT selected FROM slip_shard_control WHERE run=? AND shard=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
     my $selected = $sth->fetchrow_array || 0;
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard ::: $selected});
 
-    __UNLOCK_TABLES($dbh);
+    # @innodb __UNLOCK_TABLES($dbh);
 
     return $selected;
 }
