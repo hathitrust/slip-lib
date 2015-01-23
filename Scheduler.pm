@@ -124,26 +124,6 @@ sub optimize_try_full_optimize {
 
 # ---------------------------------------------------------------------
 
-=item am_processing_PHDB_update
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub am_processing_PHDB_update {
-    my ($C, $dbh, $run) = @_;
-
-    my $last_loaded = Db::get_last_loaded_holdings_version($C, $dbh, $run);
-    my $last_processed = Db::get_last_processed_holdings_version($C, $dbh, $run);
-
-    my $am = ($last_processed < $last_loaded);
-    return $am;
-}
-
-
-# ---------------------------------------------------------------------
-
 =item get_max_full_optimizing_shards
 
 When indexing a large update all shards will be > trigger_size so

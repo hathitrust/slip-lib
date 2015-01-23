@@ -314,7 +314,7 @@ sub Select_latest_rights_row {
     my ($C, $dbh, $namespace, $id) = @_;
 
     my $statement =
-        qq{SELECT CONCAT(namespace, '.', id) AS nid, attr, reason, source, user, time FROM ht.rights_current WHERE namespace=? AND id=?};
+      qq{SELECT CONCAT(namespace, '.', id) AS nid, attr, reason, source, user, time FROM ht.rights_current WHERE namespace=? AND id=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $namespace, $id});
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $namespace, $id);
     my $row_hashref = $sth->fetchrow_hashref();
@@ -465,8 +465,7 @@ Get the current attr value for the id in slip_rights.
 =cut
 
 # ---------------------------------------------------------------------
-sub Select_j_rights_id_attr
-{
+sub Select_j_rights_id_attr {
     my ($C, $dbh, $nid) = @_;
 
     my $statement = qq{SELECT attr FROM slip_rights WHERE nid=?};
@@ -486,8 +485,7 @@ Get the current sysid value for the id in slip_rights.
 =cut
 
 # ---------------------------------------------------------------------
-sub Select_j_rights_id_sysid
-{
+sub Select_j_rights_id_sysid {
     my ($C, $dbh, $nid) = @_;
 
     my $statement = qq{SELECT sysid FROM slip_rights WHERE nid=?};
@@ -787,7 +785,7 @@ sub handle_queue_insert {
         # Insert in blocks of 1000
         my @queue_array = splice(@$ref_to_arr_of_ids, 0, 1000);
         last
-            if (scalar(@queue_array) <= 0);
+          if (scalar(@queue_array) <= 0);
 
         __LOCK_TABLES($dbh, qw(slip_indexed));
 
@@ -1063,7 +1061,7 @@ sub insert_restore_timeouts_to_queue {
     __LOCK_TABLES($dbh, qw(slip_timeouts slip_queue));
 
     my $SELECT_clause =
-        qq{SELECT $run AS run, id AS id, shard AS shard, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM slip_timeouts WHERE run=?};
+      qq{SELECT $run AS run, id AS id, shard AS shard, 0 AS pid, '' AS host, $SLIP_Utils::States::Q_AVAILABLE AS proc_status FROM slip_timeouts WHERE run=?};
 
     $statement = qq{REPLACE INTO slip_queue ($SELECT_clause)};
     my $num_inserted = 0;
@@ -1098,8 +1096,8 @@ sub Select_timeouts_count {
         @params = ( $shard );
     }
     my $statement =
-        qq{SELECT count(*) FROM slip_timeouts WHERE run=?}
-            . $AND_clause;
+      qq{SELECT count(*) FROM slip_timeouts WHERE run=?}
+        . $AND_clause;
     DEBUG('lsdb', qq{DEBUG: $statement : $run});
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, @params);
 
@@ -1334,7 +1332,7 @@ sub insert_item_id_error {
     my ($C, $dbh, $run, $shard, $id, $pid, $host, $index_state) = @_;
 
     my $statement =
-        qq{REPLACE INTO slip_errors SET run=?, shard=?, id=?, pid=?, host=?, error_time=CURRENT_TIMESTAMP, reason=?};
+      qq{REPLACE INTO slip_errors SET run=?, shard=?, id=?, pid=?, host=?, error_time=CURRENT_TIMESTAMP, reason=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $pid, $host, $index_state);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $id, $pid, $host, $index_state});
 
@@ -1398,7 +1396,7 @@ sub insert_item_id_timeout {
     my ($C, $dbh, $run, $id, $shard, $pid, $host) = @_;
 
     my $statement =
-        qq{INSERT INTO slip_timeouts SET run=?, id=?, shard=?, pid=?, host=?, timeout_time=CURRENT_TIMESTAMP};
+      qq{INSERT INTO slip_timeouts SET run=?, id=?, shard=?, pid=?, host=?, timeout_time=CURRENT_TIMESTAMP};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard, $pid, $host);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $shard, $pid, $host});
 }
@@ -2315,6 +2313,65 @@ sub Select_shard_optimize_state {
     return $state || $SLIP_Utils::States::Sht_Not_Optimized;
 }
 
+
+# ---------------------------------------------------------------------
+
+=item optimize_select_shard
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub optimize_select_shard {
+    my ($C, $dbh, $run, $shard, $max_selected) = @_;
+
+    __LOCK_TABLES($dbh, qw(slip_shard_control));
+
+    my $selected = 0;
+    my ($statement, $sth);
+
+    $statement = qq{SELECT count(*) FROM slip_shard_control WHERE run=? AND selected=?};
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, 1);
+    my $count = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard :: $count});
+
+    if ($count < $max_selected) {
+        $statement = qq{UPDATE slip_shard_control SET selected=? WHERE run=? AND shard=?};
+        $sth = DbUtils::prep_n_execute($dbh, $statement, 1, $run, $shard);
+        DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
+        $selected = 1;
+    }
+
+    __UNLOCK_TABLES($dbh);
+
+    return $selected;
+}
+
+# ---------------------------------------------------------------------
+
+=item optimize_shard_is_selected
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub optimize_shard_is_selected {
+    my ($C, $dbh, $run, $shard) = @_;
+
+    # @innodb __LOCK_TABLES($dbh, qw(slip_shard_control));
+
+    my $statement = qq{SELECT selected FROM slip_shard_control WHERE run=? AND shard=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
+    my $selected = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard ::: $selected});
+
+    # @innodb __UNLOCK_TABLES($dbh);
+
+    return $selected;
+}
+
 # ---------------------------------------------------------------------
 
 =item set_shard_check_state
@@ -3157,7 +3214,7 @@ sub undedicated_producer_monitor {
 # =====================================================================
 # =====================================================================
 #
-#        Holdings tables [slip_holdings_version][holdings_deltas] @@
+#        Holdings tables [slip_holdings_version][holdings_deltas][holdings_dates] @@
 #
 # =====================================================================
 # =====================================================================
@@ -3177,7 +3234,7 @@ sub get_holdings_slice_size {
     my $statement = qq{SELECT count(*) FROM holdings_deltas WHERE (version > ? AND version <= ?)};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $last_loaded_version, $max_version);
     my $size = $sth->fetchrow_array || 0;
-    DEBUG('lsdb', qq{DEBUG: $statement ::: size=$size});
+    DEBUG('lsdb', qq{DEBUG: $statement ::: $last_loaded_version $max_version size=$size});
 
     return $size;
 }
@@ -3186,7 +3243,7 @@ sub get_holdings_slice_size {
 
 =item set_holdings_version
 
-Description
+Load time defaults to 0.
 
 =cut
 
@@ -3220,16 +3277,18 @@ sub delete_holdings_record {
 
 =item init_holdings_version
 
-Somewhat counter-intuitive: initialize version to MAX(version) in
-holdings_deltas because initializing a run that reads from the
-queue will read IDs enqueued from slip_rights which contains ALL IDs
-to be indexed.  There cannot be IDs in holdings_deltas that are not in
-slip_rights. Any IDs added to holdings_deltas during a run will have
-MAX(version)+1 and so will be updated into queue when enqueuer is run
-next.
+Somewhat counter-intuitive: initialize last_loaded_version and
+last_processed_version to MAX(version) from holdings_deltas because
+initializing a run that processes PHDB updates reads from the queue
+that will be populated with ALL IDs to be indexed that exist in
+slip_rights which means there all IDs in holdings_deltas are also in
+the queue to be indexed.
 
-Runs that read from a file do not participate in shared queue or
-holding deltas.
+Any IDs added to holdings_deltas during a run will have MAX(version)+1
+and so will be updated into queue when enqueuer-j runs next.
+
+Run numbers that read from a file do not participate in shared queue
+or holding deltas.
 
 =cut
 
@@ -3237,13 +3296,14 @@ holding deltas.
 sub init_holdings_version {
     my ($C, $dbh, $run) = @_;
 
-    my $max_version = get_holdings_max_version($C, $dbh, $run);
+    my $max_version = get_holdings_max_version($C, $dbh);
 
     delete_holdings_record($C, $dbh, $run);
 
-    my $statement = qq{INSERT INTO slip_holdings_version SET run=?, last_loaded_version=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $max_version);
-    DEBUG('lsdb', qq{DEBUG: $statement});
+    my $statement = qq{INSERT INTO slip_holdings_version SET run=?, last_loaded_version=?, last_processed_version=?, load_time=(SELECT MAX(update_date) FROM holdings_deltas WHERE version=?)};
+
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $max_version, $max_version, $max_version);
+    DEBUG('lsdb', qq{DEBUG: $statement ::: $max_version, $max_version});
 }
 
 # ---------------------------------------------------------------------
@@ -3268,6 +3328,58 @@ sub get_holdings_max_version {
     __UNLOCK_TABLES($dbh);
 
     return $max;
+}
+
+# ---------------------------------------------------------------------
+
+=item get_holdings_max_catalog_ready_version
+
+Get the MAX version (V) from holdings_deltas.version with an
+update_date < latest holdings_dates.last_catalog_index_date that has
+not already been loaded into the indexing queue, that is: where V is <
+slip_holdings_version.last_loaded_version.
+
+V having an update_date older than the latest
+holdings_dates.last_catalog_index_date means VuFind has indexed the
+PHDB update holdings that apply to those IDs therefore SLIP will get
+the correct holdings metadata for those IDs when it indexes them.
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_holdings_max_catalog_ready_version {
+    my ($C, $dbh, $last_loaded_version) = @_;
+
+    __LOCK_TABLES($dbh, qw(holdings_deltas holdings_dates));
+
+    my ($statement, $sth);
+
+    # Get newest version from holdings_deltas that was updated before
+    # than the last catalog full indexing run ...
+    $statement = qq{SELECT MAX(version) FROM holdings_deltas WHERE holdings_deltas.update_date < (SELECT MAX(last_catalog_index_date) FROM holdings_dates)};
+    $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $max_holdings_deltas_version = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement ::: max_holdings_deltas_version=$max_holdings_deltas_version});
+
+    # ... and see if that catalog-ready version is ahead of the last
+    # version SLIP loaded into the indexing queue.
+    if ($max_holdings_deltas_version) {
+        ASSERT( ($last_loaded_version <= $max_holdings_deltas_version),
+                qq{Date of IDs in last loaded holdings version ($last_loaded_version) newer than date of latest catalog full indexing run!} );
+
+        # Note that read_holdings_deltas_item_ids() will return 0 IDs
+        # when the versions are equal, otherwise will return IDs in
+        # versions after $last_loaded_version up to and including
+        # those in $max_holdings_deltas_version. If greater, SLIP
+        # somehow loaded IDs for indexing from a version that was
+        # added to holdings_deltas before they were indexed in the
+        # catalog yet so the holdings SLIP got for those IDs were out
+        # of date.
+    }
+
+    __UNLOCK_TABLES($dbh);
+
+    return $max_holdings_deltas_version;
 }
 
 # ---------------------------------------------------------------------
@@ -3329,6 +3441,26 @@ sub update_last_processed_holdings_version {
 
 # ---------------------------------------------------------------------
 
+=item update_processed_holdings_version
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub update_processed_holdings_version {
+    my ($C, $dbh, $run) = @_;
+
+    __LOCK_TABLES($dbh, qw(slip_holdings));
+
+    my $last_loaded = get_last_loaded_holdings_version($C, $dbh, $run);
+    update_last_processed_holdings_version($C, $dbh, $run, $last_loaded);
+
+    __UNLOCK_TABLES($dbh);
+}
+
+# ---------------------------------------------------------------------
+
 =item read_holdings_deltas_item_ids
 
 Description
@@ -3353,64 +3485,6 @@ sub read_holdings_deltas_item_ids {
     return $id_arr_ref;
 }
 
-# ---------------------------------------------------------------------
-
-=item optimize_select_shard
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub optimize_select_shard {
-    my ($C, $dbh, $run, $shard, $max_selected) = @_;
-
-    __LOCK_TABLES($dbh, qw(slip_shard_control));
-
-    my $selected = 0;
-    my ($statement, $sth);
-
-    $statement = qq{SELECT count(*) FROM slip_shard_control WHERE run=? AND selected=?};
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, 1);
-    my $count = $sth->fetchrow_array || 0;
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard :: $count});
-
-    if ($count < $max_selected) {
-        $statement = qq{UPDATE slip_shard_control SET selected=? WHERE run=? AND shard=?};
-        $sth = DbUtils::prep_n_execute($dbh, $statement, 1, $run, $shard);
-        DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
-        $selected = 1;
-    }
-
-    __UNLOCK_TABLES($dbh);
-
-    return $selected;
-}
-
-# ---------------------------------------------------------------------
-
-=item optimize_shard_is_selected
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub optimize_shard_is_selected {
-    my ($C, $dbh, $run, $shard) = @_;
-
-    # @innodb __LOCK_TABLES($dbh, qw(slip_shard_control));
-
-    my $statement = qq{SELECT selected FROM slip_shard_control WHERE run=? AND shard=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
-    my $selected = $sth->fetchrow_array || 0;
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard ::: $selected});
-
-    # @innodb __UNLOCK_TABLES($dbh);
-
-    return $selected;
-}
-
 
 1;
 
@@ -3422,7 +3496,7 @@ Phillip Farber, University of Michigan, pfarber@umich.edu
 
 =head1 COPYRIGHT
 
-Copyright 2008-13 ©, The Regents of The University of Michigan, All Rights Reserved
+Copyright 2008-15 ©, The Regents of The University of Michigan, All Rights Reserved
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
