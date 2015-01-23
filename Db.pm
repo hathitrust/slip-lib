@@ -3308,6 +3308,23 @@ sub init_holdings_version {
 
 # ---------------------------------------------------------------------
 
+=item Renumber_holdings_version
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_holdings_version {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE slip_holdings_version SET run=? WHERE run=?};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $to_run, $from_run);
+    DEBUG('lsdb', qq{DEBUG: $statement : $to_run, $from_run});
+}
+
+# ---------------------------------------------------------------------
+
 =item get_holdings_max_version
 
 Description
@@ -3451,7 +3468,7 @@ Description
 sub update_processed_holdings_version {
     my ($C, $dbh, $run) = @_;
 
-    __LOCK_TABLES($dbh, qw(slip_holdings));
+    __LOCK_TABLES($dbh, qw(slip_holdings_version));
 
     my $last_loaded = get_last_loaded_holdings_version($C, $dbh, $run);
     update_last_processed_holdings_version($C, $dbh, $run, $last_loaded);
