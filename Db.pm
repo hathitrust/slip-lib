@@ -1662,7 +1662,7 @@ sub update_shard_stats {
     my $sth;
     my $statement;
 
-    # @innodb __LOCK_TABLES($dbh, qw(slip_shard_stats));
+    __LOCK_TABLES($dbh, qw(slip_shard_stats));
 
     $statement = qq{SELECT s_reindexed_ct, s_deleted_ct, s_errored_ct, s_num_docs, s_doc_size, s_doc_time, s_idx_time, s_tot_time FROM slip_shard_stats WHERE run=? AND shard=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
@@ -1704,7 +1704,7 @@ sub update_shard_stats {
         $sth = DbUtils::prep_n_execute($dbh, $statement, $s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time, $run, $shard);
     }
 
-    # @innodb __UNLOCK_TABLES($dbh);
+    __UNLOCK_TABLES($dbh);
 
     return ($s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
 }
