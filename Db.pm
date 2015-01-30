@@ -3349,6 +3349,26 @@ sub get_holdings_max_version {
 
 # ---------------------------------------------------------------------
 
+=item holdings_loading_disabled
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub holdings_loading_disabled {
+    my ($C, $dbh) = @_;
+
+    my $statement = qq{SELECT queue_loading_disabled FROM holdings_dates};
+    my $sth = DbUtils::prep_n_execute($dbh, $statement);
+    my $disabled = $sth->fetchrow_array || 0;
+    DEBUG('lsdb', qq{DEBUG: $statement ::: $disabled});
+
+    return $disabled;
+}
+
+# ---------------------------------------------------------------------
+
 =item get_holdings_max_catalog_ready_version
 
 Get the MAX version (V) from holdings_deltas.version with an
