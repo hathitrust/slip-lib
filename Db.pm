@@ -1419,6 +1419,23 @@ sub delete_timeouts {
 }
 
 
+# ---------------------------------------------------------------------
+
+=item Renumber_timeouts
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Renumber_timeouts {
+    my ($C, $dbh, $from_run, $to_run) = @_;
+
+    my $statement = qq{UPDATE slip_timeouts SET run=? WHERE run=?};
+    DEBUG('lsdb', qq{DEBUG: $statement : $to_run, $from_run});
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $to_run, $from_run);
+}
+
 # =====================================================================
 # =====================================================================
 #
