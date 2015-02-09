@@ -1453,10 +1453,10 @@ Description
 =cut
 
 # ---------------------------------------------------------------------
-my $DELETE_SLICE_SIZE = 1000;
+my $DELETE_SLICE_SIZE = 100000;
 
 sub Delete_indexed {
-    my ($C, $dbh, $run) = @_;
+    my ($C, $dbh, $run, $verbose) = @_;
 
     my ($statement, $sth);
 
@@ -1469,6 +1469,9 @@ sub Delete_indexed {
         $sth = DbUtils::prep_n_execute($dbh, $statement, $run, \$num_affected);
 
         my $elapsed = time - $begin;
+        if (defined $verbose) {
+            __output( qq{\t\tDeleted $num_affected rows. Now will sleep for $elapsed seconds ...\n} );
+        }
         sleep $elapsed;
 
     } until ($num_affected <= 0);
