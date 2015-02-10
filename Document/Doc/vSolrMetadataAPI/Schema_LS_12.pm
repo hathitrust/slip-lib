@@ -10,11 +10,16 @@ Type 12 schema
 
 added  support for four new fields from the ht_id_display
 dates from the enumcron if present:
-   enumPubDate 
-   enumPubDateRange 
+   enumPubDate
+   enumPubDateRange
 dates containing either the date from the enumcron or if it is not there, the bib pubDate
    bothPubDate
    bothPubDateRange
+
+Institution name for Original Location facet is derived from a new
+mapping from collection code in ht_collections table into
+ht_institutions. Requires ht_json field from VuFind in the metadata
+query.
 
 Type 11 schema
 
@@ -75,12 +80,14 @@ Coding example
 
 use strict;
 
+use JSON::XS;
 
 # App
 use Utils;
 use Search::Constants;
 use SharedQueue;
-use Namespaces;
+use CollectionCodes;
+use Institutions;
 use Access::Holdings;
 
 # SLIP
@@ -94,56 +101,58 @@ use base qw(Document::Doc::vSolrMetadataAPI);
 
 my @g_FIELD_LIST =
   (
-	"author",
-	"author2",
-	"author_rest",
-	"authorSort",
-	"author_top",
-        "callnumber",
-        "countryOfPubStr",
-	"ctrlnum",
-	"date",
-        "edition",
-	"era",
-	"format",
-	"fullgenre",
-	"fullgeographic",
-	"fullrecord",
-	"genre",
-       	"geographicStr",
-	"hlb3Str",
-	"hlb3Delimited",
-	"ht_id_display",
-	"id",
-	"isbn",
-	"isn_related",
-	"issn",
-	"language",
-	"lccn",
-        "lcshID",
-        "mainauthor",
-	"oclc",
-	"publishDate",
-	"publishDateRange",
-	"publisher",
-	"rptnum",
-	"sdrnum",
-	"serialTitle",
-	"serialTitle_a",
-	"serialTitle_ab",
-	"serialTitle_rest",
-	"series",
-	"series2",
-	"sudoc",
-	"title",
-	"title_a",
-	"title_ab",
-	"title_c",
-	"title_rest",
-	"titleSort",
-	"title_top",
-        "topicStr",
-	"vtitle",
+   'author',
+   'author2',
+   'author_rest',
+   'authorSort',
+   'author_top',
+   'callnumber',
+   'countryOfPubStr',
+   'ctrlnum',
+   'date',
+   'edition',
+   'era',
+   'format',
+   'fullgenre',
+   'fullgeographic',
+   'fullrecord',
+   'genre',
+   'geographicStr',
+   'hlb3Str',
+   'hlb3Delimited',
+   'ht_id',
+   'ht_id_display',
+   'ht_json',
+   'id',
+   'isbn',
+   'isn_related',
+   'issn',
+   'language',
+   'lccn',
+   'lcshID',
+   'mainauthor',
+   'oclc',
+   'publishDate',
+   'publishDateRange',
+   'publisher',
+   'rptnum',
+   'sdrnum',
+   'serialTitle',
+   'serialTitle_a',
+   'serialTitle_ab',
+   'serialTitle_rest',
+   'series',
+   'series2',
+   'sudoc',
+   'title',
+   'title_a',
+   'title_ab',
+   'title_c',
+   'title_rest',
+   'titleSort',
+   'title_top',
+   'topicStr',
+   'vtitle',
   );
 
 # ---------------------------------------------------------------------
@@ -407,21 +416,21 @@ sub post_process_metadata {
     }
 
     # VuFind id becomes bib_id for PIFiller/ListSearchResults uses.
-    unless ( exists $metadata_hashref->{'record_no'} ) {
-        $metadata_hashref->{'record_no'} = $metadata_hashref->{'id'};
-        delete $metadata_hashref->{'id'};
+    unless ( exists $metadata_hashref->{record_no} ) {
+        $metadata_hashref->{record_no} = $metadata_hashref->{id};
+        delete $metadata_hashref->{id};
     }
 
     # Save title as Vtitle before Mbooks specific processing reserved
     # for "title" field
-    $metadata_hashref->{'Vtitle'} = $metadata_hashref->{'title'};
+    $metadata_hashref->{Vtitle} = $metadata_hashref->{title};
 
     # Save author to Vauthor for vufind processed field
-    if (defined($metadata_hashref->{'author'})) {
-        $metadata_hashref->{'Vauthor'} = $metadata_hashref->{'author'}
+    if (defined($metadata_hashref->{author})) {
+        $metadata_hashref->{Vauthor} = $metadata_hashref->{author}
     }
 
-    my @hathiTrust_str = grep(/^$item_id\|.*/, @{$metadata_hashref->{'ht_id_display'}});
+    my @hathiTrust_str = grep(/^$item_id\|.*/, @{$metadata_hashref->{ht_id_display}});
     # 0      1            2           3           4
     # htid | ingestDate | enumcron |enumPublishDate|enumPublishDateRange
 
@@ -432,84 +441,119 @@ sub post_process_metadata {
     # 245$c and wierd punctuation when there is an enumcron.
     my $volume_enumcron = $ht_id_display[2];
     if ($volume_enumcron) {
-        $metadata_hashref->{'volume_enumcron'} = [$volume_enumcron];
+        $metadata_hashref->{volume_enumcron} = [$volume_enumcron];
     }
-    #Add 4 fields to the schema so we can keep these separate and then have two combined
-    # fields that will contain either the item data or the bib data while the other set will be empty if no item data
-    # add enumPublishDate and enumPublishDateRange
-    # these will be empty if not populated in the ht_id_display
-    # add also a bothPublishDate and bothPublishDateRange
-    # these will contain either the enum values if they exist for this item from the ht_id_display
-    # or if not in ht_id_display will contain the values from the regular bib publishDate and publishDateRange
-    
-# XXX do we need to check that publishDate is a number?
 
-    my $enum_date=$ht_id_display[3];
-    
-    if (defined($enum_date)){
-	if (is_number($enum_date))
-	{
-	    $metadata_hashref->{'enumPublishDate'}= [$enum_date];
-	    $metadata_hashref->{'bothPublishDate'}= [$enum_date];
-	}
-	
-    }
-    else
-    {
-	# stick regular pub date in a separate field if we couldn't find one in the enum
-	if (defined($metadata_hashref->{'publishDate'})) 
-	{
-	    $metadata_hashref->{'bothPublishDate'}= $metadata_hashref->{'publishDate'};
-	}
-    }
-    my $enum_range=$ht_id_display[4];
-    
-    if ( defined($enum_range) && $enum_range=~/\d+\-*\d*/ )
-    {
-	{
-	    $metadata_hashref->{'enumPublishDateRange'}= [$enum_range];
-	    $metadata_hashref->{'bothPublishDateRange'}= [$enum_range];
-	}
-    }
-    else
-    {
-	if ( defined($metadata_hashref->{'publishDateRange'}) && $metadata_hashref->{'publishDateRange'}=~/\d+\-*\d*/ ) 
-	{
-	    $metadata_hashref->{'bothPublishDateRange'}= $metadata_hashref->{'publishDateRange'};
-	}
-	
-    }
-    
+    # Add 4 fields to the schema so we can keep these separate and
+    # then have two combined fields that will contain either the item
+    # data or the bib data while the other set will be empty if no
+    # item data
 
+    # Add enumPublishDate and enumPublishDateRange. These will be
+    # empty if not populated in the ht_id_display.  Add also a
+    # bothPublishDate and bothPublishDateRange. These will contain
+    # either the enum values if they exist for this item from the
+    # ht_id_display or if not in ht_id_display will contain the values
+    # from the regular bib publishDate and publishDateRange.
 
-    delete $metadata_hashref->{'ht_id_display'};
+    my $enum_date = $ht_id_display[3];
+
+    if (defined $enum_date) {
+	if ( is_number($enum_date) ) {
+	    $metadata_hashref->{enumPublishDate} = [$enum_date];
+	    $metadata_hashref->{bothPublishDate} = [$enum_date];
+	}
+    }
+    elsif (defined $metadata_hashref->{publishDate}) {
+	# stick regular pub date in a separate field if we couldn't
+	# find one in the enum
+        $metadata_hashref->{bothPublishDate} = $metadata_hashref->{publishDate};
+    }
+
+    my $enum_range = $ht_id_display[4];
+
+    if ( defined($enum_range) && $enum_range =~ /\d+\-*\d*/ ) {
+        $metadata_hashref->{enumPublishDateRange} = [$enum_range];
+        $metadata_hashref->{bothPublishDateRange} = [$enum_range];
+    }
+    elsif ( defined($metadata_hashref->{publishDateRange}) && $metadata_hashref->{publishDateRange} =~ /\d+\-*\d*/ ) {
+        $metadata_hashref->{bothPublishDateRange}= $metadata_hashref->{publishDateRange};
+    }
+    delete $metadata_hashref->{ht_id_display};
 
     # copy publishDate into date field
-    if (defined($metadata_hashref->{'publishDate'})) {
-        $metadata_hashref->{'date'}[0] = $metadata_hashref->{'publishDate'}[0];
+    if (defined $metadata_hashref->{publishDate}) {
+        $metadata_hashref->{date}[0] = $metadata_hashref->{publishDate}[0];
     }
 
-    # Derive htsource per item by mapping namespace to institution
-    # name, i.e.  if namespace=mdp htsource="University of Michigan"
-    my $htsource_display_name = Namespaces::get_institution_by_namespace($C, $item_id);
-    if (defined($htsource_display_name)) {
+    # "Original Location" facet
+    my $htsource_display_name = get_htsource_display_name($C, $item_id, $metadata_hashref);
+    if (defined $htsource_display_name) {
         $metadata_hashref->{htsource} = [$htsource_display_name];
     }
+    delete $metadata_hashref->{ht_id};
+    delete $metadata_hashref->{ht_json};
 }
 
 # ---------------------------------------------------------------------
-sub is_number
-{
-    my $in = shift;
-    my $to_return;
-    
-    if ($in =~/^\d+$/)
-    {
-	$to_return = "true";
+
+=item get_htsource_display_name
+
+  Derive htsource per item by this mapping
+
+  VUFIND.ht_json.collection_code -->
+    ht_collections.collection(code) -->
+      ht_collections.original_from_inst_id -->
+        ht_institutions.inst_id -->
+          ht_institutions.name
+
+  i.e. collection code=MIU -->
+         original_from_inst_id=umich -->
+           ht_institutions.inst_id=umich -->
+             ht_institutions.name=University of Michigan
+
+=cut
+
+# ---------------------------------------------------------------------
+sub get_htsource_display_name {
+    my ($C, $item_id, $metadata_hashref) = @_;
+
+    my $display_name = 'Unknown';
+    my $json_data = $metadata_hashref->{ht_json}[0];
+
+    my $decoder = JSON::XS->new->utf8->pretty->allow_nonref;
+    my $ref_to_arr_of_hashref = $decoder->decode($json_data);
+
+    my $collection_code = '';
+    foreach my $hashref (@$ref_to_arr_of_hashref) {
+        if ($hashref->{htid} eq $item_id) {
+            # collection codes are uppercase in ht_collections.collection
+            $collection_code = uc $hashref->{collection_code};
+            last;
+        }
     }
-    return ($to_return);
+
+    if ($collection_code) {
+        my $inst_id = CollectionCodes::get_inst_id_by_collection_code($C, $collection_code);
+        $display_name = Institutions::get_institution_inst_id_field_val($C, $inst_id, 'name', 'mapped');
+    }
+
+    return $display_name;
 }
 
+# ---------------------------------------------------------------------
+
+=item is_number
+
+Description
+
+=cut
+
+# ---------------------------------------------------------------------
+sub is_number {
+    my $n = shift;
+    return ($n =~ /^\d+$/);
+}
 
 # ---------------------------------------------------------------------
 

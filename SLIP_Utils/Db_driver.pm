@@ -94,7 +94,7 @@ sub init_driver {
 
     my ($statement, $sth);
 
-    $statement = qq{REPLACE INTO slip_driver_control SET run=$run, enabled=0, stage='$stage'};
+    $statement = qq{INSERT INTO slip_driver_control SET run=$run, enabled=0, stage='$stage' ON DUPLICATE KEY UPDATE enabled=0, stage='$stage'};
     DEBUG('lsdb', qq{DEBUG: $statement});
     $sth = DbUtils::prep_n_execute($dbh, $statement);
 }
