@@ -116,8 +116,7 @@ sub this_string {
             sleep 1;
         }
     }
-
-    if (open(LOG, ">>$logfile_path")) {
+    if ( open(LOG, '>>:encoding(UTF-8)', $logfile_path) ) {
         LOG->autoflush(1);
         print LOG ($no_newline ? qq{$s} : qq{$s\n});
         close(LOG);
