@@ -270,9 +270,10 @@ Description
 
 # ---------------------------------------------------------------------
 sub Select_count_from_j_rights {
-    my ($C, $dbh) = @_;
+    my ($C, $dbh, $where) = @_;
 
-    my $statement = qq{SELECT count(*) FROM slip_rights};
+    $where = $where ? $where : '';
+    my $statement = qq{SELECT count(*) FROM slip_rights $where};
     my $sth = DbUtils::prep_n_execute($dbh, $statement);
     my $size = $sth->fetchrow_array || 0;
     DEBUG('lsdb', qq{DEBUG: $statement ::: $size});
