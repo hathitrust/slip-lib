@@ -645,23 +645,29 @@ sub Select_id_slice_from_queue {
     my $sth;
     my $statement;
 
-    my $proc_status = $SLIP_Utils::States::Q_AVAILABLE;
+    my $proc_status_available = $SLIP_Utils::States::Q_AVAILABLE;
+    my $proc_status_processing = $SLIP_Utils::States::Q_PROCESSING;
 
     __LOCK_TABLES($dbh, qw(slip_queue));
 
     # mark a slice of available ids as being processed by a producer
     # process
     $statement = qq{UPDATE slip_queue SET pid=?, host=?, proc_status=? WHERE run=? AND (shard=0 OR shard=?) AND proc_status=? LIMIT $slice_size};
-    DEBUG('lsdb', qq{DEBUG: $statement : $pid, $host, $SLIP_Utils::States::Q_PROCESSING, $run, 0, $shard, $proc_status});
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $pid, $host, $SLIP_Utils::States::Q_PROCESSING, $run, $shard, $proc_status);
+    DEBUG('lsdb', qq{DEBUG: $statement : $pid, $host, PROCESSING, $run, $shard, AVAILABLE});
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $pid, $host, $proc_status_processing, $run, $shard, $proc_status_available);
 
-    # get the ids in the slice just marked for this process
-    $statement = qq{SELECT id FROM slip_queue WHERE run=? AND proc_status=? AND pid=? AND host=?; };
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $SLIP_Utils::States::Q_PROCESSING, $pid, $host});
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $SLIP_Utils::States::Q_PROCESSING, $pid, $host);
+    # get the ids in the slice just marked for this process and ... 
+    $statement = qq{SELECT id FROM slip_queue WHERE run=? AND proc_status=? AND pid=? AND host=?};
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, PROCESSING, $pid, $host});
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $proc_status_processing, $pid, $host);
 
     my $ref_to_ary_of_hashref = $sth->fetchall_arrayref({});
     DEBUG('lsdb', qq{DEBUG: SELECT returned num_items=} . scalar(@$ref_to_ary_of_hashref));
+
+    # ... delete from queue
+    $statement = qq{DELETE FROM slip_queue WHERE run=? AND proc_status=? AND pid=? AND host=?};
+    DEBUG('lsdb', qq{DEBUG: $statement : $run, PROCESSING, $pid, $host});
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $proc_status_processing, $pid, $host);
 
     __UNLOCK_TABLES($dbh);
 
@@ -722,14 +728,14 @@ sub Renumber_queue {
 
 # ---------------------------------------------------------------------
 
-=item insert_queue_items
+=item __insert_queue_items
 
-Description:
+Note: called only locally due to locking.
 
 =cut
 
 # ---------------------------------------------------------------------
-sub insert_queue_items {
+sub __insert_queue_items {
     my ($C, $dbh, $run, $ref_to_ary_of_hashref) = @_;
 
     my $valid_namespaces_arr_ref = __load_valid_namespaces($dbh);
@@ -737,9 +743,8 @@ sub insert_queue_items {
     my $sth;
     my $statement;
     my $num_inserted = 0;
-
-    __LOCK_TABLES($dbh, qw(slip_queue));
-
+    my $proc_status_available = $SLIP_Utils::States::Q_AVAILABLE;
+    
     foreach my $hashref (@$ref_to_ary_of_hashref) {
 
         my $id = $hashref->{id};
@@ -748,14 +753,12 @@ sub insert_queue_items {
         if ( grep(/^$namespace$/, @$valid_namespaces_arr_ref) ) {
             my $shard = $hashref->{shard};
 
-            $statement = qq{REPLACE INTO slip_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=?};
-            DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $SLIP_Utils::States::Q_AVAILABLE});
-            $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $SLIP_Utils::States::Q_AVAILABLE);
+            $statement = qq{INSERT INTO slip_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=? ON DUPLICATE KEY UPDATE SET pid=0, host='', proc_status=?};
+            DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $id, $proc_status_available, $proc_status_available});
+            $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $proc_status_available, $proc_status_available);
             $num_inserted++;
         }
     }
-
-    __UNLOCK_TABLES($dbh);
 
     return $num_inserted;
 }
@@ -788,17 +791,17 @@ sub handle_queue_insert {
         last
           if (scalar(@queue_array) <= 0);
 
-        __LOCK_TABLES($dbh, qw(slip_indexed));
+        __LOCK_TABLES($dbh, qw(slip_indexed slip_queue));
 
         my $ref_to_arr_of_hashref = [];
         foreach my $id (@queue_array) {
             my $shard = Select_item_id_shard($C, $dbh, $run, $id);
             push(@$ref_to_arr_of_hashref, {id => $id, shard => $shard});
         }
+        my $num_inserted = __insert_queue_items($C, $dbh, $run, $ref_to_arr_of_hashref);
 
         __UNLOCK_TABLES($dbh);
 
-        my $num_inserted = insert_queue_items($C, $dbh, $run, $ref_to_arr_of_hashref);
         $total_num_inserted += $num_inserted;
 
         my $elapsed = time - $start;
@@ -912,25 +915,6 @@ sub insert_latest_into_queue {
     return $num_inserted;
 }
 
-
-# ---------------------------------------------------------------------
-
-=item dequeue
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub dequeue {
-    my ($C, $dbh, $run, $id, $pid, $host) = @_;
-
-    my $statement = qq{DELETE FROM slip_queue WHERE run=? AND id=? AND pid=? AND host=?};
-    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $pid, $host);
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $pid, $host});
-}
-
-
 # ---------------------------------------------------------------------
 
 =item Delete_id_from_j_queue
@@ -1011,9 +995,9 @@ sub insert_restore_errors_to_queue {
 
     my $ref_to_ary_of_hashref = $sth->fetchall_arrayref({});
     foreach my $ref (@$ref_to_ary_of_hashref) {
-        my $id = $ref->{'id'};
-        my $shard = $ref->{'shard'};
-        if (! $shard) {
+        my $id = $ref->{id};
+        my $shard = $ref->{shard};
+        unless ($shard) {
             # See if this got indexed added to slip_errors with shard 0 and in
             # the meantime successfully indexed to to a different shard.
             my $real_shard = Select_item_id_shard($C, $dbh, $run, $id);
@@ -1493,7 +1477,6 @@ sub insert_item_id_indexed {
     my ($statement, $sth);
 
     $statement = qq{INSERT INTO slip_indexed SET run=?, shard=?, id=?, time=CURRENT_TIMESTAMP, indexed_ct=? ON DUPLICATE KEY UPDATE time=CURRENT_TIMESTAMP, indexed_ct=indexed_ct+1};
-    # $statement = qq{REPLACE INTO slip_indexed SET run=?, shard=?, id=?, time=CURRENT_TIMESTAMP, indexed_ct=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $id, 1});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, 1);
 
@@ -1521,9 +1504,9 @@ sub Delete_item_id_indexed {
     my ($statement, $sth);
 
     if (defined $shard) {
-        $statement = qq{DELETE FROM slip_indexed WHERE run=? AND id=? AND shard=?};
+        $statement = qq{DELETE FROM slip_indexed WHERE run=? AND shard=? AND id=?};
         DEBUG('lsdb', qq{DEBUG: $statement : $run, $id, $shard});
-        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $id, $shard);
+        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id);
     }
     else {
         $statement = qq{DELETE FROM slip_indexed WHERE run=? AND id=?};
@@ -3193,9 +3176,8 @@ sub undedicated_producer_monitor {
     my ($host_has_room, $set_num_running) =  (0, 0);
 
     my $state = 'Mon_undef';
-    my $queued_shards_list_ref = __get_queued_shards_list($C, $dbh, $run);
 
-    __LOCK_TABLES($dbh, qw(slip_shard_control slip_host_control));
+    __LOCK_TABLES($dbh, qw(slip_queue slip_shard_control slip_host_control));
 
     if (! Select_host_enabled($C, $dbh, $run, $host)) {
         $state = 'Mon_host_disabled';
@@ -3204,6 +3186,8 @@ sub undedicated_producer_monitor {
         $state = 'Mon_host_overallocated';
     }
     else {
+        my $queued_shards_list_ref = __get_queued_shards_list($C, $dbh, $run);
+
         ($allocated_shard, $num_to_allocate) = __allocate_shard_test($C, $dbh, $run, $shard_list_ref, $queued_shards_list_ref);
         ($host_has_room, $set_num_running) = __allocate_host_test($C, $dbh, $run, $host);
 

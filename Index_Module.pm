@@ -84,10 +84,6 @@ sub Service_ID {
           (IX_NO_INDEXER_AVAIL, IX_NO_ERROR, IX_NO_ERROR);
     }
 
-    # XXX 
-    return (IX_NO_ERROR, IX_NO_ERROR, IX_NO_ERROR, $stats_ref);
-
-
     my $result_was_error =
       handle_i_result($C, $dbh, $run, $dedicated_shard, $id, $pid, $host,
                       $index_state, $data_status, $metadata_status);
