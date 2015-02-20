@@ -736,9 +736,7 @@ Note: called only locally due to locking.
 
 # ---------------------------------------------------------------------
 sub __insert_queue_items {
-    my ($C, $dbh, $run, $ref_to_ary_of_hashref) = @_;
-
-    my $valid_namespaces_arr_ref = __load_valid_namespaces($dbh);
+    my ($C, $dbh, $run, $ref_to_ary_of_hashref, $valid_namespaces_arr_ref) = @_;
 
     my $sth;
     my $statement;
@@ -783,6 +781,8 @@ sub handle_queue_insert {
     my $total_to_be_inserted = scalar @$ref_to_arr_of_ids;
     my $total_num_inserted = 0;
 
+    my $valid_namespaces_arr_ref = __load_valid_namespaces($dbh);
+
     while (1) {
         my $start = time;
 
@@ -798,7 +798,7 @@ sub handle_queue_insert {
             my $shard = Select_item_id_shard($C, $dbh, $run, $id);
             push(@$ref_to_arr_of_hashref, {id => $id, shard => $shard});
         }
-        my $num_inserted = __insert_queue_items($C, $dbh, $run, $ref_to_arr_of_hashref);
+        my $num_inserted = __insert_queue_items($C, $dbh, $run, $ref_to_arr_of_hashref, $valid_namespaces_arr_ref);
 
         __UNLOCK_TABLES($dbh);
 
