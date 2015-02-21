@@ -751,7 +751,7 @@ sub __insert_queue_items {
         if ( grep(/^$namespace$/, @$valid_namespaces_arr_ref) ) {
             my $shard = $hashref->{shard};
 
-            $statement = qq{INSERT INTO slip_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=? ON DUPLICATE KEY UPDATE SET pid=0, host='', proc_status=?};
+            $statement = qq{INSERT INTO slip_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=? ON DUPLICATE KEY UPDATE pid=0, host='', proc_status=?};
             DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $id, $proc_status_available, $proc_status_available});
             $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $proc_status_available, $proc_status_available);
             $num_inserted++;
