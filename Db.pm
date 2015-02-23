@@ -3060,7 +3060,7 @@ sub dedicated_producer_monitor {
 
     __UNLOCK_TABLES($dbh);
 
-    return ($dedicated_shard, $state);
+    return $state;
 }
 
 # ---------------------------------------------------------------------
