@@ -339,19 +339,19 @@ sub Replace_j_rights_temp_id {
     my ($C, $dbh, $hashref) = @_;
 
     # From ht_repository.rights_current
-    my $attr = $hashref->{'attr'};
-    my $reason = $hashref->{'reason'};
-    my $source = $hashref->{'source'};
-    my $user = $hashref->{'user'};
-    my $time = $hashref->{'time'};
+    my $attr = $hashref->{attr};
+    my $reason = $hashref->{reason};
+    my $source = $hashref->{source};
+    my $user = $hashref->{user};
+    my $time = $hashref->{time};
 
     # From vSolr query result
-    my $nid = $hashref->{'nid'};
+    my $nid = $hashref->{nid};
     # For reasons unknown, we sometimes have trailing spaces
     Utils::trim_spaces(\$nid);
 
-    my $sysid = $hashref->{'sysid'};
-    my $updateTime_in_vSolr = $hashref->{'timestamp_of_nid'};
+    my $sysid = $hashref->{sysid};
+    my $updateTime_in_vSolr = $hashref->{timestamp_of_nid};
 
     # CASE: nid is not in slip_rights_temp ==> NEW. Insert
     my $statement = qq{REPLACE INTO slip_rights_temp SET nid=?, attr=?, reason=?, source=?, user=?, time=?, sysid=?, update_time=?};
@@ -373,19 +373,19 @@ sub Replace_j_rights_id {
     my ($C, $dbh, $hashref, $Check_only, $Force) = @_;
 
     # From mdp.rights, currently
-    my $attr = $hashref->{'attr'};
-    my $reason = $hashref->{'reason'};
-    my $source = $hashref->{'source'};
-    my $user = $hashref->{'user'};
-    my $time = $hashref->{'time'};
+    my $attr = $hashref->{attr};
+    my $reason = $hashref->{reason};
+    my $source = $hashref->{source};
+    my $user = $hashref->{user};
+    my $time = $hashref->{time};
 
     # From vSolr query result
-    my $nid = $hashref->{'nid'};
+    my $nid = $hashref->{nid};
     # For reasons unknown, we sometimes have trailing spaces
     Utils::trim_spaces(\$nid);
 
-    my $sysid = $hashref->{'sysid'};
-    my $updateTime_in_vSolr = $hashref->{'timestamp_of_nid'};
+    my $sysid = $hashref->{sysid};
+    my $updateTime_in_vSolr = $hashref->{timestamp_of_nid};
 
     my $case;
     my ($statement, $sth);
@@ -397,16 +397,16 @@ sub Replace_j_rights_id {
 
     my $ref_to_arr_of_hashref = $sth->fetchall_arrayref({});
 
-    my $nid_exists_in_slip_rights = $ref_to_arr_of_hashref->[0]->{'nid'};
-    my $sysid_in_slip_rights = $ref_to_arr_of_hashref->[0]->{'sysid'};
-    my $updateTime_in_slip_rights = $ref_to_arr_of_hashref->[0]->{'update_time'} || $Db::VSOLR_ZERO_TIMESTAMP;
+    my $nid_exists_in_slip_rights = $ref_to_arr_of_hashref->[0]->{nid};
+    my $sysid_in_slip_rights = $ref_to_arr_of_hashref->[0]->{sysid};
+    my $updateTime_in_slip_rights = $ref_to_arr_of_hashref->[0]->{update_time} || $Db::VSOLR_ZERO_TIMESTAMP;
 
     # Pass the slip_rights timestamp in the input hashref
-    $hashref->{'timestamp_in_slip_rights'} = $updateTime_in_slip_rights;
+    $hashref->{timestamp_in_slip_rights} = $updateTime_in_slip_rights;
     # Pass the slip_rights_sysid in the input hashref
-    $hashref->{'sysid_in_slip_rights'} = $sysid_in_slip_rights;
+    $hashref->{sysid_in_slip_rights} = $sysid_in_slip_rights;
 
-    if (! $nid_exists_in_slip_rights) {
+    unless ($nid_exists_in_slip_rights) {
         # CASE: nid is not in slip_rights ==> NEW. Insert
         $case = 'NEW';
         DEBUG('lsdb', qq{DEBUG: $statement ::: (A) NEW});
@@ -447,7 +447,7 @@ sub Replace_j_rights_id {
     $statement = qq{REPLACE INTO slip_rights SET nid=?, attr=?, reason=?, source=?, user=?, time=?, sysid=?, update_time=?};
     DEBUG('lsdb', qq{DEBUG [Check=$Check_only, case=$case]: $statement : $nid, $attr, $reason, $source, $user, $time, $sysid, $updateTime_in_vSolr});
 
-    if (! $Check_only) {
+    unless ($Check_only) {
         if ($case ne 'NOOP') {
             # insert or replace
             $sth = DbUtils::prep_n_execute($dbh, $statement, $nid, $attr, $reason, $source, $user, $time, $sysid, $updateTime_in_vSolr);
@@ -656,7 +656,7 @@ sub Select_id_slice_from_queue {
     DEBUG('lsdb', qq{DEBUG: $statement : $pid, $host, PROCESSING, $run, $shard, AVAILABLE});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $pid, $host, $proc_status_processing, $run, $shard, $proc_status_available);
 
-    # get the ids in the slice just marked for this process and ... 
+    # get the ids in the slice just marked for this process and ...
     $statement = qq{SELECT id FROM slip_queue WHERE run=? AND proc_status=? AND pid=? AND host=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, PROCESSING, $pid, $host});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $proc_status_processing, $pid, $host);
@@ -742,7 +742,7 @@ sub __insert_queue_items {
     my $statement;
     my $num_inserted = 0;
     my $proc_status_available = $SLIP_Utils::States::Q_AVAILABLE;
-    
+
     foreach my $hashref (@$ref_to_ary_of_hashref) {
 
         my $id = $hashref->{id};
@@ -1663,50 +1663,28 @@ counts is we didn't make this check.
 sub update_shard_stats {
     my ($C, $dbh, $run, $shard, $reindexed, $deleted, $errored, $doc_size, $doc_time, $idx_time, $tot_time) = @_;
 
-    my $sth;
-    my $statement;
+    my ($sth, $statement);
 
     __LOCK_TABLES($dbh, qw(slip_shard_stats));
 
-    $statement = qq{SELECT s_reindexed_ct, s_deleted_ct, s_errored_ct, s_num_docs, s_doc_size, s_doc_time, s_idx_time, s_tot_time FROM slip_shard_stats WHERE run=? AND shard=?};
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
+    my $s_reindexed_ct = $reindexed ? 1 : 0;
+    my $s_deleted_ct = $deleted ? 1 : 0;
+    my $s_errored_ct = $errored ? 1 : 0;
 
-    my ($s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
+    my $s_num_docs = 1;
+    my $s_doc_size = $doc_size || 0;
+    my $s_doc_time = $doc_time || 0;
+    my $s_idx_time = $idx_time || 0;
+    my $s_tot_time = $tot_time || 0;
 
-    my $row_hashref = $sth->fetchrow_hashref();
-    if (! $row_hashref) {
-        # initialize
-        $s_reindexed_ct = $reindexed ? 1 : 0;
-        $s_deleted_ct = $deleted ? 1 : 0;
-        $s_errored_ct = $errored ? 1 : 0;
+    # Initialize, update
+    $statement = qq{INSERT INTO slip_shard_stats SET run=?, shard=?, s_reindexed_ct=?, s_deleted_ct=?, s_errored_ct=?, s_num_docs=?, s_doc_size=?, s_doc_time=?, s_idx_time=?, s_tot_time=? ON DUPLICATE KEY UPDATE s_reindexed_ct=s_reindexed_ct+?, s_deleted_ct=s_deleted_ct+?, s_errored_ct=s_errored_ct+?, s_num_docs=s_num_docs+1, s_doc_size=s_doc_size+?, s_doc_time=s_doc_time+?, s_idx_time=s_idx_time+?, s_tot_time=s_tot_time+? };
+   DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time});
+    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time, $s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
 
-        $s_num_docs = 1;
-        $s_doc_size = $doc_size || 0;
-        $s_doc_time = $doc_time || 0;
-        $s_idx_time = $idx_time || 0;
-        $s_tot_time = $tot_time || 0;
-
-        $statement = qq{INSERT INTO slip_shard_stats SET run=?, shard=?, s_reindexed_ct=?, s_deleted_ct=?, s_errored_ct=?, s_num_docs=?, s_doc_size=?, s_doc_time=?, s_idx_time=?, s_tot_time=?};
-        DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time});
-        $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
-    }
-    else {
-        # accumulate
-        $s_reindexed_ct = $$row_hashref{'s_reindexed_ct'} + ($reindexed ? 1 : 0);
-        $s_deleted_ct   = $$row_hashref{'s_deleted_ct'} + ($deleted ? 1 : 0);
-        $s_errored_ct   = $$row_hashref{'s_errored_ct'} + ($errored ? 1 : 0);
-
-        $s_num_docs = $$row_hashref{'s_num_docs'} + 1;
-        $s_doc_size = $$row_hashref{'s_doc_size'} + $doc_size;
-        $s_doc_time = $$row_hashref{'s_doc_time'} + $doc_time;
-        $s_idx_time = $$row_hashref{'s_idx_time'} + $idx_time;
-        $s_tot_time = $$row_hashref{'s_tot_time'} + $tot_time;
-
-        $statement = qq{UPDATE slip_shard_stats SET s_reindexed_ct=?, s_deleted_ct=?, s_errored_ct=?, s_num_docs=?, s_doc_size=?, s_doc_time=?, s_idx_time=?, s_tot_time=? WHERE run=? AND shard=?};
-        DEBUG('lsdb', qq{DEBUG: $statement : $s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time, $run, $shard});
-        $sth = DbUtils::prep_n_execute($dbh, $statement, $s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time, $run, $shard);
-    }
+    # Read
+    ($s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time) =
+      Select_shard_stats($C, $dbh, $run, $shard);
 
     __UNLOCK_TABLES($dbh);
 
@@ -1732,15 +1710,15 @@ sub Select_shard_stats {
 
     my $row_hashref = $sth->fetchrow_hashref();
 
-    my $s_reindexed_ct = $$row_hashref{'s_reindexed_ct'} || 0;
-    my $s_deleted_ct   = $$row_hashref{'s_deleted_ct'} || 0;
-    my $s_errored_ct   = $$row_hashref{'s_errored_ct'} || 0;
+    my $s_reindexed_ct = $$row_hashref{s_reindexed_ct} || 0;
+    my $s_deleted_ct   = $$row_hashref{s_deleted_ct} || 0;
+    my $s_errored_ct   = $$row_hashref{s_errored_ct} || 0;
 
-    my $s_num_docs = $$row_hashref{'s_num_docs'} || 0;
-    my $s_doc_size = $$row_hashref{'s_doc_size'} || 0;
-    my $s_doc_time = $$row_hashref{'s_doc_time'} || 0;
-    my $s_idx_time = $$row_hashref{'s_idx_time'} || 0;
-    my $s_tot_time = $$row_hashref{'s_tot_time'} || 0;
+    my $s_num_docs = $$row_hashref{s_num_docs} || 0;
+    my $s_doc_size = $$row_hashref{s_doc_size} || 0;
+    my $s_doc_time = $$row_hashref{s_doc_time} || 0;
+    my $s_idx_time = $$row_hashref{s_idx_time} || 0;
+    my $s_tot_time = $$row_hashref{s_tot_time} || 0;
 
     return ($s_reindexed_ct, $s_deleted_ct, $s_errored_ct, $s_num_docs, $s_doc_size, $s_doc_time, $s_idx_time, $s_tot_time);
 }
@@ -1797,7 +1775,7 @@ sub update_rate_stats {
     my $statement;
     my $ref_to_ary_of_hashref;
 
-    # @innodb __LOCK_TABLES($dbh, qw(slip_rate_stats));
+    __LOCK_TABLES($dbh, qw(slip_rate_stats));
 
     $statement = qq{SELECT * FROM slip_rate_stats WHERE run=? AND shard=?};
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard});
@@ -1818,7 +1796,7 @@ sub update_rate_stats {
     # No time delta if this is the first time the field has been updated
     # (default=0) so not possible to update the rate
     $ref_to_ary_of_hashref = $sth->fetchall_arrayref({});
-    my $timeLast = $ref_to_ary_of_hashref->[0]->{'time_a_100'} || 0;
+    my $timeLast = $ref_to_ary_of_hashref->[0]->{time_a_100} || 0;
     if ($timeLast > 0) {
         my $deltaTime = $timeNow - $timeLast;
         my $docs_phour = $deltaTime ? sprintf("%0.2f", 100/$deltaTime*60*60) : 0;
@@ -1833,7 +1811,7 @@ sub update_rate_stats {
         $sth = DbUtils::prep_n_execute($dbh, $statement, $timeNow, $run, $shard);
     }
 
-    # @innodb __UNLOCK_TABLES($dbh);
+    __UNLOCK_TABLES($dbh);
 }
 
 
@@ -2215,7 +2193,7 @@ sub Select_shard_enabled {
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard);
 
     my $ref_to_ary_of_hashref = $sth->fetchall_arrayref({});
-    my $enabled = $ref_to_ary_of_hashref->[0]->{'enabled'} || 0;
+    my $enabled = $ref_to_ary_of_hashref->[0]->{enabled} || 0;
 
     DEBUG('lsdb', qq{DEBUG: $statement: $run, $shard ::: enabled=$enabled});
 
@@ -2258,7 +2236,7 @@ sub update_shard_enabled {
     # is correct, i.e. do no alter that value.
     my ($statement, $sth);
 
-    if (! $enabled) {
+    unless ($enabled) {
         $statement = qq{UPDATE slip_shard_control SET enabled=?, allocated=? WHERE run=? AND shard=?};
         $sth = DbUtils::prep_n_execute($dbh, $statement, $enabled, 0, $run, $shard);
         DEBUG('lsdb', qq{DEBUG: $statement : $enabled, 0, $run, $shard});
