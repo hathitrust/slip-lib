@@ -430,7 +430,7 @@ sub post_process_metadata {
         $metadata_hashref->{Vauthor} = $metadata_hashref->{author}
     }
 
-    my @hathiTrust_str = grep(/^$item_id\|.*/, @{$metadata_hashref->{ht_id_display}});
+    my @hathiTrust_str = grep(/^\Q$item_id\E\|.*/, @{$metadata_hashref->{ht_id_display}});
     # 0      1            2           3           4
     # htid | ingestDate | enumcron |enumPublishDate|enumPublishDateRange
 
