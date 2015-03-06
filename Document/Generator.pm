@@ -155,7 +155,6 @@ sub G_generate {
         unless ( ($data_status == IX_NO_ERROR) && ($metadata_status == IX_NO_ERROR) ) {
             $self->G_events( $doc->D_get_events() );
             $self->G_status($data_status, $metadata_status);
-            return undef;
         }
 
         # flat   = [one or more chunked docs]
@@ -185,7 +184,7 @@ sub G_release {
         $doc->D_release;
         $doc_ct++;
     }
-    
+
     # release extraction directory
     $self->__G_extractor->E_unlink_extraction_dir;
 
@@ -238,20 +237,35 @@ sub G_events {
 
 =item PUBLIC: G_status
 
-Description
+Mutator.  Persists a non-zero data_status or metadata_status.
+
+NOTE: Member statuses are initialized to IX_NO_ERROR
 
 =cut
 
 # ---------------------------------------------------------------------
 sub G_status {
     my $self = shift;
-    my @statuses = @_;
-    unless( exists $self->{_data_status} || exists $self->{_metadata_status}) {
-        if (scalar @statuses) {
-            $self->{_data_status} = $statuses[0];
-            $self->{_metadata_status} = $statuses[1];
+    my ($data_status, $metadata_status) = @_;
+
+    if (defined $data_status) {
+        unless ($data_status == IX_NO_ERROR) {
+            # ... bad incoming. set _data_status unless _data_status is already bad
+            if ($self->{_data_status} == IX_NO_ERROR) {
+                $self->{_data_status} = $data_status;
+            }
         }
     }
+
+    if (defined $metadata_status) {
+        unless ($metadata_status == IX_NO_ERROR) {
+            # ... bad incoming. set _metadata_status unless _metadata_status is already bad
+            if ($self->{_metadata_status} == IX_NO_ERROR) {
+                $self->{_metadata_status} = $metadata_status;
+            }
+        }
+    }
+
     return ( $self->{_data_status}, $self->{_metadata_status} );
 }
 

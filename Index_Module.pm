@@ -234,6 +234,7 @@ sub index_one_id {
     ($data_status, $metadata_status) = $generator->G_status;
 
     unless ( ($data_status == IX_NO_ERROR) && ($metadata_status == IX_NO_ERROR) ) {
+        Log_generator_event($C, $run, $id, $generator->G_events());
         return ($index_state, $data_status, $metadata_status, {});
     }
     # POSSIBLY NOTREACHED

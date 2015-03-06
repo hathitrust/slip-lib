@@ -1320,11 +1320,6 @@ sub insert_item_id_error {
       qq{REPLACE INTO slip_errors SET run=?, shard=?, id=?, pid=?, host=?, error_time=CURRENT_TIMESTAMP, reason=?};
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $pid, $host, $index_state);
     DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $id, $pid, $host, $index_state});
-
-    # If called to handle critical errors must dequeue here due to
-    # longjump out of processing loop that normally does the dequeue
-    # call.
-    dequeue($C, $dbh, $run, $id, $pid, $host);
 }
 
 

@@ -521,7 +521,7 @@ sub get_htsource_display_name {
     my $display_name = 'Unknown';
     my $json_data = $metadata_hashref->{ht_json}[0];
 
-    my $decoder = JSON::XS->new->utf8->pretty->allow_nonref;
+    my $decoder = JSON::XS->new->ascii;
     my $ref_to_arr_of_hashref = $decoder->decode($json_data);
 
     my $collection_code = '';
