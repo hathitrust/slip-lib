@@ -1093,14 +1093,14 @@ sub Select_timeouts_count {
 
 # ---------------------------------------------------------------------
 
-=item Select_queue_data
+=item Select_queue_size
 
 Description: for reporting
 
 =cut
 
 # ---------------------------------------------------------------------
-sub Select_queue_data {
+sub Select_queue_size {
     my ($C, $dbh, $run) = @_;
 
     my $sth;
@@ -1110,21 +1110,9 @@ sub Select_queue_data {
     DEBUG('lsdb', qq{DEBUG: $statement : $run});
     $sth = DbUtils::prep_n_execute($dbh, $statement, $run);
 
-    my $queue_size = $sth->fetchrow_array();
+    my $queue_size = $sth->fetchrow_array() || 0;
 
-    $statement = qq{SELECT count(*) from slip_queue WHERE run=? AND proc_status=?; };
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $SLIP_Utils::States::Q_AVAILABLE});
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $SLIP_Utils::States::Q_AVAILABLE);
-
-    my $queue_num_available = $sth->fetchrow_array();
-
-    $statement = qq{SELECT count(*) from slip_queue WHERE run=? AND proc_status=?; };
-    DEBUG('lsdb', qq{DEBUG: $statement : $run, $SLIP_Utils::States::Q_PROCESSING});
-    $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $SLIP_Utils::States::Q_PROCESSING);
-
-    my $queue_num_in_process = $sth->fetchrow_array();
-
-    return ($queue_size, $queue_num_available, $queue_num_in_process);
+    return $queue_size;
 }
 
 # ---------------------------------------------------------------------
