@@ -3039,7 +3039,11 @@ indexed. Those are the candidate shards that a producer can lock onto.
 sub __get_queued_shards_list {
     my ($C, $dbh, $run) = @_;
 
-    my $statement = qq{SELECT DISTINCT shard FROM slip_queue WHERE run=? AND proc_status=?};
+#    my $statement = qq{SELECT DISTINCT shard FROM slip_queue WHERE run=? AND proc_status=?};
+    my $statement = qq{SELECT DISTINCT shard FROM slip_queue USE INDEX (runstatus_shard) WHERE run=? AND proc_status=?};
+
+
+
     my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $SLIP_Utils::States::Q_AVAILABLE);
     my $ref_to_arr_of_arr_ref = $sth->fetchall_arrayref([]);
 
