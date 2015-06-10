@@ -3040,7 +3040,8 @@ sub __get_queued_shards_list {
     my ($C, $dbh, $run) = @_;
 
 #    my $statement = qq{SELECT DISTINCT shard FROM slip_queue WHERE run=? AND proc_status=?};
-    my $statement = qq{SELECT DISTINCT shard FROM slip_queue USE INDEX (runstatus_shard) WHERE run=? AND proc_status=?};
+#must use table name (ht_web.slip_queue) instead of view (slip_queue)  in order to actually specify an index
+    my $statement = qq{SELECT DISTINCT shard FROM ht_web.slip_queue USE INDEX (runstatus_shard) WHERE run=? AND proc_status=?};
 
 
 
