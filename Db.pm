@@ -3026,6 +3026,29 @@ sub dedicated_producer_monitor {
 
 # ---------------------------------------------------------------------
 
+=item __exists_non_zero_shard
+
+When an ID is queued, if it has been indexed, its shard number
+(1,2,...) is recorded. If it has never been indexed, its shard number
+is 0.  In the case of re-indexing the entire 13+ million row queue starts with all rows set to shard 0
+This subroutine executes a fast query to bypass an expensive "select distinct" query against all 13 million rows
+
+=cut
+# ---------------------------------------------------------------------
+sub __exists_non_zero_shard{
+    my ($C, $dbh, $run) = @_;
+
+    my $statement =qq{SELECT shard from ht_web.slip_queue USE INDEX (runstatus_shard) where run=? and proc_status=? AND shard >0  limit 1};
+
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $SLIP_Utils::States::Q_AVAILABLE);
+    my $ref_to_arr_of_arr_ref = $sth->fetchall_arrayref([]);
+    #the above will return empty set (perl undef/false) if the only shards listed in the queue are shard 0
+    # it will return a number from 1 to numShards otherwise
+    my $exists=$ref_to_arr_of_arr_ref->[0]->[0];
+    return $exists;
+}
+# ---------------------------------------------------------------------
+
 =item __get_queued_shards_list
 
 When an ID is queued, if it has been indexed, its shard number
@@ -3152,8 +3175,15 @@ sub undedicated_producer_monitor {
         $state = 'Mon_host_overallocated';
     }
     else {
-        my $queued_shards_list_ref = __get_queued_shards_list($C, $dbh, $run);
+	my $queued_shards_list_ref=[0]; # set default to shard 0
+	#test that there is at least one row with a non-zero shard number in slip_queue to avoid 
+	#expensive query in sub __get_queued_shards_list.
+	#This query is expensive during a re-indexing run where all 13 million rows are set to shard 0
 
+	if (__exists_non_zero_shard($C,$dbh,$run)){
+	    $queued_shards_list_ref = __get_queued_shards_list($C, $dbh, $run);
+	}
+	
         ($allocated_shard, $num_to_allocate) = __allocate_shard_test($C, $dbh, $run, $shard_list_ref, $queued_shards_list_ref);
         ($host_has_room, $set_num_running) = __allocate_host_test($C, $dbh, $run, $host);
 
