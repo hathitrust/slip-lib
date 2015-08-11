@@ -493,6 +493,7 @@ sub log_query {
     my $rs = shift;
     my $query_dir_part = shift;
 
+
     # Log
     my $ipaddr = ($ENV{REMOTE_ADDR} ? $ENV{REMOTE_ADDR} : '0.0.0.0');
     my $Qtime = $rs->get_query_time();
@@ -506,10 +507,14 @@ sub log_query {
     my $referer=$ENV{REFERER} ||$tempcgi->referer();
     my $session_id = $C->get_object('Session')->get_session_id();
 
+    #add logged_in
+    my $auth = $C->get_object('Auth');
+    my $is_logged_in = $auth->is_logged_in($C) ? 'YES':'NO';
+
     my $log_string = qq{$ipaddr $session_id $$ }
         . Utils::Time::iso_Time('time')
             . qq{ qtime=$Qtime numfound=$num_found url=$Solr_url cgi=$appURL }
-	    . qq{ referer=$referer};
+	    . qq{ referer=$referer logged_in=$is_logged_in};
 
     Utils::Logger::__Log_string($C, $log_string,
                                      'query_logfile', '___QUERY___', $query_dir_part);
