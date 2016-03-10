@@ -95,18 +95,15 @@ Description
 sub __UNLOCK_TABLES {
     my $dbh = shift;
 
-    my $statement = qq{UNLOCK TABLES};
-    DEBUG('lsdb', qq{DEBUG: $statement});
-    DbUtils::prep_n_execute($dbh, $statement);
+    DEBUG('lsdb', qq{DEBUG: COMMIT WORK});
+    DbUtils::commit($dbh);
 }
 
 sub __LOCK_TABLES {
     my ($dbh, @tables) = @_;
 
-    my @table_statements = map { $_ . ' WRITE'} @tables;
-    my $statement = qq{LOCK TABLES } . join(', ', @table_statements);
-    DbUtils::prep_n_execute($dbh, $statement);
-    DEBUG('lsdb', qq{DEBUG: $statement});
+    DbUtils::begin_work($dbh);
+    DEBUG('lsdb', qq{DEBUG: BEGIN WORK});
 }
 
 
