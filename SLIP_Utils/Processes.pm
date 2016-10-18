@@ -48,8 +48,8 @@ Description
 # ---------------------------------------------------------------------
 sub is_tomcat_running {
     my ($C, $tomcat_pattern) = @_;
-
-    return __count_processes_this_pattern($tomcat_pattern, 'tomcat');
+    my $euid = $C->get_object('MdpConfig')->get('tomcats_run_as_user');
+    return __count_processes_this_pattern($tomcat_pattern, $euid);
 }
 
 # ---------------------------------------------------------------------
