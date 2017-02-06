@@ -26,6 +26,8 @@ use Utils;
 use Utils::Time;
 use Utils::Logger;
 use Debug::DUtils;
+use POSIX qw(strftime);
+use Time::HiRes;
 
 
 sub new {
@@ -492,7 +494,14 @@ sub log_query {
     my $searcher = shift;
     my $rs = shift;
     my $query_dir_part = shift;
+    my $AB = shift;
+    
+    # get current time in milliseconds
+    # see http://stackoverflow.com/questions/18100208/how-to-get-milliseconds-as-a-part-of-time-in-perl
 
+    my $time = Time::HiRes::time;
+    my $date_temp = POSIX::strftime "%Y%m%d %H:%M:%S", localtime($time);
+    my $timestamp_ms = $date_temp . sprintf ".%03d", ($time-int($time))*1000; # without rounding
 
     # Log
     my $ipaddr = ($ENV{REMOTE_ADDR} ? $ENV{REMOTE_ADDR} : '0.0.0.0');
@@ -514,8 +523,14 @@ sub log_query {
     my $log_string = qq{$ipaddr $session_id $$ }
         . Utils::Time::iso_Time('time')
             . qq{ qtime=$Qtime numfound=$num_found url=$Solr_url cgi=$appURL }
-	    . qq{ referer=$referer logged_in=$is_logged_in};
+	    . qq{ referer=$referer logged_in=$is_logged_in}
+    	    . qq{ timestamp_ms=$timestamp_ms};
 
+    if ($AB=~/[AB]/)
+    {
+	$log_string .= qq{ AB=$AB};
+    }
+	    
     Utils::Logger::__Log_string($C, $log_string,
                                      'query_logfile', '___QUERY___', $query_dir_part);
 }
