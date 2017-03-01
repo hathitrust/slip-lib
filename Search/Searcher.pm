@@ -392,7 +392,7 @@ sub __get_query_response {
                 my $remote_addr = ($ENV{REMOTE_ADDR} ? $ENV{REMOTE_ADDR} : '0.0.0.0');
                 my $lg = qq{$remote_addr $sesion_id $$ } . Utils::Time::iso_Time('time') . qq{ $d};
                 my $app_name = $C->has_object('App') ? $C->get_object('App')->get_app_name($C) : 'ls';
-                Utils::Logger::__Log_string($C, $lg, 'query_error_logfile', '___QUERY___', 'ls');
+		Utils::Logger::__Log_string($C, $lg, 'query_error_logfile', '___QUERY___', $app_name);
                 $failed_HTTP_dump = $d;
             }
             
