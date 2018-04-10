@@ -56,32 +56,6 @@ our $C_GENERATOR_ERROR  = IX_GENERATOR_ERROR;
 our $MYSQL_ZERO_TIMESTAMP = '0000-00-00 00:00:00';
 our $VSOLR_ZERO_TIMESTAMP = '00000000';
 
-# Attempt to filter some garbage, lazily
-my $Valid_Namespaces = [];
-
-# ---------------------------------------------------------------------
-
-=item __load_valid_namespaces
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub __load_valid_namespaces {
-    my $dbh = shift;
-
-    unless (scalar @$Valid_Namespaces) {
-        my $statement = qq{SELECT namespace FROM ht_namespaces};
-        my $sth = DbUtils::prep_n_execute($dbh, $statement);
-        my $ref_to_arr_of_arr_ref = $sth->fetchall_arrayref([0]);
-
-        $Valid_Namespaces = [ map {$_->[0]} @$ref_to_arr_of_arr_ref ];
-    }
-
-    return $Valid_Namespaces;
-}
-
 
 # ---------------------------------------------------------------------
 
@@ -733,7 +707,7 @@ Note: called only locally due to locking.
 
 # ---------------------------------------------------------------------
 sub __insert_queue_items {
-    my ($C, $dbh, $run, $ref_to_ary_of_hashref, $valid_namespaces_arr_ref) = @_;
+    my ($C, $dbh, $run, $ref_to_ary_of_hashref) = @_;
 
     my $sth;
     my $statement;
@@ -741,18 +715,13 @@ sub __insert_queue_items {
     my $proc_status_available = $SLIP_Utils::States::Q_AVAILABLE;
 
     foreach my $hashref (@$ref_to_ary_of_hashref) {
-
         my $id = $hashref->{id};
-        my $namespace = Identifier::the_namespace($id);
+	my $shard = $hashref->{shard};
 
-        if ( grep(/^$namespace$/, @$valid_namespaces_arr_ref) ) {
-            my $shard = $hashref->{shard};
-
-            $statement = qq{INSERT INTO slip_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=? ON DUPLICATE KEY UPDATE pid=0, host='', proc_status=?};
-            DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $id, $proc_status_available, $proc_status_available});
-            $sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $proc_status_available, $proc_status_available);
-            $num_inserted++;
-        }
+	$statement = qq{INSERT INTO slip_queue SET run=?, shard=?, id=?, pid=0, host='', proc_status=? ON DUPLICATE KEY UPDATE pid=0, host='', proc_status=?};
+	DEBUG('lsdb', qq{DEBUG: $statement : $run, $shard, $id, $proc_status_available, $proc_status_available});
+	$sth = DbUtils::prep_n_execute($dbh, $statement, $run, $shard, $id, $proc_status_available, $proc_status_available);
+	$num_inserted++;
     }
 
     return $num_inserted;
@@ -778,8 +747,6 @@ sub handle_queue_insert {
     my $total_to_be_inserted = scalar @$ref_to_arr_of_ids;
     my $total_num_inserted = 0;
 
-    my $valid_namespaces_arr_ref = __load_valid_namespaces($dbh);
-
     while (1) {
         my $start = time;
 
@@ -795,7 +762,7 @@ sub handle_queue_insert {
             my $shard = Select_item_id_shard($C, $dbh, $run, $id);
             push(@$ref_to_arr_of_hashref, {id => $id, shard => $shard});
         }
-        my $num_inserted = __insert_queue_items($C, $dbh, $run, $ref_to_arr_of_hashref, $valid_namespaces_arr_ref);
+        my $num_inserted = __insert_queue_items($C, $dbh, $run, $ref_to_arr_of_hashref);
 
         __UNLOCK_TABLES($dbh);
 
