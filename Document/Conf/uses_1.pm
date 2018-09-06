@@ -11,6 +11,7 @@ my $USE_CONFIGURATION =
    volume   => {
                 volume => [ 'ocr' ],
                 TEI    => [ 'ocr' ],
+                EPUB   => [ 'text' ],
                },
    article =>  {
                 JATS => [ 'article' ],

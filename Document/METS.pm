@@ -45,6 +45,16 @@ my %selector =
                               mimetypes => [ 'text/plain' ],
                              },
               },
+    EPUB => {
+               _structmap => {
+                              xpath   => q{/METS:mets/METS:structMap[@TYPE='physical']/METS:div[@TYPE='volume']/METS:div[@ORDER]},
+                              ordered => 1,
+                              ignore_labels => 1,
+                             },
+               _filegrp   => {
+                              mimetypes => [ 'text/plain' ],
+                             },
+              },
     TEI    => {
                _structmap => {
                               xpath   => q{/METS:mets/METS:structMap[@TYPE='physical']/METS:div[@TYPE='volume']/METS:div[@ORDER]},
@@ -329,6 +339,11 @@ sub __structmap_is_ordered {
     return $self->{_structmap_is_ordered};
 }
 
+sub __structmap_ignore_labels {
+  my $self = shift;
+  return $self->{_structmap_ignore_labels};
+}
+
 sub __filegrp_mimetypes {
     my $self = shift;
     return $self->{_filegrp_mimetypes};
@@ -340,6 +355,7 @@ sub __mets_map_init {
 
     $self->{_structmap_xpath} = $selector{$type}->{$subtype}->{_structmap}->{xpath};
     $self->{_structmap_is_ordered} = $selector{$type}->{$subtype}->{_structmap}->{ordered};
+    $self->{_structmap_ignore_labels} = $selector{$type}->{$subtype}->{_structmap}->{ignore_labels};
     $self->{_filegrp_mimetypes} = $selector{$type}->{$subtype}->{_filegrp}->{mimetypes};
 }
 
@@ -466,7 +482,7 @@ sub __process_ordered_structMap {
     foreach my $ORDER_div (@structMap_divs) {
         my $order = $ORDER_div->getAttribute('ORDER');
         my $pgnum = $ORDER_div->getAttribute('ORDERLABEL');
-        my $features = $ORDER_div->getAttribute('LABEL');
+        my $features = $ORDER_div->getAttribute('LABEL') unless ( $self->__structmap_ignore_labels );
 
         my @metsFptrs = $ORDER_div->findnodes('METS:fptr[@FILEID]');
 
@@ -597,7 +613,7 @@ sub __parse_fileGrp {
 
                 foreach my $type (@{ $self->__filegrp_mimetypes }) {
                     if ($mimetype eq $type) {
-                        my $filename = ($node->childNodes)[1]->getAttribute('xlink:href');
+                        my $filename = $node->findvalue('./METS:FLocat/@xlink:href');
                         $file_grp_hashref->{filelist}{$fileid} = $filename;
                         $total_non_zero_file_size += $filesize;
                     }
