@@ -239,7 +239,7 @@ sub __HELPER_get_Solr_fulltext_filter_query_arg {
     my $unqualified_string = '';
     if (scalar @unqualified_attr_list) {
         $unqualified_string = 
-          '(' . join('+OR+', map { 'rights:' . $_ } @unqualified_attr_list) . ')';
+	 '(rights:(' . join('+OR+', @unqualified_attr_list) . '))';
     }
     
     # Now qualify by holdings.  If there is no institution, there
