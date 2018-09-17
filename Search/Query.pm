@@ -28,6 +28,7 @@ use Utils::Logger;
 use Debug::DUtils;
 use POSIX qw(strftime);
 use Time::HiRes;
+use Date::Calc;
 
 
 sub new {
@@ -175,6 +176,7 @@ sub get_Solr_no_fulltext_filter_query {
 
 Construct a full filter query (fq) informed by the
 authentication and holdings environment.
+tbw added hack to add items from a specified collection to the full-text tab on January 1, 2019 (configurable) 
 
 =cut
 
@@ -264,12 +266,66 @@ sub __HELPER_get_Solr_fulltext_filter_query_arg {
         }
         $holdings_qualified_string = (scalar @qualified_OR_clauses) ? '(' . join('+OR+', @qualified_OR_clauses) . ')' : '';
     }
-
+    
     my $fulltext_FQ_string = '(' . $unqualified_string . ($holdings_qualified_string ? '+OR+' . $holdings_qualified_string : '') . ')';
+    #tbw hack to get items that will go from IC to PD on New Years day see:https://tools.lib.umich.edu/jira/browse/HT-769
+    
+    if ($self-> __now_in_date_range_new_years($C))
+    {
+	$new_years_pd_Q_string =$self->__get_new_years_pd_Q_string($C);
+        $fulltext_FQ_string = '(' . $unqualified_string . ($holdings_qualified_string ? '+OR+' . $holdings_qualified_string : '') . '+OR+'. $new_years_pd_Q_string . ')';
+    }
     
     return $fulltext_FQ_string;
 }
 
+
+# ---------------------------------------------------------------------
+sub __now_in_date_range_new_years
+{
+    my $self               = shift;
+    my $C                  = shift;
+    my $config             = $C->get_object('MdpConfig');
+    my $pd_hack_start_date = $config->get('pd_hack_start_date');
+    my $pd_hack_end_date   = $config->get('pd_hack_end_date');
+    my $start_ary          = $self->__datetime_string_to_array_ref($pd_hack_start_date);
+    my $end_ary            = $self->__datetime_string_to_array_ref($pd_hack_end_date);
+
+
+    my @now_date   = Date::Calc::Today_and_Now($t);
+    my $pd_start_time = Date::Calc::Date_to_Time(@{$start_ary});
+    my $pd_end_time   = Date::Calc::Date_to_Time(@{$end_ary});
+    my $now_time   =  Date::Calc::Date_to_Time(@now_date);
+					      
+    if ($now_time >=$pd_start_time &$now_time < $pd_end_time)
+    {				      					      
+   	return (1);
+    }
+    return (0);				      
+}
+
+# ---------------------------------------------------------------------
+sub __get_new_years_pd_Q_string
+{
+    my $self   = shift;
+    my $C      = shift;
+    my $config = $C->get_object('MdpConfig');
+    my $new_years_pd_coll_id = $config->get('new_years_pd_coll_id');
+    my $solr_query = 'coll_id:' . $new_years_pd_coll_id;
+    
+    return ($solr_query);
+}
+# ---------------------------------------------------------------------
+sub __datetime_string_to_array_ref
+{
+    my $self = shift;
+    my $date_string = shift;
+    my ($date_part, $time_part) = split(/\s+/,$date_string);
+    my @date=split(/\-/,$date_part);
+    my @time=split(/\:/,$time_part);
+    my @out = (@date,@time);
+    return \@out;
+}
 
 # ---------------------------------------------------------------------
 
