@@ -176,7 +176,7 @@ sub get_Solr_no_fulltext_filter_query {
 
 Construct a full filter query (fq) informed by the
 authentication and holdings environment.
-tbw added hack to add items from a specified collection to the full-text tab on January 1, 2019 (configurable) 
+tbw added code to add items from a specified collection to the full-text tab on January 1, 2019 (configurable) 
 
 =cut
 
@@ -268,7 +268,7 @@ sub __HELPER_get_Solr_fulltext_filter_query_arg {
     }
     
     my $fulltext_FQ_string = '(' . $unqualified_string . ($holdings_qualified_string ? '+OR+' . $holdings_qualified_string : '') . ')';
-    #tbw hack to get items that will go from IC to PD on New Years day see:https://tools.lib.umich.edu/jira/browse/HT-769
+    #tbw code to get items that will go from IC to PD on New Years day see:https://tools.lib.umich.edu/jira/browse/HT-769
     
     if ($self-> __now_in_date_range_new_years($C))
     {
@@ -286,10 +286,10 @@ sub __now_in_date_range_new_years
     my $self               = shift;
     my $C                  = shift;
     my $config             = $C->get_object('MdpConfig');
-    my $pd_hack_start_date = $config->get('pd_hack_start_date');
-    my $pd_hack_end_date   = $config->get('pd_hack_end_date');
-    my $start_ary          = $self->__datetime_string_to_array_ref($pd_hack_start_date);
-    my $end_ary            = $self->__datetime_string_to_array_ref($pd_hack_end_date);
+    my $pd_check_start_date = $config->get('pd_check_start_date');
+    my $pd_check_end_date   = $config->get('pd_check_end_date');
+    my $start_ary          = $self->__datetime_string_to_array_ref($pd_check_start_date);
+    my $end_ary            = $self->__datetime_string_to_array_ref($pd_check_end_date);
 
 
     my @now_date   = Date::Calc::Today_and_Now($t);
