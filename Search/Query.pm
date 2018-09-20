@@ -297,7 +297,7 @@ sub __now_in_date_range_new_years
     my $pd_end_time   = Date::Calc::Date_to_Time(@{$end_ary});
     my $now_time   =  Date::Calc::Date_to_Time(@now_date);
 					      
-    if ($now_time >=$pd_start_time &$now_time < $pd_end_time)
+    if ($now_time >=$pd_start_time && $now_time < $pd_end_time)
     {				      					      
    	return (1);
     }
