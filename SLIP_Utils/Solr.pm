@@ -82,7 +82,7 @@ Same as create_prod_shard_Searcher_by_alias but returns a ExportSearcher instead
 =cut
 
 # ---------------------------------------------------------------------
-sub create_export prod_shard_Searcher_by_alias {
+sub create_export_prod_shard_Searcher_by_alias {
     my $C = shift;
     my $shard = shift;
     my $timeout = shift;

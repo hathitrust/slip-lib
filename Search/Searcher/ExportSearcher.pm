@@ -23,50 +23,51 @@ use strict;
 #XXX fixme
 use base qw(Search::Searcher);
 
-use LS::Result::JSON::Facets;
-use LS::Query::Facets;
+use strict;
+use warnings;
+
+use Encode;
+use LWP::UserAgent;
+use List::Util qw( first );
+
+
+#use App;
+use Context;
+use Utils;
+use Utils::Time;
+use Utils::Logger;
 use Debug::DUtils;
-
-#XXX
-
-# what methods do we need to overide?
-SLIP_Utils::Solr::create_prod_shard_Searcher_by_alias($C, $shard);
- $rs = $searcher->get_Solr_raw_internal_query_result($C, $query, $rs);
-    if (! $rs->http_status_ok()) {
-        my $status = $rs->get_status_line();
-        my $dump = $rs->get_failed_HTTP_dump();
-
-	1 Do we really want to switch to json results rather than accepting the default xml?  maybe benchmark export handler and parser of
-	json vs xml?
-	
+use Search::Query;
+use Search::Result;
 
 
+# ---------------------------------------------------------------------
 
-sub create_prod_shard_Searcher_by_alias {
-    my $C = shift;
-    my $shard = shift;
-    my $timeout = shift;
+=item get_Solr_raw_internal_query_result
 
-    my $config = $C->get_object('MdpConfig');
-    my $engine_uri = $config->get('prod_engine_for_shard_' . $shard);
+Overide base class so we can use __Solr_export_result instead of __Solr_result
 
-XXX fixme    my $searcher = new Search::Searcher($engine_uri, $timeout);
+=cut
 
-    return $searcher;
+# ---------------------------------------------------------------------
+sub get_Solr_raw_internal_query_result {
+    my $self = shift;
+    my ($C, $query_string, $rs) = @_;
+
+    return $self->__Solr_export_result($C, $query_string, $rs);
 }
 
-	
+
 # ---------------------------------------------------------------------
-# HACK XXX overide Search::Searcher::__Solr_result
-# copied from base class
-#XXX   look up how to delegate to super in perl OOP
-# don't really need to do this explicitly, but seems better.
+# HACK XXX overide Search::Searcher::__Solr_result so we can return an export url
+# instead of a select url
+# consider changing bas class to take argument export/select
 
-sub __Solr_result {
+# ---------------------------------------------------------------------
+sub __Solr_export_result {
     my $self = shift;
-    my ($C, $query_string, $rs, $AB) = @_;
+    my ($C, $query_string, $rs) = @_;
 
-    # get export url
     my $url = $self->__get_Solr_export_url($C, $query_string);
     my $req = $self->__get_request_object($url);
     my $ua = $self->__create_user_agent();
@@ -83,6 +84,10 @@ sub __Solr_result {
     return $rs;
 }
 
+#
+#XXX  consider modifying base class
+# to take an argument (export|select)
+
 # ---------------------------------------------------------------------
 sub __get_Solr_export_url {
     my $self = shift;
@@ -90,14 +95,22 @@ sub __get_Solr_export_url {
 
     my $primary_engine_uri = $self->get_engine_uri();
     
-    my $script = $C->get_object('MdpConfig')->get('solr_select_script');
-    my $url = 
-        $primary_engine_uri 
-            . $script 
-                . '?' 
-                  . (defined($shards_param) ? "${shards_param}&" : '')
-                    . $query_string;
+    # XXX why is the string "select" a config param?
+    # is this used anywhere else?
 
+    #my $script = $C->get_object('MdpConfig')->get('solr_select_script');
+
+    # XXX we are doing this on a per shard basis so don't need the shards param!
+    
+    # my $url = 
+    #     $primary_engine_uri 
+    #         . $script 
+    #             . '?' 
+    #               . (defined($shards_param) ? "${shards_param}&" : '')
+    #                 . $query_string;
+
+    my $url = $primary_engine_uri . '/export?' .$query_string;
+    
     return $url;
 }
 
@@ -105,32 +118,6 @@ sub __get_Solr_export_url {
 
 # ---------------------------------------------------------------------
 
-# ---------------------------------------------------------------------
-
-=item __get_Solr_select_url
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-
-# ---------------------------------------------------------------------
-
-=item get_Solr_internal_query_result
-
-Description
-
-=cut
-
-# ---------------------------------------------------------------------
-sub get_Solr_internal_query_result {
-    my $self = shift;
-    my ($C, $Q, $rs) = @_;    
-
-    my $query_string = $Q->get_Solr_internal_query_string();
-    return $self->__Solr_result($C, $query_string, $rs);
-}
 
 1;
 
