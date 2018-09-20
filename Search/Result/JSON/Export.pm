@@ -93,12 +93,10 @@ sub AFTER_ingest_Solr_search_response
 			    'coll_ids' => \@coll_ids,
 			   };
         push(@complete_result, $hash_ref);
-        push(@result_ids, $id);
         }
 	$self->{'rows_returned'} = scalar(@result_ids);
 	$self->set_complete_result(\@complete_result);
 	$self->__set_result_ids(\@result_ids);
-        $self->__set_result_ids(\@result_ids);
     }
 }
 
