@@ -7,6 +7,9 @@ Search::Searcher::ExportSearcher
 =head1 DESCRIPTION
 
 Uses the export handler and docvalues to provide safe querying for large result sets
+WARNING: currently configured to be called on one shard at a time
+Caller is responsible for looping through shards and consolidating results
+XXX Consider adding aggretation function here for apps other than sync-i
 
 =head1 SYNOPSIS
 
@@ -62,6 +65,7 @@ sub get_Solr_raw_internal_query_result {
 # HACK XXX overide Search::Searcher::__Solr_result so we can return an export url
 # instead of a select url
 # consider changing bas class to take argument export/select
+#XXX Consider where and how to do 1 shard at a time vs all shards!!
 
 # ---------------------------------------------------------------------
 sub __Solr_export_result {

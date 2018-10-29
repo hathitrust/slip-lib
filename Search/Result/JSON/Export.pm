@@ -7,7 +7,8 @@ Result::JSON::Export
 
 =head1 DESCRIPTION
 
-This class does encapsulates the Solr search response data in json format
+This class  uses the export handler to get large result sets
+Currently designed for 1 shard at a time with caller responsible for looping through shards
 
 =head1 VERSION
 
@@ -42,8 +43,9 @@ Do we need anything here?
 # ---------------------------------------------------------------------
 sub AFTER_Result_initialize
 {
-    my $self = shift;
-    
+    my $self                     = shift;
+    $self->{'create_hash_of_ids'} = shift;
+    $self->{'hash_of_ids'}        = shift;
 }
 
 # ---------------------------------------------------------------------
@@ -53,7 +55,9 @@ sub AFTER_Result_initialize
 
 =item AFTER_ingest_Solr_search_response
 
-Example Solr result is:
+
+
+
 
 
 =cut
@@ -62,7 +66,7 @@ Example Solr result is:
 sub AFTER_ingest_Solr_search_response
 {
     my $self = shift;
-    # since this is a subclass of LS::Result::JSON we expect a parsed json object rather than
+    # since this is a subclass of Result::JSON we expect a parsed json object rather than
     # a Solr XML response string
     my $Parsed_Solr_response_ref = shift;
 
@@ -75,25 +79,40 @@ sub AFTER_ingest_Solr_search_response
     {
 	my @result_ids;
 	my @complete_result;
-
+	my $hash_of_ids={};
+	
         foreach my $doc (@{$docs})
         {
 	    $count++;
 	    $doc->{'result_number'} = $count;
 	    my $id = $doc->{'id_dv'};
             push (@result_ids,$id);
-	    my @coll_ids = ();
-	    my $col_ary_ref= ($doc->{'coll_id'});#XXX coll_id_dv ??
-	    foreach my $coll_id (@{$col_ary_ref})
+	    my $hash_ref= {'id' => $id};
+	    if ($self->{'create_hash_of_ids'})
 	    {
-		push(@coll_ids,$coll_id);
+		# if any id has more than one entry, we have dupe ids!
+		$hash_of_ids->{$id}++;
 	    }
-	    my $hash_ref = {
-			    'id' => $id,
-			    'coll_ids' => \@coll_ids,
-			   };
-        push(@complete_result, $hash_ref);
-        }
+	    
+
+	    # if we asked solr for coll_ids and doc contains  one or more
+	    # complete_results needs to include the array of coll_ids
+	    if (exists($doc->{'coll_id'}))
+	    {
+		my @coll_ids = ();
+		my $col_ary_ref= ($doc->{'coll_id'});#XXX coll_id_dv ??
+		foreach my $coll_id (@{$col_ary_ref})
+		{
+		    push(@coll_ids,$coll_id);
+		}
+		$hash_ref = {
+			     'id' => $id,
+			     'coll_ids' => \@coll_ids,
+			    };
+	    }
+	    push(@complete_result, $hash_ref);
+	}
+
 	$self->{'rows_returned'} = scalar(@result_ids);
 	$self->set_complete_result(\@complete_result);
 	$self->__set_result_ids(\@result_ids);
@@ -188,6 +207,13 @@ sub get_result_ids
     return $self->{'result_ids'};
 }
 
+
+# ---------------------------------------------------------------------
+sub get_result_id_hash
+{
+    my $self = shift;
+    return $self->{'hash_of_ids'};
+}
 
 # ---------------------------------------------------------------------
 
