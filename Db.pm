@@ -275,6 +275,31 @@ sub Select_count_from_j_rights_temp {
 
 # ---------------------------------------------------------------------
 
+=item Get_ids_available_to_no_one
+
+Returns list of ids with specified rights attribute
+assumes attribute is $RightsGlobals::g_available_to_no_one_attribute_value;
+
+=cut
+
+# ---------------------------------------------------------------------
+sub Get_ids_available_to_no_one {
+
+    my ($C, $dbh, $deleted_attr) = @_;
+    my $id_arr_ref;
+    
+    my $statement =    qq{SELECT CONCAT (namespace, '.' , id) as nid  FROM ht.rights_current WHERE attr=?};
+    DEBUG('lsdb', qq{DEBUG: $statement : $deleted_attr});
+    my $sth = DbUtils::prep_n_execute($dbh, $statement, $deleted_attr);
+    my $ref_to_arr_of_arr_ref = $sth->fetchall_arrayref([0]);
+    if (scalar(@$ref_to_arr_of_arr_ref)) {
+        $id_arr_ref = [ map {$_->[0]} @$ref_to_arr_of_arr_ref ];
+    }
+    return $id_arr_ref;
+}
+
+# ---------------------------------------------------------------------
+
 =item Select_latest_rights_row
 
 Description
