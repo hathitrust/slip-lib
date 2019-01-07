@@ -292,7 +292,7 @@ sub __now_in_date_range_new_years
     my $end_ary            = $self->__datetime_string_to_array_ref($pd_check_end_date);
 
 
-    my @now_date   = Date::Calc::Today_and_Now($t);
+    my @now_date   = Date::Calc::Today_and_Now();
     my $pd_start_time = Date::Calc::Date_to_Time(@{$start_ary});
     my $pd_end_time   = Date::Calc::Date_to_Time(@{$end_ary});
     my $now_time   =  Date::Calc::Date_to_Time(@now_date);
