@@ -72,6 +72,7 @@ sub full_log_filepath {
     my $date = Utils::Time::iso_Time('date');
 
     $logfile =~ s,___DATE___,-$date,;
+    $logfile .= ".$ENV{SERVER_ADDR}";
 
     my $logfile_path = $logdir . '/' . $logfile;
 
