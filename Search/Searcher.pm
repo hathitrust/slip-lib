@@ -29,6 +29,8 @@ my $id_arr_ref = $rs->get_result_ids();
 use strict;
 use warnings;
 
+   use Data::Dumper;
+
 use Encode;
 use LWP::UserAgent;
 use List::Util qw( first );
@@ -107,7 +109,10 @@ sub __Solr_result {
     my $self = shift;
     my ($C, $query_string, $rs) = @_;
 
+    my $config = $C->get_object('MdpConfig');
+
     my $url = $self->__get_Solr_select_url($C, $query_string);
+
     my $req = $self->__get_request_object($url);
     my $ua = $self->__create_user_agent();
 
@@ -137,7 +142,8 @@ sub get_Solr_raw_internal_query_result {
     my $self = shift;
     my ($C, $query_string, $rs) = @_;
 
-    return $self->__Solr_result($C, $query_string, $rs);
+    my $result = $self->__Solr_result($C, $query_string, $rs);
+    return $result;
 }
 
 
@@ -223,7 +229,11 @@ sub __get_request_object {
     my $req = HTTP::Request->new('POST', $url, undef, $query_string);
 
     $req->header( 'Content-Type' => 'application/x-www-form-urlencoded; charset=utf8'  );
-    
+
+    # Put in some basic auth for testing against k8s cluster
+    my $basic_auth_token = 'c29scjpXdTM5Q2E5eHZaNU5GQjNweTdVRA==';
+    $req->header('Authorization' => "Basic $basic_auth_token");
+
     return $req;
 }
 
@@ -240,7 +250,7 @@ Description
 sub get_engine_uri {
     my $self = shift;
     return $self->{'Solr_engine_uri'};
-}
+ }
 
 
 # ---------------------------------------------------------------------

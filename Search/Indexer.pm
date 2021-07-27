@@ -234,11 +234,16 @@ sub __get_request_object {
     my $url = shift;
     my $content_ref = shift;
 
+    my $basic_auth_token = 'c29scjpXdTM5Q2E5eHZaNU5GQjNweTdVRA==';
+
     my $req = HTTP::Request->new(POST => $url);
 
     $req->header('Content-type' => 'text/xml; charset=utf-8');
     # Prevent "wide character in syswrite" error in LWP.
     $$content_ref = Encode::encode_utf8($$content_ref);
+
+    # Put in some basic auth for testing against k8s cluster
+    $req->header('Authorization' => "Basic $basic_auth_token");
 
     $req->content_ref($content_ref);
 
@@ -318,7 +323,7 @@ sub __update_doc {
     my ($C, $ua, $data_ref, $stats_ref) = @_;
 
     my $url = $self->__get_Solr_post_update_url($C);
-    my $req = $self->__get_request_object($url, $data_ref);
+    my $req = $self->__get_request_object($url, $data_ref, $C);
 
     my $index_state;
 
