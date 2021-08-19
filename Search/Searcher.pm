@@ -108,7 +108,7 @@ sub __Solr_result {
     my ($C, $query_string, $rs) = @_;
 
     my $url = $self->__get_Solr_select_url($C, $query_string);
-    my $req = $self->__get_request_object($url);
+    my $req = $self->__get_request_object($url, $C);
     my $ua = $self->__create_user_agent();
 
     if (DEBUG('query')) {
@@ -209,6 +209,7 @@ Description
 sub __get_request_object {
     my $self = shift;
     my $uri = shift;
+    my $C = shift;
 
     my ($url, $query_string) = (split(/\?/, $uri));  
 
@@ -223,10 +224,23 @@ sub __get_request_object {
     my $req = HTTP::Request->new('POST', $url, undef, $query_string);
 
     $req->header( 'Content-Type' => 'application/x-www-form-urlencoded; charset=utf8'  );
-    
+    $req = add_basic_auth($req, $C) if ($C);
     return $req;
 }
 
+sub add_basic_auth {
+    my $req = shift;
+    my $C = shift;
+
+    my $key = 'solr_basic_auth_token';
+
+    my $config = my $config = $C->get_object('MdpConfig');
+    if ($config->has($key)) {
+        my $token = $config->get($key);
+        $req->header('Authorization' => "Basic $token");
+    }
+    return $req;
+}
 
 # ---------------------------------------------------------------------
 
