@@ -73,7 +73,7 @@ sub __Solr_export_result {
     my ($C, $query_string, $rs) = @_;
 
     my $url = $self->__get_Solr_export_url($C, $query_string);
-    my $req = $self->__get_request_object($url);
+    my $req = $self->__get_request_object($url, $C);
     my $ua = $self->__create_user_agent();
 
     if (DEBUG('query')) {

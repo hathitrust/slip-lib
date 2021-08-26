@@ -233,6 +233,7 @@ sub __get_request_object {
     my $self = shift;
     my $url = shift;
     my $content_ref = shift;
+    my $C = shift;
 
     my $req = HTTP::Request->new(POST => $url);
 
@@ -242,6 +243,22 @@ sub __get_request_object {
 
     $req->content_ref($content_ref);
 
+    $req = add_basic_auth($req, $C) if ($C);
+
+    return $req;
+}
+
+sub add_basic_auth {
+    my $req = shift;
+    my $C = shift;
+
+    my $key = 'solr_basic_auth_token';
+
+    my $config = my $config = $C->get_object('MdpConfig');
+    if ($config->has($key)) {
+        my $token = $config->get($key);
+        $req->header('Authorization' => "Basic $token");
+    }
     return $req;
 }
 
@@ -318,7 +335,7 @@ sub __update_doc {
     my ($C, $ua, $data_ref, $stats_ref) = @_;
 
     my $url = $self->__get_Solr_post_update_url($C);
-    my $req = $self->__get_request_object($url, $data_ref);
+    my $req = $self->__get_request_object($url, $data_ref, $C);
 
     my $index_state;
 
@@ -372,7 +389,7 @@ sub __delete_by_query {
     my $ua = $self->__create_user_agent();
     my $url = $self->__get_Solr_post_update_url($C);
     my $post_data = qq{<delete><query>$query</query></delete>};
-    my $req = $self->__get_request_object($url, \$post_data);
+    my $req = $self->__get_request_object($url, \$post_data, $C);
 
     my $start = Time::HiRes::time();
     my $response = $ua->request($req);
@@ -406,7 +423,7 @@ sub __delete_index {
     my $ua = $self->__create_user_agent();
     my $url = $self->__get_Solr_post_update_url($C);
     my $post_data = qq{<delete><query>*:*</query></delete>};
-    my $req = $self->__get_request_object($url, \$post_data);
+    my $req = $self->__get_request_object($url, \$post_data, $C);
 
     my $start = Time::HiRes::time();
     my $response = $ua->request($req);
@@ -441,7 +458,7 @@ sub __commit_updates {
     my $ua = $self->__create_user_agent();
     my $url = $self->__get_Solr_post_update_url($C);
     my $post_data = qq{<commit/>};
-    my $req = $self->__get_request_object($url, \$post_data);
+    my $req = $self->__get_request_object($url, \$post_data, $C);
 
     my $start = Time::HiRes::time();
     my $response = $ua->request($req);
@@ -481,7 +498,7 @@ sub __optimize_index {
     }
 
     my $post_data = qq{<optimize$segs/>};
-    my $req = $self->__get_request_object($url, \$post_data);
+    my $req = $self->__get_request_object($url, \$post_data, $C);
 
     my $start = Time::HiRes::time();
     my $response = $ua->request($req);
