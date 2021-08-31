@@ -234,7 +234,7 @@ sub add_basic_auth {
 
     my $key = 'solr_basic_auth_token';
 
-    my $config = my $config = $C->get_object('MdpConfig');
+    my $config = $C->get_object('MdpConfig');
     if ($config->has($key)) {
         my $token = $config->get($key);
         $req->header('Authorization' => "Basic $token");
