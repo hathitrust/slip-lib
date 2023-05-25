@@ -289,6 +289,7 @@ sub __response_handler {
             . $response->content();
         my $path = Utils::Logger::__Log_simple($s);
         DEBUG('idx', qq{DEBUG: INDEXER: Bad HTTP response: $code status=} . $response->status_line() . qq{ (see $path)} );
+	Utils::Logger::__Log_simple(qq{DEBUG: INDEXER: Bad HTTP response: $code status=} . $response->status_line() . qq{ (see $path)} );
 
         if ($code =~ m,^5\d\d,) {
             # Some kind of foobar
